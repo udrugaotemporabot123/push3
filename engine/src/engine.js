@@ -1,0 +1,713 @@
+'use strict';
+// The engine: pure logic with injected I/O, so it can be unit-tested without hardware.
+//
+//   Push 3 User Port  --handlePushMessage-->  engine  --io.toHost-->  virtual port -> Live
+//   Live (feedback)   --handleHostMessage-->  engine  --io.toPush-->  Push LEDs / sysex
+//   Max LiveAPI       --handleLiveState---->  engine  --io.toLive-->  Max LiveAPI bridge
+//
+// Design rules:
+// - Nothing is sent to the Push unless we know it is in User Mode (LED messages on the
+//   User Port are ignored in Live Mode anyway, but sysex is not, so sysex is guarded).
+// - LEDs go through a diff cache: entering User Mode repaints everything once, after that
+//   only changes are sent.
+// - Every control's state is kept per page, so feedback from Live updates pages that are
+//   not visible and switching pages is instant.
+
+const push3 = require('./push3');
+const { normalizeConfig, pageChannel } = require('./config');
+const { dimOf } = require('./palette');
+
+const NOTE_OFF = 0x80;
+const NOTE_ON = 0x90;
+const POLY_AT = 0xa0;
+const CC = 0xb0;
+const PC = 0xc0;
+const CHAN_AT = 0xd0;
+const PITCHBEND = 0xe0;
+
+const CLOCK = 0xf8;
+const START = 0xfa;
+const CONTINUE = 0xfb;
+const STOP = 0xfc;
+
+const AT_QUERY_TIMEOUT_MS = 250;
+
+class Engine {
+  /**
+   * @param {object} io { toPush(bytes), toHost(bytes), toLive(obj), log(level, msg), now(), setTimer(fn, ms), clearTimer(id) }
+   */
+  constructor(io, config) {
+    this.io = io;
+    this.listeners = new Set();
+    this.mode = 'live'; // 'live' | 'user'
+    this.pushConnected = false;
+    this.page = 0;
+    this.ledCache = new Map(); // ledKey -> encoded value
+    this.pressed = new Set(); // control ids physically held
+    this.heldOutputs = new Map(); // control id -> bytes to send on release (note offs etc.)
+    this.mpeChannelPad = new Map(); // MPE member channel -> pad control (for pressure routing)
+    this.lastPressure = new Map(); // control id -> last pressure value sent
+    this.savedAftertouch = null;
+    this.atQueryTimer = null;
+    this.savedStrip = null;
+    this.hostClockSeenAt = -Infinity;
+    this.clockTimer = null;
+    this.liveState = { variations: {} }; // key -> { count, selected, name, ok }
+    this.discovered = new Map(); // unknown input key -> { bytes, count }
+    this.setConfig(config);
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // Config
+
+  setConfig(config) {
+    this.config = normalizeConfig(config);
+    if (this.page >= this.config.pages.length) this.page = 0;
+    this.state = this.config.pages.map((p, i) => (this.state && this.state[i]) || {});
+    this.buildFeedbackIndex();
+    this.syncVariationTargets();
+    if (this.mode === 'user') {
+      this.ledCache.clear();
+      this.renderAll();
+      this.updateClock();
+    }
+    this.emit('config');
+  }
+
+  // Map "status:channel:number" of messages coming back from Live to the controls they belong to.
+  buildFeedbackIndex() {
+    this.feedbackIndex = new Map();
+    this.config.pages.forEach((page, pi) => {
+      const ch = pageChannel(this.config, pi);
+      for (const [id, m] of Object.entries(page.controls)) {
+        if (m.type !== 'note' && m.type !== 'cc') continue;
+        const chan = m.channel ? m.channel - 1 : ch;
+        const key = `${m.type}:${chan}:${m.number}`;
+        if (!this.feedbackIndex.has(key)) this.feedbackIndex.set(key, []);
+        this.feedbackIndex.get(key).push({ page: pi, id });
+      }
+    });
+  }
+
+  ctlState(pageIndex, id) {
+    const s = this.state[pageIndex];
+    if (!s[id]) s[id] = { on: false, value: null };
+    return s[id];
+  }
+
+  mapping(id, pageIndex = this.page) {
+    const page = this.config.pages[pageIndex];
+    return page ? page.controls[id] : undefined;
+  }
+
+  channelFor(m, pageIndex = this.page) {
+    return m.channel ? m.channel - 1 : pageChannel(this.config, pageIndex);
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // Events for the editor
+
+  onChange(fn) {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
+  }
+
+  emit(what, data) {
+    for (const fn of this.listeners) {
+      try {
+        fn(what, data);
+      } catch (e) {
+        this.io.log('error', `listener failed: ${e.message}`);
+      }
+    }
+  }
+
+  snapshot() {
+    const ledState = {};
+    for (const c of push3.controls) {
+      const led = this.ledFor(c);
+      if (led) ledState[c.id] = led;
+    }
+    return {
+      mode: this.mode,
+      pushConnected: this.pushConnected,
+      page: this.page,
+      leds: ledState,
+      pressed: [...this.pressed],
+      liveState: this.liveState,
+      discovered: [...this.discovered.entries()].map(([key, v]) => ({ key, ...v })),
+      savedAftertouch: this.savedAftertouch,
+    };
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // Connection / mode
+
+  setPushConnected(connected) {
+    this.pushConnected = connected;
+    if (!connected) {
+      this.releaseAllHeld();
+      this.mode = 'live';
+      this.ledCache.clear();
+      this.savedAftertouch = null;
+      this.stopClock();
+    }
+    this.emit('status');
+  }
+
+  enterUserMode(reason) {
+    if (this.mode === 'user') return;
+    this.mode = 'user';
+    this.io.log('info', `User Mode on (${reason})`);
+    this.ledCache.clear();
+    this.mpeChannelPad.clear();
+    this.renderAll();
+    this.applyUserModeHardwareSettings();
+    this.updateClock();
+    this.emit('status');
+  }
+
+  exitUserMode(reason) {
+    if (this.mode !== 'user') return;
+    this.mode = 'live';
+    this.io.log('info', `User Mode off (${reason})`);
+    this.releaseAllHeld();
+    this.restoreHardwareSettings();
+    this.stopClock();
+    this.ledCache.clear();
+    this.emit('status');
+  }
+
+  applyUserModeHardwareSettings() {
+    const s = this.config.settings;
+    if (s.disableMpeInUserMode) {
+      // Ask for the current mode first so we can restore exactly what Live had set.
+      this.savedAftertouch = null;
+      this.sysex([push3.SYSEX.GET_AFTERTOUCH_MODE]);
+      if (this.atQueryTimer) this.io.clearTimer(this.atQueryTimer);
+      this.atQueryTimer = this.io.setTimer(() => {
+        this.atQueryTimer = null;
+        // No reply: assume Push 3's default (MPE) so leaving User Mode restores it.
+        if (this.mode === 'user' && this.savedAftertouch === null) {
+          this.io.log('warn', 'No aftertouch-mode reply from Push; assuming MPE');
+          this.savedAftertouch = push3.AFTERTOUCH.MPE;
+          this.sysex([push3.SYSEX.SET_AFTERTOUCH_MODE, push3.AFTERTOUCH.POLY]);
+        }
+      }, AT_QUERY_TIMEOUT_MS);
+    }
+    if (s.stripFader) {
+      this.savedStrip = null;
+      this.sysex([push3.SYSEX.GET_TOUCHSTRIP_CONFIG]);
+      // Push draws a bar from the bottom, no autoreturn, sends CC1 (Push 2 manual example 0x0C).
+      this.sysex([push3.SYSEX.SET_TOUCHSTRIP_CONFIG, 0x0c]);
+    }
+  }
+
+  restoreHardwareSettings() {
+    if (this.atQueryTimer) {
+      this.io.clearTimer(this.atQueryTimer);
+      this.atQueryTimer = null;
+    }
+    if (this.savedAftertouch !== null && this.savedAftertouch !== push3.AFTERTOUCH.POLY) {
+      this.sysex([push3.SYSEX.SET_AFTERTOUCH_MODE, this.savedAftertouch]);
+    }
+    this.savedAftertouch = null;
+    if (this.savedStrip !== null) {
+      this.sysex([push3.SYSEX.SET_TOUCHSTRIP_CONFIG, this.savedStrip]);
+      this.savedStrip = null;
+    }
+  }
+
+  sysex(body) {
+    this.io.toPush([...push3.SYSEX_HEADER, ...body, 0xf7]);
+  }
+
+  handleSysex(bytes) {
+    const h = push3.SYSEX_HEADER;
+    if (bytes.length < h.length + 2) return;
+    for (let i = 0; i < h.length; i++) if (bytes[i] !== h[i]) return;
+    const cmd = bytes[h.length];
+    const arg = bytes[h.length + 1];
+    switch (cmd) {
+      case push3.SYSEX.SET_MIDI_MODE:
+        // Live switched the Push's MIDI mode; the reply is sent to both ports.
+        if (arg === 1) this.enterUserMode('sysex');
+        else if (arg === 0) this.exitUserMode('sysex');
+        break;
+      case push3.SYSEX.GET_AFTERTOUCH_MODE:
+        if (this.mode !== 'user' || this.savedAftertouch !== null) break;
+        this.savedAftertouch = arg;
+        if (this.atQueryTimer) {
+          this.io.clearTimer(this.atQueryTimer);
+          this.atQueryTimer = null;
+        }
+        if (arg !== push3.AFTERTOUCH.POLY) this.sysex([push3.SYSEX.SET_AFTERTOUCH_MODE, push3.AFTERTOUCH.POLY]);
+        break;
+      case push3.SYSEX.GET_TOUCHSTRIP_CONFIG:
+        if (this.mode === 'user' && this.savedStrip === null) this.savedStrip = arg;
+        break;
+      default:
+        break;
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // Input from the Push User Port
+
+  handlePushMessage(bytes) {
+    if (!bytes || !bytes.length) return;
+    const status = bytes[0];
+    if (status === 0xf0) return this.handleSysex(bytes);
+    if (status >= 0xf8) return; // realtime (active sensing etc.)
+    const type = status & 0xf0;
+    const chan = status & 0x0f;
+    const d1 = bytes[1];
+    const d2 = bytes.length > 2 ? bytes[2] : 0;
+
+    // The User button is sent to both ports in every mode; Live toggles the mode and we
+    // learn the result from the sysex reply. It is never translated.
+    if (type === CC && d1 === push3.USER_BUTTON_CC) return;
+
+    // In Live Mode the Push sends nothing else on the User Port, so any other message
+    // means User Mode is active (covers starting up while already in User Mode).
+    if (this.mode !== 'user') this.enterUserMode('activity');
+
+    if (type === NOTE_ON || type === NOTE_OFF) {
+      const velocity = type === NOTE_OFF ? 0 : d2;
+      if (chan === 0 && d1 === push3.STRIP_TOUCH_NOTE) return; // strip touch: ignored for now
+      const pad = push3.padByNote.get(d1);
+      if (pad) {
+        // MPE member channels (1-15) carry the same pad notes; remember them for pressure.
+        if (chan !== 0) {
+          if (velocity > 0) this.mpeChannelPad.set(chan, pad);
+          else this.mpeChannelPad.delete(chan);
+        }
+        return velocity > 0 ? this.press(pad, velocity) : this.release(pad);
+      }
+      const enc = chan === 0 ? push3.encoderByTouchNote.get(d1) : undefined;
+      if (enc) return this.encoderTouch(enc, velocity > 0);
+      return this.discover(bytes);
+    }
+
+    if (type === CC) {
+      if (chan !== 0) return; // MPE slide (CC74) etc. on member channels
+      if (d1 === 1 && this.config.settings.stripFader) return this.stripValue(d2 << 7);
+      const enc = push3.encoderByCc.get(d1);
+      if (enc) return this.encoderTurn(enc, d2);
+      const btn = push3.buttonByCc.get(d1);
+      if (btn) return d2 > 0 ? this.press(btn, 127) : this.release(btn);
+      return this.discover(bytes);
+    }
+
+    if (type === PITCHBEND) {
+      if (chan === 0) return this.stripValue((d2 << 7) | d1);
+      return; // per-pad MPE pitch bend
+    }
+
+    if (type === POLY_AT) {
+      const pad = push3.padByNote.get(d1);
+      if (pad) this.pressure(pad, d2);
+      return;
+    }
+
+    if (type === CHAN_AT) {
+      const pad = this.mpeChannelPad.get(chan);
+      if (pad) this.pressure(pad, d1);
+      return;
+    }
+  }
+
+  discover(bytes) {
+    const key = bytes.slice(0, 2).join(':');
+    const entry = this.discovered.get(key) || { bytes: [...bytes], count: 0 };
+    entry.count++;
+    entry.bytes = [...bytes];
+    this.discovered.set(key, entry);
+    this.emit('discovered', entry);
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // Buttons and pads
+
+  press(ctl, velocity) {
+    this.pressed.add(ctl.id);
+    this.emit('input', { id: ctl.id, kind: 'press', velocity });
+    if (ctl.reserved) return;
+
+    if (this.isPageButton(ctl)) {
+      this.setPage(Number(ctl.id.split('.')[1]) - 1);
+      return;
+    }
+
+    const m = this.mapping(ctl.id);
+    if (!m) return;
+    const st = this.ctlState(this.page, ctl.id);
+
+    switch (m.type) {
+      case 'page':
+        this.setPage(m.page);
+        return;
+      case 'pageNext':
+        this.setPage((this.page + 1) % this.config.pages.length);
+        return;
+      case 'pagePrev':
+        this.setPage((this.page - 1 + this.config.pages.length) % this.config.pages.length);
+        return;
+      case 'variation':
+        this.variationPress(ctl, m);
+        return;
+      case 'none':
+        this.renderControl(ctl);
+        return;
+      default:
+        break;
+    }
+
+    const value = m.velocity === 'dynamic' ? scaleVelocity(velocity, m) : m.onValue;
+    const chan = this.channelFor(m);
+
+    if (m.behavior === 'toggle') {
+      st.on = !st.on;
+      if (st.on && m.group) this.releaseGroup(ctl.id, m.group);
+      this.sendValue(m, chan, st.on ? value : m.offValue, st.on);
+    } else if (m.behavior === 'trigger') {
+      if (m.group) this.releaseGroup(ctl.id, m.group, true);
+      this.sendValue(m, chan, value, true);
+      this.sendValue(m, chan, m.offValue, false);
+      if (m.group) st.on = true;
+    } else {
+      if (m.group) this.releaseGroup(ctl.id, m.group);
+      st.on = true;
+      this.sendValue(m, chan, value, true);
+      if (m.type !== 'pc') this.heldOutputs.set(ctl.id, { m, chan });
+    }
+    this.renderControl(ctl);
+  }
+
+  release(ctl) {
+    this.pressed.delete(ctl.id);
+    this.emit('input', { id: ctl.id, kind: 'release' });
+    this.lastPressure.delete(ctl.id);
+    const held = this.heldOutputs.get(ctl.id);
+    if (held) {
+      this.heldOutputs.delete(ctl.id);
+      this.sendValue(held.m, held.chan, held.m.offValue, false);
+      const m = this.mapping(ctl.id);
+      if (m && m.behavior === 'momentary' && !m.group) this.ctlState(this.page, ctl.id).on = false;
+    }
+    this.renderControl(ctl);
+  }
+
+  // Send the "off" side of everything still held (mode switch, page switch, disconnect),
+  // so nothing gets stuck in Live.
+  releaseAllHeld() {
+    for (const [id, held] of this.heldOutputs) {
+      this.sendValue(held.m, held.chan, held.m.offValue, false);
+      const s = this.state[this.page] && this.state[this.page][id];
+      if (s && held.m.behavior === 'momentary' && !held.m.group) s.on = false;
+    }
+    this.heldOutputs.clear();
+    this.pressed.clear();
+    this.lastPressure.clear();
+  }
+
+  // Exclusive groups ("radio buttons") within the current page.
+  releaseGroup(exceptId, group, silent = false) {
+    const page = this.config.pages[this.page];
+    for (const [id, m] of Object.entries(page.controls)) {
+      if (id === exceptId || m.group !== group) continue;
+      const st = this.ctlState(this.page, id);
+      if (!st.on) continue;
+      st.on = false;
+      if (!silent && m.behavior === 'toggle') this.sendValue(m, this.channelFor(m), m.offValue, false);
+      this.renderControl(push3.byId.get(id));
+    }
+  }
+
+  sendValue(m, chan, value, isOn) {
+    switch (m.type) {
+      case 'note':
+        // Note-off as note-on with velocity 0 keeps running status simple for Live.
+        this.io.toHost([NOTE_ON | chan, m.number, isOn ? Math.max(1, value) : 0]);
+        break;
+      case 'cc':
+        this.io.toHost([CC | chan, m.number, value]);
+        break;
+      case 'pc':
+        if (isOn) this.io.toHost([PC | chan, m.number]);
+        break;
+      default:
+        break;
+    }
+  }
+
+  pressure(ctl, value) {
+    const m = this.mapping(ctl.id);
+    if (!m || m.type === 'none' || !m.pressure || m.pressure === 'off') return;
+    if (this.lastPressure.get(ctl.id) === value) return;
+    this.lastPressure.set(ctl.id, value);
+    const chan = this.channelFor(m);
+    if (m.pressure === 'polyAT' && m.type === 'note') this.io.toHost([POLY_AT | chan, m.number, value]);
+    else if (m.pressure === 'channelAT') this.io.toHost([CHAN_AT | chan, value]);
+    else if (m.pressure === 'cc') this.io.toHost([CC | chan, m.pressureCc, value]);
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // Encoders and touch strip
+
+  encoderTurn(ctl, raw) {
+    const delta = raw < 64 ? raw : raw - 128; // two's complement
+    this.emit('input', { id: ctl.id, kind: 'turn', delta });
+    const m = this.mapping(ctl.id);
+    if (!m || m.type !== 'cc' || delta === 0) return;
+    const chan = this.channelFor(m);
+    if (m.mode === 'relative2c') {
+      const d = Math.max(-63, Math.min(63, delta));
+      this.io.toHost([CC | chan, m.number, d >= 0 ? d : 128 + d]);
+      return;
+    }
+    if (m.mode === 'relativeOffset') {
+      this.io.toHost([CC | chan, m.number, Math.max(1, Math.min(127, 64 + delta))]);
+      return;
+    }
+    const st = this.ctlState(this.page, ctl.id);
+    if (st.value === null) st.value = m.min;
+    const prev = Math.round(st.value);
+    st.value = Math.min(m.max, Math.max(m.min, st.value + delta * m.sensitivity));
+    const next = Math.round(st.value);
+    if (next !== prev) this.io.toHost([CC | chan, m.number, next]);
+    this.emit('value', { page: this.page, id: ctl.id, value: next });
+  }
+
+  encoderTouch(ctl, touched) {
+    this.emit('input', { id: ctl.id, kind: touched ? 'touch' : 'untouch' });
+    if (touched) this.pressed.add(ctl.id);
+    else this.pressed.delete(ctl.id);
+    const m = this.mapping(ctl.id);
+    if (!m || m.type === 'none' || m.touch !== 'note') return;
+    this.io.toHost([NOTE_ON | this.channelFor(m), m.touchNumber, touched ? 127 : 0]);
+  }
+
+  stripValue(value14) {
+    const ctl = push3.byId.get('strip');
+    this.emit('input', { id: ctl.id, kind: 'strip', value: value14 });
+    const m = this.mapping(ctl.id);
+    if (!m || m.type === 'none') return;
+    const chan = this.channelFor(m);
+    if (m.type === 'pitchbend') this.io.toHost([PITCHBEND | chan, value14 & 0x7f, value14 >> 7]);
+    else this.io.toHost([CC | chan, m.number, value14 >> 7]);
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // Pages
+
+  isPageButton(ctl) {
+    return this.config.settings.pageButtons === 'upper' && ctl.id.startsWith('upper.');
+  }
+
+  setPage(index) {
+    if (!Number.isInteger(index) || index < 0 || index >= this.config.pages.length || index === this.page) {
+      this.renderPageButtons();
+      return;
+    }
+    this.releaseAllHeld();
+    this.page = index;
+    this.renderAll();
+    this.emit('page', index);
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // Feedback from Live (MIDI on the virtual port) and clock
+
+  handleHostMessage(bytes) {
+    if (!bytes || !bytes.length) return;
+    const status = bytes[0];
+    if (status >= 0xf8) return this.handleHostRealtime(status);
+    const type = status & 0xf0;
+    const chan = status & 0x0f;
+    let key;
+    let value;
+    if (type === CC) {
+      key = `cc:${chan}:${bytes[1]}`;
+      value = bytes[2];
+    } else if (type === NOTE_ON || type === NOTE_OFF) {
+      key = `note:${chan}:${bytes[1]}`;
+      value = type === NOTE_OFF ? 0 : bytes[2];
+    } else return;
+    const targets = this.feedbackIndex.get(key);
+    if (!targets) return;
+    for (const t of targets) {
+      const ctl = push3.byId.get(t.id);
+      const m = this.config.pages[t.page].controls[t.id];
+      const st = this.ctlState(t.page, t.id);
+      if (ctl.kind === 'encoder') {
+        st.value = Math.min(m.max, Math.max(m.min, value));
+        this.emit('value', { page: t.page, id: t.id, value });
+      } else {
+        // While a momentary control is held, its own echo must not turn the LED off early.
+        if (t.page === this.page && this.heldOutputs.has(t.id) && value === 0) continue;
+        st.on = value > 0;
+        if (t.page === this.page) this.renderControl(ctl);
+      }
+    }
+  }
+
+  handleHostRealtime(status) {
+    if (status === CLOCK || status === START || status === CONTINUE || status === STOP) {
+      this.hostClockSeenAt = this.io.now();
+      if (this.mode === 'user') this.io.toPush([status]);
+    }
+  }
+
+  // Blink/pulse animations only run while the Push receives MIDI clock on the User Port.
+  // Use Live's clock when it arrives, otherwise generate 120 BPM ourselves.
+  updateClock() {
+    const needed = this.mode === 'user' && this.config.settings.internalClock && this.usesAnimation();
+    if (needed && !this.clockTimer) {
+      this.io.toPush([START]);
+      const tick = () => {
+        if (this.io.now() - this.hostClockSeenAt > 1000) this.io.toPush([CLOCK]);
+      };
+      this.clockTimer = this.io.setInterval(tick, 1000 / 48);
+    } else if (!needed) this.stopClock();
+  }
+
+  stopClock() {
+    if (this.clockTimer) {
+      this.io.clearInterval(this.clockTimer);
+      this.clockTimer = null;
+    }
+  }
+
+  usesAnimation() {
+    const page = this.config.pages[this.page];
+    return page && Object.values(page.controls).some((m) => m.anim && m.anim !== 'none');
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // Live API bridge (rack variations)
+
+  syncVariationTargets() {
+    const targets = {};
+    for (const page of this.config.pages) {
+      for (const m of Object.values(page.controls)) {
+        if (m.type !== 'variation') continue;
+        const key = variationKey(m.target);
+        targets[key] = m.target;
+      }
+    }
+    this.variationTargets = targets;
+    this.io.toLive({ cmd: 'watch', targets });
+  }
+
+  variationPress(ctl, m) {
+    const shift = this.pressed.has('shift');
+    const action = shift && m.action === 'recall' ? 'store' : m.action;
+    this.io.toLive({ cmd: 'variation', key: variationKey(m.target), target: m.target, action, index: m.index });
+    this.renderControl(ctl);
+  }
+
+  handleLiveState(msg) {
+    if (!msg || typeof msg !== 'object') return;
+    if (msg.type === 'variations' && msg.key) {
+      this.liveState.variations[msg.key] = {
+        ok: !!msg.ok,
+        count: Number(msg.count) || 0,
+        selected: Number.isInteger(msg.selected) ? msg.selected : -1,
+        name: typeof msg.name === 'string' ? msg.name : '',
+      };
+      this.renderWhere((m) => m.type === 'variation' && variationKey(m.target) === msg.key);
+      this.emit('live', msg);
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // LEDs
+
+  ledFor(ctl) {
+    if (ctl.reserved || ctl.led === 'none' || ctl.kind === 'encoder' || ctl.kind === 'touchstrip') return null;
+    if (this.isPageButton(ctl)) {
+      const idx = Number(ctl.id.split('.')[1]) - 1;
+      const page = this.config.pages[idx];
+      if (!page) return { color: 0, anim: 0 };
+      return { color: idx === this.page ? page.color : dimOf(page.color), anim: 0 };
+    }
+    const m = this.mapping(ctl.id);
+    if (!m) return { color: 0, anim: 0 };
+    const held = this.pressed.has(ctl.id);
+    if (m.type === 'none') {
+      if (held) return { color: ctl.led === 'rgb' ? 3 : 127, anim: 0 };
+      return { color: this.config.settings.unmappedLeds === 'dim' ? (ctl.led === 'rgb' ? 1 : 8) : 0, anim: 0 };
+    }
+    if (m.type === 'variation') {
+      const v = this.liveState.variations[variationKey(m.target)];
+      if (held) return { color: m.colorOn, anim: 0 };
+      if (!v || !v.ok) return { color: 0, anim: 0 };
+      if (m.action !== 'recall') return { color: m.colorOff, anim: 0 };
+      if (m.index >= v.count) return { color: 0, anim: 0 };
+      return m.index === v.selected ? { color: m.colorOn, anim: push3.ANIMATIONS[m.anim] || 0 } : { color: m.colorOff, anim: 0 };
+    }
+    if (m.type === 'page' || m.type === 'pageNext' || m.type === 'pagePrev') {
+      const active = m.type === 'page' && m.page === this.page;
+      return { color: held || active ? m.colorOn : m.colorOff, anim: 0 };
+    }
+    const st = this.ctlState(this.page, ctl.id);
+    const on = st.on || held;
+    return { color: on ? m.colorOn : m.colorOff, anim: on ? push3.ANIMATIONS[m.anim] || 0 : 0 };
+  }
+
+  renderControl(ctl) {
+    if (!ctl) return;
+    const led = this.ledFor(ctl);
+    if (led) {
+      this.emit('led', { id: ctl.id, ...led });
+      if (this.mode === 'user') this.sendLed(ctl, led);
+    }
+  }
+
+  renderWhere(pred) {
+    const page = this.config.pages[this.page];
+    for (const [id, m] of Object.entries(page.controls)) {
+      if (pred(m)) this.renderControl(push3.byId.get(id));
+    }
+  }
+
+  renderPageButtons() {
+    for (let i = 1; i <= 8; i++) this.renderControl(push3.byId.get(`upper.${i}`));
+  }
+
+  renderAll() {
+    for (const ctl of push3.controls) this.renderControl(ctl);
+    this.updateClock();
+  }
+
+  sendLed(ctl, led) {
+    const isNote = ctl.kind === 'pad';
+    const number = isNote ? ctl.note : ctl.cc;
+    const key = `${isNote ? 'n' : 'c'}${number}`;
+    const enc = led.anim * 128 + led.color;
+    if (this.ledCache.get(key) === enc) return;
+    this.ledCache.set(key, enc);
+    const status = isNote ? NOTE_ON : CC;
+    if (led.anim) {
+      // Animation: base colour on channel 0, target colour on the animation channel.
+      this.io.toPush([status, number, led.color === 0 ? 0 : dimOf(led.color)]);
+      this.io.toPush([status | led.anim, number, led.color]);
+    } else {
+      this.io.toPush([status, number, led.color]);
+    }
+  }
+}
+
+function scaleVelocity(velocity, m) {
+  // Map 1..127 onto offValue+1..onValue so "dynamic" still respects the configured range.
+  const lo = Math.min(127, m.offValue + 1);
+  const hi = Math.max(lo, m.onValue);
+  return Math.round(lo + ((velocity - 1) / 126) * (hi - lo));
+}
+
+function variationKey(target) {
+  return `${target.track}|${target.device}`;
+}
+
+module.exports = { Engine, variationKey, scaleVelocity };

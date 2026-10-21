@@ -1,0 +1,25 @@
+# Progress / resume notes
+
+Update this file after every step so work can resume after an interruption.
+
+## Done
+- [x] Research: Push 2/3 MIDI protocol (Ableton push-interface doc), Push 3 manual (User Mode chapter),
+      DrivenByMoss Push 3 numbers (MPE on/off sysex `1E 01/02`), PerforModule template (plain mappings only).
+- [x] engine/src/push3.js – control map + layout
+- [x] engine/src/palette.js – default palette
+- [x] engine/src/config.js – config model, defaults, normalisation
+- [x] engine/src/engine.js – core logic (modes, translation, LEDs, feedback, pages, variations)
+- [x] engine/src/midi-io.js, store.js, server.js, app.js, p3um-main.js
+- [x] engine/test/engine.test.js – 22 tests passing (`npm test`)
+
+## Next
+- [ ] editor/ (web UI: Push layout, inspector, pages, colours, monitor, presets)
+- [ ] p3um-live.js (Max JS LiveAPI bridge: rack variations)
+- [ ] Push3UserMode.amxd (+ tools/build-amxd.py) and device patch
+- [ ] docs: README (hr), setup in Live, troubleshooting
+- [ ] push to GitHub (waiting for repo name from user)
+
+## Open questions to verify on hardware
+- Does Live 12 send the `0A` MIDI-mode sysex reply on Push 3 when User is pressed? (fallback: activity detection)
+- Exact CCs marked `verify: true` in push3.js (Sets, Learn, Lock, Save, New, Capture, jog, volume press).
+- Which buttons are RGB vs white on Push 3.
