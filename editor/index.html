@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Push 3 User Mode</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">Push 3 <b>User Mode</b></div>
+  <div id="status" class="chip">connecting…</div>
+  <div class="spacer"></div>
+  <label class="toggle" title="Pritisak kontrole na Pushu je odabire u editoru"><input type="checkbox" id="followHw" checked> Prati Push</label>
+  <button id="undoBtn" title="Poništi (Ctrl+Z)">↶</button>
+  <button id="redoBtn" title="Ponovi (Ctrl+Shift+Z)">↷</button>
+  <div class="menu">
+    <button id="presetsBtn">Preseti ▾</button>
+    <div id="presetsMenu" class="dropdown hidden"></div>
+  </div>
+  <button id="settingsBtn">Postavke</button>
+  <button id="monitorBtn">MIDI monitor</button>
+</header>
+
+<nav id="pages" class="pages"></nav>
+
+<main class="main">
+  <section class="surface-wrap">
+    <div id="surface" class="surface"></div>
+    <p class="hint">Klik = odaberi · Shift/Cmd+klik = dodaj u odabir · povuci preko padova = odaberi više</p>
+  </section>
+  <aside id="inspector" class="inspector"></aside>
+</main>
+
+<section id="monitor" class="panel hidden">
+  <div class="panel-head">
+    <b>MIDI monitor</b>
+    <label class="toggle"><input type="checkbox" id="monPush" checked> Push</label>
+    <label class="toggle"><input type="checkbox" id="monHost" checked> Live</label>
+    <button id="monClear">Očisti</button>
+    <div class="spacer"></div>
+    <button id="monClose">×</button>
+  </div>
+  <div class="panel-body two">
+    <pre id="monLog" class="log"></pre>
+    <div>
+      <h4>Nepoznate kontrole</h4>
+      <p class="muted small">Poruke s Pusha koje nisu u mapi kontrola. Javi ih ako se pojave.</p>
+      <ul id="discovered" class="small"></ul>
+      <h4>Log</h4>
+      <pre id="engineLog" class="log small"></pre>
+    </div>
+  </div>
+</section>
+
+<section id="settings" class="panel hidden">
+  <div class="panel-head"><b>Postavke</b><div class="spacer"></div><button id="settingsClose">×</button></div>
+  <div class="panel-body" id="settingsBody"></div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -135,6 +135,19 @@ function start() {
       case 'setPage':
         engine.setPage(Number(msg.page));
         break;
+      case 'addPage': {
+        const cfgMod = require('./config');
+        const cfg = JSON.parse(JSON.stringify(engine.config));
+        if (cfg.pages.length >= cfgMod.MAX_PAGES) break;
+        const index = cfg.pages.length;
+        const src = Number.isInteger(msg.duplicate) ? cfg.pages[msg.duplicate] : null;
+        const page = src ? { ...JSON.parse(JSON.stringify(src)), name: `${src.name} copy`.slice(0, 24), channel: 0 } : cfgMod.defaultPage(index);
+        cfg.pages.push(page);
+        engine.setConfig(cfg);
+        engine.setPage(index);
+        store.save(engine.config, log);
+        break;
+      }
       case 'monitor':
         client.monitor = !!msg.on;
         break;
