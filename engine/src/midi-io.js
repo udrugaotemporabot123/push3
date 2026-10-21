@@ -106,8 +106,11 @@ class MidiIO {
         this.closePush();
         this.opts.onPushConnection(false);
       }
+      this.lastScanError = null;
     } catch (e) {
-      this.opts.log('error', `Port scan failed: ${e.message}`);
+      // Log once per distinct problem; the scan repeats every 2 s.
+      if (this.lastScanError !== e.message) this.opts.log('error', `Port scan failed: ${e.message}`);
+      this.lastScanError = e.message;
     }
   }
 
