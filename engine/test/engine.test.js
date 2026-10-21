@@ -78,6 +78,14 @@ test('activity on the User Port implies User Mode (engine started while already 
   assert.equal(e.mode, 'user');
 });
 
+test('startup "all notes off" does not count as User Mode activity', () => {
+  const { e, out } = setup();
+  e.handlePushMessage([0xb0, 123, 0]);
+  e.handlePushMessage([0x80, 36, 0]);
+  assert.equal(e.mode, 'live');
+  assert.equal(out.push.length, 0);
+});
+
 test('User button is never translated', () => {
   const { e, out } = setup();
   e.handlePushMessage([0xb0, 59, 127]);

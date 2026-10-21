@@ -268,9 +268,16 @@ class Engine {
     // learn the result from the sysex reply. It is never translated.
     if (type === CC && d1 === push3.USER_BUTTON_CC) return;
 
-    // In Live Mode the Push sends nothing else on the User Port, so any other message
+    // Channel mode messages (all notes off etc., sent by Push 3 at startup) carry no meaning.
+    if (type === CC && d1 >= 120) return;
+
+    // In Live Mode the Push sends nothing else on the User Port, so a real control event
     // means User Mode is active (covers starting up while already in User Mode).
-    if (this.mode !== 'user') this.enterUserMode('activity');
+    if (this.mode !== 'user') {
+      const isControlEvent = (type === NOTE_ON && d2 > 0) || (type === CC && chan === 0 && d2 > 0) || (type === PITCHBEND && chan === 0);
+      if (!isControlEvent) return;
+      this.enterUserMode('activity');
+    }
 
     if (type === NOTE_ON || type === NOTE_OFF) {
       const velocity = type === NOTE_OFF ? 0 : d2;
