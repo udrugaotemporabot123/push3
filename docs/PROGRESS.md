@@ -35,16 +35,18 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.8.0 add-on framework (addons/, guarded calls, enable/disable, editor UI) + Live Looper add-on
       (recNext/playStop/undoLast/arm per track, trackSlots observation in the bridge), Looper template
 
+- [x] v0.9.0 Sampler add-on: record on a source track, then clip file → next empty Simpler in a Drum Rack
+      (SimplerDevice.replace_sample, polls until the recording file exists), notices on display; Sampler template
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white
-- [ ] v0.9 Sampling add-on: capture mic/violin into Simpler / drum-rack pads (Record.To.Simpler / Catch control,
-      "sample → next free pad"), Beat Repeat performance page, variation grid over many racks
 - [ ] Editor: import/export config file, copy/paste controls between pages, search by label
 - [ ] Phase 2 ideas: Push display (USB, Live holds it), shift layers, momentary page hold,
       LED feedback for variation pads across racks, MIDI-learn of target in editor, 14-bit encoders
 
 ## Open questions to verify on hardware
+- Sampler: replace_sample with the freshly recorded clip file (Live 12.1+ API) – test on the real set
 - Display takeover: does Live release the USB display in User Mode? (status shown under the preview in the editor)
 - Does Live 12 send the `0A` MIDI-mode sysex reply on Push 3 when User is pressed? (fallback: activity detection)
 - Exact CCs marked `verify: true` in push3.js (Sets, Learn, Lock, Save, New, Capture, jog, volume press).

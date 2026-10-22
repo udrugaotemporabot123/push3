@@ -956,6 +956,18 @@ const TEMPLATES = {
       return r;
     },
   },
+  sampler: {
+    name: 'Sampler (live sampling → padovi)',
+    help: 'Capture = snimi pa stavi na sljedeći prazni pad, New = zadnji clip na odabrani pad, Duplicate = zadnji clip na sljedeći pad. Treba Drum Rack s praznim Simplerima.',
+    ask: [
+      { key: 'source', label: 'Track koji snima (npr. mic in - sampling)', default: 'selected' },
+      { key: 'target', label: 'Track s Drum Rackom', default: 'selected' },
+    ],
+    apply(a) {
+      const S2 = (action) => ({ type: 'addon', addon: { id: 'sampler', action, params: { source: a.source, target: a.target, rack: 'first', autoArm: 'yes' } } });
+      return { capture: S2('sampleToPad'), new: S2('lastToSelected'), duplicate: S2('lastToPad') };
+    },
+  },
   looper: {
     name: 'Looper (8 trackova)',
     help: 'Stupac = track 1–8: gornji pad snima sljedeći loop (drugi pritisak zatvara loop), ispod Play/Stop, Poništi zadnji, Arm. Brojeve trackova možeš zamijeniti imenima.',
@@ -995,9 +1007,15 @@ const TEMPLATES = {
 function applyTemplate(key) {
   const t = TEMPLATES[key];
   if (!confirm(`Primijeniti predložak "${t.name}" na stranicu "${curPage().name}"? Prepisat će te kontrole.`)) return;
+  const answers = {};
+  for (const q of t.ask || []) {
+    const v = prompt(q.label, q.default);
+    if (v === null) return;
+    answers[q.key] = v.trim() || q.default;
+  }
   commit((cfg) => {
     const page = cfg.pages[S.snapshot.page];
-    for (const [id, m] of Object.entries(t.apply())) page.controls[id] = { ...page.controls[id], ...m, shift: m.shift || (page.controls[id] && page.controls[id].shift) };
+    for (const [id, m] of Object.entries(t.apply(answers))) page.controls[id] = { ...page.controls[id], ...m, shift: m.shift || (page.controls[id] && page.controls[id].shift) };
   });
 }
 

@@ -11,7 +11,7 @@ const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 const { loadAddons } = require('../../addons');
 
-const VERSION = '0.8.0';
+const VERSION = '0.9.0';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -107,6 +107,9 @@ function start() {
         break;
       case 'live':
         server.broadcast({ t: 'live', liveState: engine.liveState });
+        break;
+      case 'notice':
+        server.broadcast({ t: 'log', level: 'info', msg: data.text });
         break;
       case 'status':
       case 'page':

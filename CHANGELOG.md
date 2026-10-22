@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.9.0 – 2026-10-22
+Sampler add-on: snimi zvuk (mic/violina) i automatski ga učitaj u sljedeći prazni Simpler u Drum Racku; zadnji clip → sljedeći/odabrani pad; obavijest na ekranu; predložak Sampler.
+
 ## v0.8.0 – 2026-10-22
 Add-oni: okvir (addons/, izolirani pozivi, uključi/isključi u Postavkama) i prvi add-on Live Looper — snimi sljedeći loop / zatvori loop, play/stop, poništi zadnji, arm; predložak Looper (8 trackova).
 

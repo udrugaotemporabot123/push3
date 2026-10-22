@@ -38,8 +38,13 @@ class DisplayManager {
 
   onEngine(what, data) {
     if (what === 'input') this.recordAction(data);
+    if (what === 'notice') {
+      this.lastAction = { title: data.text, detail: '', at: Date.now() };
+      clearTimeout(this.actionTimer);
+      this.actionTimer = setTimeout(() => this.schedule(), 1600);
+    }
     if (what === 'status' || what === 'config') this.syncTransport();
-    if (['led', 'input', 'value', 'page', 'status', 'config', 'live'].includes(what)) this.schedule();
+    if (['led', 'input', 'value', 'page', 'status', 'config', 'live', 'notice'].includes(what)) this.schedule();
   }
 
   recordAction(ev) {

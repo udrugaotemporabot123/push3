@@ -62,6 +62,7 @@ Konfiguracija se sprema automatski u `~/Documents/Push3UserMode/config.json` (pr
 Dodatne funkcije koje nisu dio jezgre i mogu se isključiti (Postavke → Add-oni). Add-on ne može srušiti jezgru: ako baci grešku, samo ta kontrola ne radi.
 
 - **Live Looper**: po tracku jednim gumbom *Snimi sljedeći loop* (snima u sljedeći prazni slot; drugi pritisak zatvara loop i on svira), *Play/Stop tracka*, *Poništi zadnji loop*, *Arm*. LED blinka crveno dok snima, pulsira zeleno dok svira. Predložak **Looper (8 trackova)**.
+- **Sampler**: *Snimi → sljedeći pad*: prvi pritisak snima s tvog mic/violin tracka u prazan slot, drugi zaustavi, a snimka se **automatski učita u sljedeći prazni Simpler u Drum Racku** (i taj pad se odabere). Npr. publika pljesne → dva pritiska → pljesak je snare na padu. Još: *Zadnji clip → sljedeći / odabrani pad*. Priprema: Drum Rack s praznim Simplerima na padovima koje želiš puniti. Predložak **Sampler**.
 - Novi add-on = nova mapa u `addons/` (vidi `addons/index.js` i `addons/looper/`).
 
 ## Ekran (v0.3, eksperimentalno)

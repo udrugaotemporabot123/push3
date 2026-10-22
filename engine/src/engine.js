@@ -821,6 +821,9 @@ class Engine {
       };
       this.renderWhere((m) => m.type === 'variation' && variationKey(m.target) === msg.key);
       this.emit('live', msg);
+    } else if (msg.type === 'notice' && typeof msg.text === 'string') {
+      this.io.log('info', msg.text);
+      this.emit('notice', { text: msg.text.slice(0, 80) });
     } else if (msg.type === 'live' && msg.key) {
       this.liveState.values[msg.key] = {
         ok: !!msg.ok,

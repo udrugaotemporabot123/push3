@@ -107,3 +107,26 @@ test('disabled add-on leaves its controls inert', () => {
   e.handlePushMessage([0xb0, 86, 127]);
   assert.equal(out.live.length, 0);
 });
+
+test('sampler: first press records on the source, second stops and loads it into the next pad', () => {
+  const sampler = require('../../addons/sampler');
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls.capture, { type: 'addon', addon: { id: 'sampler', action: 'sampleToPad', params: { source: 'MIC', target: 'DRUMS', rack: 'first', autoArm: 'yes' } } });
+  }, [sampler]);
+  e.handleLiveState({ type: 'live', key: slotsKey('MIC'), ok: true, value: [1, 0, 0] });
+  e.handleLiveState({ type: 'live', key: armKey('MIC'), ok: true, value: 1 });
+  clear();
+  e.handlePushMessage([0xb0, 65, 127]);
+  assert.deepEqual(out.live, [{ cmd: 'liveCall', spec: { t: 'slot', track: 'MIC', scene: 2 }, fn: 'fireSlot' }]);
+  e.handleLiveState({ type: 'live', key: slotsKey('MIC'), ok: true, value: [1, 3, 0] });
+  e.handlePushMessage([0xb0, 65, 0]);
+  clear();
+  e.handlePushMessage([0xb0, 65, 127]);
+  assert.deepEqual(out.live, [
+    { cmd: 'liveCall', spec: { t: 'slot', track: 'MIC', scene: 2 }, fn: 'fireSlot' },
+    { cmd: 'liveCall', spec: { t: 'clipToPad', source: 'MIC', scene: 2, target: 'DRUMS', rack: 'first', pad: 'next' }, fn: 'clipToPad' },
+  ]);
+  // Bridge notices show up as log lines (and on the display).
+  e.handleLiveState({ type: 'notice', text: 'Uzorak → D1' });
+  assert.ok(out.logs.includes('info: Uzorak → D1'));
+});

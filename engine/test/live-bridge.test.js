@@ -27,6 +27,11 @@ function makeLive() {
   const rack = obj({ name: 'FX Rack', can_have_chains: 1, variation_count: 3, selected_variation_index: 0 }, { parameters: [param('Device On', 1), param('Macro 1', 0.5, 0, 127)], chains: [] });
   vio.children.devices.push(rack);
   const master = track('Main', 0xffffff, { can_be_armed: 0 });
+  const simpler = (file) => obj({ name: 'Simpler', class_name: 'OriginalSimpler' }, { sample: file ? obj({ file_path: file }) : null });
+  const pad = (name, note, s) => obj({ name, note }, { chains: s ? [obj({ name }, { devices: [s] })] : [] });
+  const pads = [pad('C1', 36, simpler('/kick.wav')), pad('C#1', 37, null), pad('D1', 38, simpler(null)), pad('D#1', 39, simpler(null))];
+  const drums = obj({ name: 'Drums', can_have_drum_pads: 1, can_have_chains: 1, class_name: 'DrumGroupDevice' }, { drum_pads: pads, view: obj({ selected_drum_pad: pads[0].id }), chains: [] });
+  bass.children.devices.push(drums);
   const songView = obj({ selected_track: vio.id }, { selected_track: null, selected_scene: obj({ name: 'S1' }) });
   const scenes = [obj({ name: 'Intro' }), obj({ name: 'Drop' })];
   const song = obj({ is_playing: 0, session_record: 0, metronome: 0, arrangement_overdub: 0, tempo: 120 }, { tracks: [bass, vio], return_tracks: [], master_track: master, view: songView, scenes });
@@ -47,6 +52,7 @@ function makeLive() {
       const k = parts[i];
       if (k === 'selected_track' && cur === songView) cur = objs.get(songView.props.selected_track);
       else if (k === 'selected_device' && cur.props && 'selected_device' in cur.props) cur = objs.get(cur.props.selected_device);
+      else if (!(k in cur.children) && typeof cur.props[k] === 'number') cur = objs.get(cur.props[k]);
       else {
         const c = cur.children[k];
         if (Array.isArray(c)) {
@@ -108,22 +114,40 @@ function makeLive() {
       if (fn === 'start_playing') this.set('is_playing', 1);
       if (fn === 'stop_playing') this.set('is_playing', 0);
       if (fn === 'recall_selected_variation') return null;
+      if (fn === 'replace_sample') this.o.children.sample = { id: 7777, props: { file_path: args[0] }, children: {} };
       return null;
     }
     getcount(k) {
       return (this.o.children[k] || []).length;
     }
   }
-  return { LiveAPI, song, bass, vio, rack, master, songView, calls };
+  return { LiveAPI, song, bass, vio, rack, master, songView, calls, pads, drums };
 }
 
 function loadBridge(live) {
   const out = [];
   const src = fs.readFileSync(path.join(__dirname, '..', '..', 'p3um-live.js'), 'utf8');
-  const fns = new Function('LiveAPI', 'outlet', 'post', `var autowatch, inlets, outlets;\n${src}\nreturn { init: init, live: live };`)(
+  // Synchronous stand-in for Max's Task: runs the function until cancelled or out of repeats.
+  class Task {
+    constructor(fn) {
+      this.fn = fn;
+      this.cancelled = false;
+    }
+    repeat(n) {
+      for (let i = 0; i < n && !this.cancelled; i++) {
+        if (live.beforeTick) live.beforeTick(i);
+        this.fn();
+      }
+    }
+    cancel() {
+      this.cancelled = true;
+    }
+  }
+  const fns = new Function('LiveAPI', 'outlet', 'post', 'Task', `var autowatch, inlets, outlets;\n${src}\nreturn { init: init, live: live };`)(
     live.LiveAPI,
     (n, ...args) => out.push(args[0] === undefined ? [args] : args.map((a) => (typeof a === 'string' && a.startsWith('{') ? JSON.parse(a) : a))),
     () => {},
+    Task,
   );
   return { ...fns, out };
 }
@@ -264,4 +288,42 @@ test('bridge: trackSlots reports every slot state of a track', () => {
   assert.deepEqual(states(b.out).at(-1).value, [0, 2]);
   new live.LiveAPI('live_set tracks 0 clip_slots 0').set('is_recording', 1);
   assert.deepEqual(states(b.out).at(-1).value, [3, 2]);
+});
+
+test('bridge: clipToPad waits for the recording, then fills the next empty Simpler', () => {
+  const live = makeLive();
+  const { LiveAPI } = live;
+  // Violin slot 1 is still recording; the file appears after two polls.
+  const micSlot = new LiveAPI('live_set tracks 1 clip_slots 0').o;
+  Object.assign(micSlot.props, { has_clip: 1, is_recording: 1 });
+  micSlot.children.clip = { id: 9001, props: { file_path: '' }, children: {} };
+  live.beforeTick = (i) => {
+    if (i === 2) {
+      micSlot.props.is_recording = 0;
+      micSlot.children.clip.props.file_path = '/rec/clap.wav';
+    }
+  };
+  const b = loadBridge(live);
+  b.init();
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'clipToPad', source: 'Violin', scene: 1, target: 'Bass', rack: 'first', pad: 'next' }, fn: 'clipToPad' }));
+  const notices = b.out.filter((x) => x[0] === 'liveState').map((x) => x[1]).filter((x) => x.type === 'notice');
+  assert.equal(notices.at(-1).text, 'Uzorak → D1');
+  assert.equal(live.pads[2].children.chains[0].children.devices[0].children.sample.props.file_path, '/rec/clap.wav');
+});
+
+test('bridge: recorded clip lands in the next empty Simpler and that pad gets selected', () => {
+  const live = makeLive();
+  const { LiveAPI } = live;
+  const vioSlot = new LiveAPI('live_set tracks 1 clip_slots 0').o;
+  Object.assign(vioSlot.props, { has_clip: 1, is_recording: 0 });
+  vioSlot.children.clip = { id: 9002, props: { file_path: '/rec/clap.wav' }, children: {} };
+  const b = loadBridge(live);
+  b.init();
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'clipToPad', source: 'Violin', scene: 1, target: 'Bass', rack: 'first', pad: 'next' }, fn: 'clipToPad' }));
+  // Pad C1 already has a sample, C#1 has no Simpler, D1 is the first empty Simpler.
+  const d1 = live.pads[2].children.chains[0].children.devices[0];
+  assert.equal(d1.children.sample.props.file_path, '/rec/clap.wav');
+  assert.equal(live.drums.children.view.props.selected_drum_pad, live.pads[2].id);
+  const n = b.out.filter((x) => x[0] === 'liveState').map((x) => x[1]).filter((x) => x.type === 'notice').at(-1);
+  assert.equal(n.text, 'Uzorak → D1');
 });

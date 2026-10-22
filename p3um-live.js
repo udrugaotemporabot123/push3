@@ -519,6 +519,10 @@ function liveCall(msg) {
     else if (num(slot.get('has_clip')) === 1) slot.call('delete_clip');
     return;
   }
+  if (msg.fn === 'clipToPad') {
+    clipToPad(spec);
+    return;
+  }
   if (msg.fn === 'stopTrack') {
     var st = trackApi(spec.track);
     if (st) st.call('stop_all_clips');
@@ -591,4 +595,95 @@ function slotState(slot) {
   if (num(slot.get('is_recording')) === 1) return 3;
   if (num(slot.get('has_clip')) !== 1) return 0;
   return num(slot.get('playing_status')) === 1 ? 2 : 1;
+}
+
+// ---------------------------------------------------------------------------------------
+// Sampling: load an audio clip's file into the next empty Simpler of a Drum Rack.
+// spec: { t: 'clipToPad', source, scene (1-based slot), target, rack, pad ('next' | 'selected') }
+// Waits (polls) until the clip has finished recording and has a file.
+
+var POLL_MS = 100;
+var POLL_MAX = 40; // 4 s
+
+function clipToPad(spec) {
+  var src = trackApi(spec.source);
+  if (!src) return notice('Sampler: izvorni track nije pronađen');
+  var slotPath = src.unquotedpath + ' clip_slots ' + ((spec.scene | 0) - 1);
+  var tries = 0;
+  var task = new Task(function () {
+    tries++;
+    var slot = new LiveAPI(slotPath);
+    var ready = slot.id && slot.id != 0 && num(slot.get('has_clip')) === 1 && num(slot.get('is_recording')) !== 1;
+    var file = ready ? str(new LiveAPI(slotPath + ' clip').get('file_path')) : '';
+    if (file) {
+      task.cancel();
+      loadIntoPad(spec, file);
+    } else if (tries >= POLL_MAX) {
+      task.cancel();
+      notice('Sampler: snimka nije spremna (nema audio datoteke)');
+    }
+  });
+  task.interval = POLL_MS;
+  task.repeat(POLL_MAX);
+}
+
+function loadIntoPad(spec, file) {
+  var tr = trackApi(spec.target);
+  if (!tr) return notice('Sampler: ciljni track nije pronađen');
+  var rack = findDrumRack(tr, spec.rack);
+  if (!rack) return notice('Sampler: Drum Rack nije pronađen na ciljnom tracku');
+  var simpler = null;
+  var padName = '';
+  if (spec.pad === 'selected') {
+    var pad = new LiveAPI(rack.unquotedpath + ' view selected_drum_pad');
+    simpler = padSimpler(pad);
+    padName = str(pad.get('name'));
+  } else {
+    var n = rack.getcount('drum_pads');
+    for (var i = 0; i < n && !simpler; i++) {
+      var p = new LiveAPI(rack.unquotedpath + ' drum_pads ' + i);
+      if (p.getcount('chains') < 1) continue;
+      var s = padSimpler(p);
+      if (s && !hasSample(s)) {
+        simpler = s;
+        padName = str(p.get('name'));
+        new LiveAPI(rack.unquotedpath + ' view').set('selected_drum_pad', 'id', p.id);
+      }
+    }
+  }
+  if (!simpler) return notice('Sampler: nema praznog Simplera na padovima');
+  simpler.call('replace_sample', file);
+  notice('Uzorak → ' + (padName || 'pad'));
+}
+
+function findDrumRack(track, name) {
+  var wanted = name && name !== 'first' ? String(name).toLowerCase() : null;
+  var n = track.getcount('devices');
+  for (var i = 0; i < n; i++) {
+    var d = new LiveAPI(track.unquotedpath + ' devices ' + i);
+    if (num(d.get('can_have_drum_pads')) !== 1) continue;
+    if (!wanted || str(d.get('name')).toLowerCase() === wanted) return d;
+  }
+  return null;
+}
+
+// First Simpler in the pad's first chain.
+function padSimpler(pad) {
+  if (!pad || !pad.id || pad.id == 0 || pad.getcount('chains') < 1) return null;
+  var chain = pad.unquotedpath + ' chains 0';
+  var dn = new LiveAPI(chain).getcount('devices');
+  for (var i = 0; i < dn; i++) {
+    var d = new LiveAPI(chain + ' devices ' + i);
+    if (str(d.get('class_name')) === 'OriginalSimpler') return d;
+  }
+  return null;
+}
+
+function hasSample(simpler) {
+  var sample = new LiveAPI(simpler.unquotedpath + ' sample');
+  return !!(sample.id && sample.id != 0);
+}
+
+function notice(text) {
+  outlet(0, 'liveState', JSON.stringify({ type: 'notice', text: text }));
 }
