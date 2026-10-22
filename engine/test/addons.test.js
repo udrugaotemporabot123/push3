@@ -529,3 +529,31 @@ test('review fixes: switching an add-on off releases its held pad; Shift + turn 
   e.handlePushMessage([0x80, 92, 0]);
   assert.match(e.addonStatus()[0] || '', /Seq R/); // the step survived (it was edited)
 });
+
+test('step sequencer: hold step + encoder 4 nudges it late or early (micro-timing)', () => {
+  const stepseq = require('../../addons/stepseq');
+  const { e, out, clear } = setup((c) => {
+    for (let step = 1; step <= 4; step++) Object.assign(c.pages[0].controls[`pad.0.${step - 1}`], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'N', lane: '1', step: String(step), note: '36' } } });
+  }, [stepseq]);
+  const holdTurn = (note, cc, raw) => {
+    e.handlePushMessage([0x90, note, 100]);
+    e.handlePushMessage([0xb0, cc, raw]);
+    e.handlePushMessage([0x80, note, 0]);
+  };
+  e.handlePushMessage([0x90, 36, 100]); // step 1 on
+  e.handlePushMessage([0x80, 36, 0]);
+  e.handlePushMessage([0x90, 38, 100]); // step 3 on
+  e.handlePushMessage([0x80, 38, 0]);
+  holdTurn(36, 74, 1);
+  holdTurn(36, 74, 1); // step 1: +2 ticks late
+  holdTurn(38, 74, 127); // step 3: 1 tick early
+  clear();
+  e.handleHostMessage([0xfa]);
+  const at = [];
+  for (let i = 0; i < 24; i++) {
+    const n = out.host.length;
+    e.handleHostMessage([0xf8]);
+    if (out.host.slice(n).some((m) => m[2] > 0)) at.push(i);
+  }
+  assert.deepEqual(at, [2, 11]);
+});

@@ -8,7 +8,8 @@
 //           Live is playing) the hit is written into the nearest step. Shift + hit clears the lane.
 //   rec   – record on/off for live hits; with Live stopped, hits are entered step by step (a chord =
 //           pads hit together; the cursor moves on when all pads are released)
-// Hold a step pad and turn encoder 1 = velocity, 2 = chance, 3 = note length (gate); a step that
+// Hold a step pad and turn encoder 1 = velocity, 2 = chance, 3 = note length (gate), 4 = micro-timing
+// (nudge ±3 ticks = up to half a 16th early/late); a step that
 // was on is removed on release only if no encoder was turned.
 //   pattern – pattern slot A–H: switches at the end of the loop (at once when stopped); Shift = copy the
 //           current pattern into the slot; hold one pattern and press another = chain (A→B→C… in turn)
@@ -98,6 +99,7 @@ module.exports = {
     let tick = 0;
     let transport = false;
     const pending = []; // note offs: { at, channel, note }
+    const scheduled = []; // nudged note ons: { at, l, vel, gate }
     const heldHits = new Map(); // control id -> [channel, note] of a held drum pad (its note off goes there)
     let saveTimer = null;
 
@@ -116,7 +118,7 @@ module.exports = {
         const out = {};
         for (const [k, sq] of Object.entries(seqs)) {
           out[k] = { running: sq.running, selected: sq.selected, loop: sq.loop, pattern: sq.pattern, patterns: sq.patterns, chain: sq.chain, lanes: {} };
-          for (const [lane, l] of Object.entries(sq.lanes)) out[k].lanes[lane] = { steps: l.steps, chance: l.chance, gate: l.gate };
+          for (const [lane, l] of Object.entries(sq.lanes)) out[k].lanes[lane] = { steps: l.steps, chance: l.chance, gate: l.gate, nudge: l.nudge };
         }
         if (api.saveState) api.saveState('stepseq', out);
       }, 500);
@@ -145,7 +147,7 @@ module.exports = {
       if (!sq.lanes[lane]) {
         const savedSteps = sq.savedLanes[lane] && Array.isArray(sq.savedLanes[lane].steps) ? sq.savedLanes[lane].steps : [];
         const saved = sq.savedLanes[lane] || {};
-        sq.lanes[lane] = { note, channel: ctx ? ctx.channel : 0, steps: savedSteps.slice(0, 64), chance: Array.isArray(saved.chance) ? saved.chance.slice(0, 64) : [], gate: Array.isArray(saved.gate) ? saved.gate.slice(0, 64) : [], skip: -1 };
+        sq.lanes[lane] = { note, channel: ctx ? ctx.channel : 0, steps: savedSteps.slice(0, 64), chance: Array.isArray(saved.chance) ? saved.chance.slice(0, 64) : [], gate: Array.isArray(saved.gate) ? saved.gate.slice(0, 64) : [], nudge: Array.isArray(saved.nudge) ? saved.nudge.slice(0, 64) : [], skip: -1 };
       }
       sq.lanes[lane].note = note;
       if (ctx) sq.lanes[lane].channel = ctx.channel;
@@ -179,6 +181,7 @@ module.exports = {
           l.steps[s + n] = l.steps[s] || 0;
           l.chance[s + n] = l.chance[s] || 0;
           l.gate[s + n] = l.gate[s] || 0;
+          l.nudge[s + n] = l.nudge[s] || 0;
         }
       }
       sq.loop = n * 2 >= sq.length ? 0 : n * 2;
@@ -189,6 +192,7 @@ module.exports = {
       l.steps[i] = vel;
       l.chance[i] = 0;
       l.gate[i] = 0;
+      l.nudge[i] = 0;
     }
 
     // A live hit while recording goes into the step that is closest in time; if that is the coming step,
@@ -210,7 +214,7 @@ module.exports = {
     // Patterns: the current one lives in the lanes; the others are snapshots in sq.patterns.
     const snapshot = (sq) => {
       const lanes = { ...((sq.patterns[sq.pattern] && sq.patterns[sq.pattern].lanes) || {}) };
-      for (const [lane, l] of Object.entries(sq.lanes)) lanes[lane] = { steps: l.steps.slice(), chance: l.chance.slice(), gate: l.gate.slice() };
+      for (const [lane, l] of Object.entries(sq.lanes)) lanes[lane] = { steps: l.steps.slice(), chance: l.chance.slice(), gate: l.gate.slice(), nudge: l.nudge.slice() };
       return { loop: sq.loop, lanes };
     };
     const hasNotes = (pat) => !!pat && Object.values(pat.lanes || {}).some((l) => (l.steps || []).some((v) => v > 0));
@@ -224,6 +228,7 @@ module.exports = {
         l.steps = Array.isArray(src.steps) ? src.steps.slice(0, 64) : [];
         l.chance = Array.isArray(src.chance) ? src.chance.slice(0, 64) : [];
         l.gate = Array.isArray(src.gate) ? src.gate.slice(0, 64) : [];
+        l.nudge = Array.isArray(src.nudge) ? src.nudge.slice(0, 64) : [];
         l.skip = -1;
       }
       sq.loop = int(next.loop, 0);
@@ -245,15 +250,34 @@ module.exports = {
       }
       sq.pos = (sq.pos + 1) % Math.max(1, loopLen(sq));
       sq.stepTick = tick;
+      const n = loopLen(sq);
+      const next = (sq.pos + 1) % n;
       for (const l of Object.values(sq.lanes)) {
-        const vel = l.steps[sq.pos] || 0;
-        if (l.skip === sq.pos) {
-          l.skip = -1;
-          continue;
+        // This step (on time or late), and the next step if it is nudged early.
+        if (l.skip === sq.pos) l.skip = -1;
+        else if ((l.nudge[sq.pos] || 0) >= 0) trigger(l, sq.pos, l.nudge[sq.pos] || 0);
+        else if (l.early !== sq.pos) trigger(l, sq.pos, 0); // early step with nothing before it (e.g. after Play)
+        l.early = -1;
+        if ((l.nudge[next] || 0) < 0 && l.skip !== next) {
+          l.early = next;
+          trigger(l, next, TICKS_PER_STEP + l.nudge[next]);
         }
-        if (!vel) continue;
-        if (l.chance[sq.pos] && Math.random() * 100 >= l.chance[sq.pos]) continue;
-        noteOn(l, vel, l.gate[sq.pos] || GATE_TICKS);
+      }
+    }
+
+    function trigger(l, i, delay) {
+      const vel = l.steps[i] || 0;
+      if (!vel) return;
+      if (l.chance[i] && Math.random() * 100 >= l.chance[i]) return;
+      if (delay <= 0) noteOn(l, vel, l.gate[i] || GATE_TICKS);
+      else scheduled.push({ at: tick + delay, l, vel, gate: l.gate[i] || GATE_TICKS });
+    }
+
+    function playScheduled(all = false) {
+      for (let i = scheduled.length - 1; i >= 0; i--) {
+        if (!all && scheduled[i].at > tick) continue;
+        const s0 = scheduled.splice(i, 1)[0];
+        if (!all) noteOn(s0.l, s0.vel, s0.gate);
       }
     }
 
@@ -327,6 +351,7 @@ module.exports = {
               l.steps = src.steps.slice();
               l.chance = src.chance.slice();
               l.gate = src.gate.slice();
+              l.nudge = src.nudge.slice();
               sq.copyFrom = null;
             } else sq.copyFrom = lane;
           } else {
@@ -376,7 +401,7 @@ module.exports = {
           if (encoder === 'enc.1') {
             // Rotate the lane inside the loop, one step per detent.
             const k = ((Math.sign(delta) % n) + n) % n;
-            for (const key of ['steps', 'chance', 'gate']) {
+            for (const key of ['steps', 'chance', 'gate', 'nudge']) {
               const arr = Array.from({ length: n }, (_, i) => l[key][i] || 0);
               for (let i = 0; i < n; i++) l[key][(i + k) % n] = arr[i];
             }
@@ -389,7 +414,7 @@ module.exports = {
         }
         const h = heldSteps.get(id);
         if (!h) return false;
-        if (encoder !== 'enc.1' && encoder !== 'enc.2' && encoder !== 'enc.3') return false;
+        if (encoder !== 'enc.1' && encoder !== 'enc.2' && encoder !== 'enc.3' && encoder !== 'enc.4') return false;
         h.turned = true;
         const unit = whole(h);
         if (!unit) return true;
@@ -401,7 +426,8 @@ module.exports = {
           const cur = l.chance[i] || 100;
           const next = Math.max(5, Math.min(100, Math.round((cur + delta * 5) / 5) * 5));
           l.chance[i] = next >= 100 ? 0 : next;
-        } else if (encoder === 'enc.3') l.gate[i] = Math.max(1, Math.min(MAX_GATE, Math.round((l.gate[i] || GATE_TICKS) + delta)));
+        } else if (encoder === 'enc.4') l.nudge[i] = Math.max(-3, Math.min(3, (l.nudge[i] || 0) + Math.sign(delta)));
+        else if (encoder === 'enc.3') l.gate[i] = Math.max(1, Math.min(MAX_GATE, Math.round((l.gate[i] || GATE_TICKS) + delta)));
         else return false;
         h.turned = true;
         persist();
@@ -460,9 +486,11 @@ module.exports = {
         } else if (type === 'continue') transport = true;
         else if (type === 'stop') {
           transport = false;
+          playScheduled(true); // drop nudged notes that have not started
           flushNoteOffs(true);
           api.renderAddons();
         } else if (type === 'clock' && transport) {
+          playScheduled();
           // Every second 16th is delayed by the swing ticks.
           let stepped = false;
           for (const sq of Object.values(seqs)) {
@@ -510,7 +538,7 @@ module.exports = {
         for (const h of heldSteps.values()) {
           if (h.sq !== sq || !h.l.steps[h.i]) continue;
           const gate = h.l.gate[h.i] || GATE_TICKS;
-          return `Korak ${h.i + 1}: vel ${h.l.steps[h.i]} · ${h.l.chance[h.i] || 100}% · dužina ${+(gate / 6).toFixed(2)}×1/16 (enk. 1–3)`;
+          return `Korak ${h.i + 1}: vel ${h.l.steps[h.i]} · ${h.l.chance[h.i] || 100}% · dužina ${+(gate / 6).toFixed(2)}×1/16${h.l.nudge[h.i] ? ` · pomak ${h.l.nudge[h.i] > 0 ? '+' : ''}${h.l.nudge[h.i]}/6` : ''} (enk. 1–4)`;
         }
         const playing = transport && sq.running;
         const parts = [`Seq ${params.seq || 'A'} ${playing ? '▶' : '■'} ${playing && sq.pos >= 0 ? sq.pos + 1 : '–'}/${loopLen(sq)}`];

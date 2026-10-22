@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.48.0 – 2026-10-22
+Sekvencer: mikro pomak koraka (drži korak + enkoder 4).
+
 ## v0.47.0 – 2026-10-22
 Ekran: boje trackova iznad enkodera, dodirnuti enkoder veliko u statusnoj liniji.
 

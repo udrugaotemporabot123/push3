@@ -92,10 +92,10 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.46.1 Editor: templates grouped in collapsible categories
 - [x] v0.46.2 Review fixes: poly AT follows transposed notes, snapshots never saved empty and skip values from another encoder type/mode, morph reaches B in Fader mode, accent/repeat bound to their page (and cleared on exit), Repeat picks up pads already held, accent keeps repeats at full velocity, Song Position keeps repeat on the grid, pageHold returns by page uid, editor morph summary
 - [x] v0.47.0 Display: track colour stripe above Live encoders, touched encoder shown in the status line (name + value)
+- [x] v0.48.0 Sequencer micro-timing: hold step + encoder 4 nudges it ±3 ticks (early notes scheduled from the previous step), kept in patterns/double/copy
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
-- [ ] Sequencer: per-step micro-timing (nudge within a step).
 - [ ] Sampler: "resample master" source (route from Main), verify Simpler parameter names on hardware (S Start, S Length, Ve Attack…).
 - [ ] Looper: overdub (MIDI only in Live session; audio needs a new layer on the next slot), stop-all with fade.
 - [ ] Editor: per-page templates preview.
