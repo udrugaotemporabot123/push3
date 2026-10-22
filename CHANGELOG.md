@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.49.3 – 2026-10-22
+Instalacija više ne treba: MIDI biblioteke su u paketu, usb (ekran) se ne kompajlira automatski. Rješava beskonačno Installing components.
+
 ## v0.49.2 – 2026-10-22
 Sigurnost: preuzimanje ekrana se gasi pri svakom pokretanju (Live se više ne bi smio zamrznuti pri učitavanju).
 

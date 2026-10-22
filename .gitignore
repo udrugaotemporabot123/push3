@@ -1,3 +1,13 @@
-node_modules/
+# Dependencies are installed by npm, except the runtime ones that are shipped with every release
+# (they contain ready-made macOS/Windows binaries, so the device never has to compile anything).
+node_modules/*
+!node_modules/@julusian/
+node_modules/@julusian/*
+!node_modules/@julusian/midi/
+node_modules/@julusian/midi/src-cpp/
+node_modules/@julusian/midi/vendor/
+!node_modules/pkg-prebuilds/
+!node_modules/tslib/
+!node_modules/ws/
 *.tmp
 .DS_Store
