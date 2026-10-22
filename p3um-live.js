@@ -292,6 +292,11 @@ function livePath(spec) {
     }
     return { path: tr.unquotedpath, prop: spec.t === 'trackProp' ? spec.prop : null, trackId: tr.id };
   }
+  if (spec.t === 'trackSlots') {
+    tr = trackApi(spec.track);
+    if (!tr) return null;
+    return { path: tr.unquotedpath, slots: true, trackId: tr.id, count: tr.getcount('clip_slots') };
+  }
   if (spec.t === 'slot') {
     tr = trackApi(spec.track);
     if (!tr) return null;
@@ -345,7 +350,27 @@ function resolveLive(key) {
   var cb = function () {
     sendLive(key);
   };
-  if (info.slot) {
+  if (info.slots) {
+    // Every slot of the track; re-resolve when scenes are added or removed.
+    var sprops = ['has_clip', 'playing_status', 'is_recording'];
+    for (var si2 = 0; si2 < info.count; si2++) {
+      for (var sp2 = 0; sp2 < sprops.length; sp2++) {
+        var wss = new LiveAPI(cb, info.path + ' clip_slots ' + si2);
+        wss.property = sprops[sp2];
+        lt.watchers.push(wss);
+      }
+    }
+    var firstCount = true;
+    var wcount = new LiveAPI(function () {
+      if (firstCount) {
+        firstCount = false;
+        return;
+      }
+      resolveLive(key);
+    }, info.path);
+    wcount.property = 'clip_slots';
+    lt.watchers.push(wcount);
+  } else if (info.slot) {
     var props = ['has_clip', 'playing_status', 'is_recording', 'is_triggered', 'color'];
     for (var pi = 0; pi < props.length; pi++) {
       var ws = new LiveAPI(cb, info.path);
@@ -399,6 +424,12 @@ function sendLive(key) {
     return;
   }
   var spec = lt.spec;
+  if (info.slots) {
+    var states = [];
+    for (var k = 0; k < info.count; k++) states.push(slotState(new LiveAPI(info.path + ' clip_slots ' + k)));
+    reportLive(key, { ok: true, value: states, name: str(api.get('name')) });
+    return;
+  }
   if (info.slot) {
     var state = 0;
     if (num(api.get('is_recording')) === 1) state = 3;
@@ -554,4 +585,10 @@ function findParam(device, spec) {
     if (str(p.get('name')).toLowerCase() === wanted) return device.unquotedpath + ' parameters ' + i;
   }
   return null;
+}
+
+function slotState(slot) {
+  if (num(slot.get('is_recording')) === 1) return 3;
+  if (num(slot.get('has_clip')) !== 1) return 0;
+  return num(slot.get('playing_status')) === 1 ? 2 : 1;
 }

@@ -57,6 +57,13 @@ Konfiguracija se sprema automatski u `~/Documents/Push3UserMode/config.json` (pr
 | Gornji red (U1–U8) | odabir stranice 1–8 |
 | Kanal | stranica 1 = kanal 5, stranica 2 = 6, … (mijenja se u Postavkama ili po stranici) |
 
+## Add-oni (v0.8)
+
+Dodatne funkcije koje nisu dio jezgre i mogu se isključiti (Postavke → Add-oni). Add-on ne može srušiti jezgru: ako baci grešku, samo ta kontrola ne radi.
+
+- **Live Looper**: po tracku jednim gumbom *Snimi sljedeći loop* (snima u sljedeći prazni slot; drugi pritisak zatvara loop i on svira), *Play/Stop tracka*, *Poništi zadnji loop*, *Arm*. LED blinka crveno dok snima, pulsira zeleno dok svira. Predložak **Looper (8 trackova)**.
+- Novi add-on = nova mapa u `addons/` (vidi `addons/index.js` i `addons/looper/`).
+
 ## Ekran (v0.3, eksperimentalno)
 
 Motor sam crta ekran od 960×160: imena stranica gore, oznake i vrijednosti enkodera, zadnju radnju u sredini i oznake donjih gumba s bojama LED-ica.

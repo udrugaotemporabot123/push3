@@ -9,8 +9,9 @@ const store = require('./store');
 const push3 = require('./push3');
 const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
+const { loadAddons } = require('../../addons');
 
-const VERSION = '0.7.0';
+const VERSION = '0.8.0';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -67,6 +68,9 @@ function start() {
 
   const engine = new Engine(io, store.load(log));
   engine.setPalette(palette); // same array; filled with the real Push palette once read
+  const addons = loadAddons(log);
+  engine.setAddons(addons);
+  const addonInfo = addons.map((a) => ({ id: a.id, name: a.name, description: a.description, actions: a.actions }));
   const display = new DisplayManager({
     engine,
     palette,
@@ -128,6 +132,7 @@ function start() {
       ports: midi && midi.lastPortList,
       log: recentLog.slice(-50),
       inMax: !!max,
+      addons: addonInfo,
     };
   }
 

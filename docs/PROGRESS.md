@@ -32,11 +32,15 @@ Update this file after every step so work can resume after an interruption.
 
 - [x] v0.7.0 clip slots (launch/record, delete, stop track) with slot-state LEDs; Clip grid 8x8 template
 
+- [x] v0.8.0 add-on framework (addons/, guarded calls, enable/disable, editor UI) + Live Looper add-on
+      (recNext/playStop/undoLast/arm per track, trackSlots observation in the bridge), Looper template
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white
-- [ ] v0.6 add-on framework (`addons/`), first add-ons from SVEBOR's workflow: sampling station (record mic/violin
-      into Simpler / drum rack pads), rack-variation grid for many racks, Beat Repeat performance page
+- [ ] v0.9 Sampling add-on: capture mic/violin into Simpler / drum-rack pads (Record.To.Simpler / Catch control,
+      "sample → next free pad"), Beat Repeat performance page, variation grid over many racks
+- [ ] Editor: import/export config file, copy/paste controls between pages, search by label
 - [ ] Phase 2 ideas: Push display (USB, Live holds it), shift layers, momentary page hold,
       LED feedback for variation pads across racks, MIDI-learn of target in editor, 14-bit encoders
 

@@ -56,6 +56,7 @@ class Engine {
     this.clockTimer = null;
     this.liveState = { variations: {}, values: {} }; // variations: key -> {count, selected, name, ok}; values: liveKey -> {ok, value, name, display, color}
     this.palette = DEFAULT_PALETTE;
+    this.addons = new Map(); // id -> { mod, inst }
     this.discovered = new Map(); // unknown input key -> { bytes, count }
     this.setConfig(config);
   }
@@ -402,6 +403,10 @@ class Engine {
       case 'live':
         this.livePress(ctl, m);
         return;
+      case 'addon':
+        this.addonCall(m, 'press', { id: ctl.id });
+        this.renderControl(ctl);
+        return;
       case 'none':
         this.renderControl(ctl);
         return;
@@ -444,6 +449,8 @@ class Engine {
       this.renderAll();
       return;
     }
+    const am = this.mapping(ctl.id);
+    if (am && am.type === 'addon') this.addonCall(am, 'release', { id: ctl.id });
     const lheld = this.liveHeld.get(ctl.id);
     if (lheld) {
       this.liveHeld.delete(ctl.id);
@@ -647,7 +654,7 @@ class Engine {
 
   usesAnimation() {
     const page = this.config.pages[this.page];
-    return page && Object.values(page.controls).some((m) => (m.anim && m.anim !== 'none') || (m.type === 'live' && m.live && m.live.action === 'clip'));
+    return page && Object.values(page.controls).some((m) => (m.anim && m.anim !== 'none') || m.type === 'addon' || (m.type === 'live' && m.live && m.live.action === 'clip'));
   }
 
   // ---------------------------------------------------------------------------------------
@@ -664,6 +671,16 @@ class Engine {
           if (m.type === 'variation') targets[variationKey(m.target)] = m.target;
           const spec = this.liveSpec(m);
           if (spec) liveTargets[live.liveKey(spec)] = spec;
+          if (m.type === 'addon') {
+            const a = this.addonFor(m);
+            let specs = [];
+            try {
+              specs = a && a.inst.watch ? a.inst.watch(m.addon.params || {}, m.addon.action) || [] : [];
+            } catch (e) {
+              this.io.log('error', `Add-on ${m.addon.id}.watch failed: ${e.message}`);
+            }
+            for (const sp of specs) liveTargets[live.liveKey(sp)] = sp;
+          }
         }
       }
     }
@@ -675,6 +692,45 @@ class Engine {
 
   setPalette(palette) {
     this.palette = palette;
+  }
+
+  // Add-ons: each gets a small API; every call into an add-on is guarded.
+  setAddons(mods) {
+    const api = {
+      toLive: (o) => this.io.toLive(o),
+      liveValue: (spec) => this.liveState.values[live.liveKey(spec)],
+      liveKey: live.liveKey,
+      log: (level, msg) => this.io.log(level, msg),
+      ANIM: push3.ANIMATIONS,
+      SLOT: live.SLOT,
+    };
+    this.addons = new Map();
+    for (const mod of mods) {
+      try {
+        this.addons.set(mod.id, { mod, inst: mod.create(api) });
+      } catch (e) {
+        this.io.log('error', `Add-on ${mod.id} failed to start: ${e.message}`);
+      }
+    }
+    this.syncVariationTargets();
+    if (this.mode === 'user') this.renderAll();
+  }
+
+  addonFor(m) {
+    if (!m || m.type !== 'addon' || !m.addon) return null;
+    if (this.config.settings.addons && this.config.settings.addons[m.addon.id] === false) return null;
+    return this.addons.get(m.addon.id) || null;
+  }
+
+  addonCall(m, fn, extra = {}) {
+    const a = this.addonFor(m);
+    if (!a || typeof a.inst[fn] !== 'function') return undefined;
+    try {
+      return a.inst[fn]({ params: m.addon.params || {}, action: m.addon.action, ...extra });
+    } catch (e) {
+      this.io.log('error', `Add-on ${m.addon.id}.${fn} failed: ${e.message}`);
+      return undefined;
+    }
   }
 
   liveSpec(m) {
@@ -768,12 +824,13 @@ class Engine {
     } else if (msg.type === 'live' && msg.key) {
       this.liveState.values[msg.key] = {
         ok: !!msg.ok,
-        value: Number(msg.value) || 0,
+        value: Array.isArray(msg.value) ? msg.value : Number(msg.value) || 0,
         name: typeof msg.name === 'string' ? msg.name : '',
         display: typeof msg.display === 'string' ? msg.display : '',
         color: Array.isArray(msg.color) ? msg.color : null,
       };
       this.renderWhere((m) => {
+        if (m.type === 'addon') return true; // add-ons may depend on any observed value
         const spec = this.liveSpec(m);
         return !!spec && live.liveKey(spec) === msg.key;
       });
@@ -799,6 +856,10 @@ class Engine {
     if (m.type === 'none') {
       if (held) return { color: ctl.led === 'rgb' ? 3 : 127, anim: 0 };
       return { color: this.config.settings.unmappedLeds === 'dim' ? (ctl.led === 'rgb' ? 1 : 8) : 0, anim: 0 };
+    }
+    if (m.type === 'addon') {
+      const led = this.addonCall(m, 'led', { id: ctl.id, held });
+      return led && Number.isInteger(led.color) ? { color: Math.max(0, Math.min(127, led.color)), anim: led.anim | 0 } : { color: 0, anim: 0 };
     }
     if (m.type === 'live' && m.live.action === 'clip') return this.clipLed(m, held);
     if (m.type === 'live') {

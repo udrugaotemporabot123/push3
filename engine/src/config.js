@@ -12,7 +12,7 @@ const MAX_PAGES = 16;
 
 const PAGE_COLORS = [COLORS.mint, COLORS.blue, COLORS.orange, COLORS.pink, COLORS.yellow, COLORS.purple, COLORS.cyan, COLORS.red];
 
-const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live'];
+const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live', 'addon'];
 const BEHAVIORS = ['momentary', 'toggle', 'trigger'];
 const ENCODER_TYPES = ['none', 'cc', 'live'];
 const ENCODER_MODES = ['absolute', 'relative2c', 'relativeOffset'];
@@ -50,6 +50,7 @@ function defaultSettings() {
     internalClock: true, // drive blink/pulse LED animations when Live sends no clock
     display: 'editor', // 'editor' = preview in the editor only, 'takeover' = also drive the Push display in User Mode
     shiftLayer: true, // Shift is a modifier: controls with a shift mapping do something else while it is held
+    addons: {}, // add-on id -> false to disable it
   };
 }
 
@@ -175,6 +176,14 @@ function normalizeButton(m, page, ctl, isShift = false) {
       mode: oneOf(l.mode, live.PARAM_MODES, 'toggle'),
     };
   }
+  if (out.type === 'addon') {
+    const a = m.addon && typeof m.addon === 'object' ? m.addon : {};
+    const params = {};
+    if (a.params && typeof a.params === 'object') {
+      for (const [k, v] of Object.entries(a.params).slice(0, 16)) if (/^\w{1,24}$/.test(k)) params[k] = str(String(v), '', 64);
+    }
+    out.addon = { id: str(a.id, '', 32), action: str(a.action, '', 32), params };
+  }
   if (!isShift) attachShift(out, m, (x) => normalizeButton(x, page, ctl, true));
   return out;
 }
@@ -266,6 +275,7 @@ function normalizeConfig(cfg) {
     internalClock: typeof s.internalClock === 'boolean' ? s.internalClock : ds.internalClock,
     display: oneOf(s.display, ['editor', 'takeover'], ds.display),
     shiftLayer: typeof s.shiftLayer === 'boolean' ? s.shiftLayer : ds.shiftLayer,
+    addons: s.addons && typeof s.addons === 'object' ? Object.fromEntries(Object.entries(s.addons).filter(([k, v]) => /^\w{1,32}$/.test(k) && typeof v === 'boolean')) : {},
   };
   const srcPages = Array.isArray(src.pages) && src.pages.length ? src.pages.slice(0, MAX_PAGES) : defaultConfig().pages;
   const pages = srcPages.map((p, i) => normalizePage(p, i));

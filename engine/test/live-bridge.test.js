@@ -255,3 +255,13 @@ test('bridge: clip slot state, fire and delete; scene 0 = selected scene', () =>
   b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'trackSelect', track: 'Bass' }, fn: 'stopTrack' }));
   assert.deepEqual(live.calls.filter((c) => ['fire', 'delete_clip', 'stop_all_clips'].includes(c[1])).map((c) => c[1]), ['fire', 'delete_clip', 'stop_all_clips']);
 });
+
+test('bridge: trackSlots reports every slot state of a track', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  b.live(JSON.stringify({ cmd: 'watchLive', targets: { ts: { t: 'trackSlots', track: 'Bass' } } }));
+  assert.deepEqual(states(b.out).at(-1).value, [0, 2]);
+  new live.LiveAPI('live_set tracks 0 clip_slots 0').set('is_recording', 1);
+  assert.deepEqual(states(b.out).at(-1).value, [3, 2]);
+});

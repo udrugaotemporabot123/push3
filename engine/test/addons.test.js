@@ -1,0 +1,109 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { Engine } = require('../src/engine');
+const { defaultConfig } = require('../src/config');
+const live = require('../src/live');
+const push3 = require('../src/push3');
+const looper = require('../../addons/looper');
+
+const SYSEX_USER = [...push3.SYSEX_HEADER, 0x0a, 0x01, 0xf7];
+
+function setup(mutate, mods = [looper]) {
+  const out = { push: [], host: [], live: [], logs: [] };
+  const io = {
+    toPush: (b) => out.push.push([...b]),
+    toHost: (b) => out.host.push([...b]),
+    toLive: (o) => out.live.push(o),
+    log: (l, m) => out.logs.push(`${l}: ${m}`),
+    now: () => 0,
+    setTimer: () => 0,
+    clearTimer() {},
+    setInterval: () => 0,
+    clearInterval() {},
+  };
+  const cfg = defaultConfig();
+  if (mutate) mutate(cfg);
+  const e = new Engine(io, cfg);
+  e.setAddons(mods);
+  e.setPushConnected(true);
+  e.handlePushMessage(SYSEX_USER);
+  return { e, out, clear: () => Object.keys(out).forEach((k) => (out[k].length = 0)) };
+}
+
+const slotsKey = (track) => live.liveKey({ t: 'trackSlots', track });
+const armKey = (track) => live.liveKey({ t: 'trackProp', track, prop: 'arm' });
+
+test('looper: watches the track and records into the next empty slot, then closes the loop', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls.record, { type: 'addon', addon: { id: 'looper', action: 'recNext', params: { track: 'VIO' } } });
+  });
+  const watched = Object.keys(out.live.filter((x) => x.cmd === 'watchLive').at(-1).targets);
+  assert.ok(watched.includes(slotsKey('VIO')));
+  e.handleLiveState({ type: 'live', key: armKey('VIO'), ok: true, value: 0 });
+  e.handleLiveState({ type: 'live', key: slotsKey('VIO'), ok: true, value: [2, 1, 0, 0] });
+  clear();
+  e.handlePushMessage([0xb0, 86, 127]);
+  assert.deepEqual(out.live, [
+    { cmd: 'liveSet', key: armKey('VIO'), spec: { t: 'trackProp', track: 'VIO', prop: 'arm' }, value: 1 },
+    { cmd: 'liveCall', spec: { t: 'slot', track: 'VIO', scene: 3 }, fn: 'fireSlot' },
+  ]);
+  // Now recording in slot 3: LED blinks red, next press closes the loop on the same slot.
+  e.handleLiveState({ type: 'live', key: slotsKey('VIO'), ok: true, value: [2, 1, 3, 0] });
+  e.handlePushMessage([0xb0, 86, 0]);
+  assert.deepEqual(out.push.filter((m) => (m[0] & 0xf0) === 0xb0 && m[1] === 86).at(-1), [0xb0 | push3.ANIMATIONS.blink, 86, 5]);
+  clear();
+  e.handlePushMessage([0xb0, 86, 127]);
+  assert.deepEqual(out.live, [{ cmd: 'liveCall', spec: { t: 'slot', track: 'VIO', scene: 3 }, fn: 'fireSlot' }]);
+});
+
+test('looper: undo deletes the last clip, play/stop toggles the track', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls.undo, { type: 'addon', addon: { id: 'looper', action: 'undoLast', params: { track: '2' } } });
+    Object.assign(c.pages[0].controls.play, { type: 'addon', addon: { id: 'looper', action: 'playStop', params: { track: '2' } } });
+  });
+  e.handleLiveState({ type: 'live', key: slotsKey('2'), ok: true, value: [1, 2, 0] });
+  clear();
+  e.handlePushMessage([0xb0, 119, 127]);
+  e.handlePushMessage([0xb0, 85, 127]);
+  assert.deepEqual(out.live, [
+    { cmd: 'liveCall', spec: { t: 'slot', track: '2', scene: 2 }, fn: 'deleteSlot' },
+    { cmd: 'liveCall', spec: { t: 'trackSelect', track: '2' }, fn: 'stopTrack' },
+  ]);
+});
+
+test('a broken add-on never breaks the core', () => {
+  const broken = {
+    id: 'broken',
+    create: () => ({
+      watch() {
+        throw new Error('boom');
+      },
+      press() {
+        throw new Error('boom');
+      },
+      led() {
+        throw new Error('boom');
+      },
+    }),
+  };
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls.mute, { type: 'addon', addon: { id: 'broken', action: 'x', params: {} } });
+  }, [broken]);
+  clear();
+  e.handlePushMessage([0xb0, 60, 127]);
+  e.handlePushMessage([0x90, 36, 100]); // the rest keeps working
+  assert.deepEqual(out.host, [[0x94, 36, 100]]);
+  assert.ok(out.logs.some((l) => l.includes('broken.press failed')));
+});
+
+test('disabled add-on leaves its controls inert', () => {
+  const { e, out, clear } = setup((c) => {
+    c.settings.addons = { looper: false };
+    Object.assign(c.pages[0].controls.record, { type: 'addon', addon: { id: 'looper', action: 'recNext', params: { track: 'VIO' } } });
+  });
+  e.handleLiveState({ type: 'live', key: slotsKey('VIO'), ok: true, value: [0] });
+  clear();
+  e.handlePushMessage([0xb0, 86, 127]);
+  assert.equal(out.live.length, 0);
+});

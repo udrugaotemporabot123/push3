@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.8.0 – 2026-10-22
+Add-oni: okvir (addons/, izolirani pozivi, uključi/isključi u Postavkama) i prvi add-on Live Looper — snimi sljedeći loop / zatvori loop, play/stop, poništi zadnji, arm; predložak Looper (8 trackova).
+
 ## v0.7.0 – 2026-10-22
 Clip slotovi kao Live funkcija: pokreni/snimi, obriši, stop tracka; LED pokazuje stanje (boja clipa, svira, snima, čeka). Predložak Clip grid 8×8 (Shift + pad = obriši).
 

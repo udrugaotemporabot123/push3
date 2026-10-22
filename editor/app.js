@@ -15,7 +15,7 @@ const el = (tag, attrs = {}, ...kids) => {
 };
 
 const T = {
-  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)' },
+  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on' },
   liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka' },
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
   liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', tempo: 'Tempo' },
@@ -101,7 +101,7 @@ function handle(m) {
       S.snapshot = m.snapshot;
       S.leds = { ...m.snapshot.leds };
       S.presets = m.presets || [];
-      S.meta = { virtualPort: m.virtualPort, configFile: m.configFile, version: m.version, inMax: m.inMax, ports: m.ports };
+      S.meta = { virtualPort: m.virtualPort, configFile: m.configFile, version: m.version, inMax: m.inMax, ports: m.ports, addons: m.addons || [] };
       buildSurface();
       renderAll();
       (m.log || []).forEach(addEngineLog);
@@ -315,6 +315,11 @@ function mappingSummary(c, m) {
       return `Var ${m.index + 1}${m.action !== 'recall' ? ` ${m.action}` : ''}`;
     case 'live':
       return `⚡${(T.liveActions[m.live && m.live.action] || 'Live').replace(' tracka', '')}${m.live && m.live.track && m.live.track !== 'selected' && ['mute', 'solo', 'arm', 'select'].includes(m.live.action) ? ` ${m.live.track}` : ''}`;
+    case 'addon': {
+      const a = ((S.meta && S.meta.addons) || []).find((x) => m.addon && x.id === m.addon.id);
+      const act = a && a.actions[m.addon.action];
+      return `◆ ${act ? act.label : 'Add-on'}`;
+    }
     case 'pageHold':
       return `⇥ ${S.config.pages[m.page] ? S.config.pages[m.page].name : `P${m.page + 1}`}`;
     default:
@@ -595,9 +600,11 @@ function renderButtonInspector(box, ctls, maps) {
     renderVariationFields(box, maps);
   } else if (type === 'live') {
     renderLiveButtonFields(box, maps);
+  } else if (type === 'addon') {
+    renderAddonFields(box, maps);
   }
 
-  if (!noLed && type !== undefined) {
+  if (!noLed && type !== undefined && type !== 'addon') {
     box.append(el('div', { class: 'sep' }));
     box.append(colorField(type === 'variation' ? 'Boja aktivne' : 'Boja ON', 'colorOn', maps, isWhite));
     box.append(colorField(type === 'variation' ? 'Boja postojeće' : 'Boja OFF', 'colorOff', maps, isWhite));
@@ -678,6 +685,38 @@ function renderLiveButtonFields(box, maps) {
     const st = liveStatus(maps[0]);
     if (st) box.append(st);
   }
+}
+
+function renderAddonFields(box, maps) {
+  const addons = (S.meta && S.meta.addons) || [];
+  if (!addons.length) {
+    box.append(el('p', { class: 'muted' }, 'Nema instaliranih add-ona.'));
+    return;
+  }
+  const opts = {};
+  for (const a of addons) for (const [k, act] of Object.entries(a.actions || {})) opts[`${a.id}:${k}`] = `${a.name}: ${act.label}`;
+  const cur = common(maps, (m) => (m.addon ? `${m.addon.id}:${m.addon.action}` : ''));
+  box.append(
+    field('Radnja', selectEl(opts, cur, (v) => {
+      const [id, action] = v.split(':');
+      const def = addons.find((a) => a.id === id).actions[action];
+      setAll((m) => {
+        const params = {};
+        for (const [f, spec] of Object.entries(def.fields || {})) params[f] = (m.addon && m.addon.params && m.addon.params[f]) || spec.default || '';
+        m.addon = { id, action, params };
+      });
+    })),
+  );
+  if (!cur) return;
+  const [id, action] = cur.split(':');
+  const a = addons.find((x) => x.id === id);
+  const def = a && a.actions[action];
+  if (!def) return;
+  for (const [f, spec] of Object.entries(def.fields || {})) {
+    box.append(field(spec.label || f, textEl(common(maps, (m) => m.addon && m.addon.params && m.addon.params[f]), (v) => setAll((m) => (m.addon.params = { ...m.addon.params, [f]: v.trim() || spec.default || '' })), spec.default || ''), spec.help || ''));
+  }
+  box.append(el('p', { class: 'muted small' }, a.description || ''));
+  if (S.config.settings.addons && S.config.settings.addons[id] === false) box.append(el('div', { class: 'warn' }, 'Ovaj add-on je isključen u Postavkama.'));
 }
 
 function renderLiveEncoderFields(box, maps) {
@@ -917,6 +956,22 @@ const TEMPLATES = {
       return r;
     },
   },
+  looper: {
+    name: 'Looper (8 trackova)',
+    help: 'Stupac = track 1–8: gornji pad snima sljedeći loop (drugi pritisak zatvara loop), ispod Play/Stop, Poništi zadnji, Arm. Brojeve trackova možeš zamijeniti imenima.',
+    apply() {
+      const r = {};
+      const A = (action, track) => ({ type: 'addon', addon: { id: 'looper', action, params: { track, autoArm: 'yes' } } });
+      for (let c = 0; c < 8; c++) {
+        const t = String(c + 1);
+        r[`pad.7.${c}`] = A('recNext', t);
+        r[`pad.6.${c}`] = A('playStop', t);
+        r[`pad.5.${c}`] = A('undoLast', t);
+        r[`pad.4.${c}`] = A('arm', t);
+      }
+      return r;
+    },
+  },
   transport: {
     name: 'Transport',
     help: 'Play, Record (session), Metronom, Tap, Undo, Capture, Automate = overdub, Stop Clip = stop, Duplicate = redo.',
@@ -982,6 +1037,10 @@ function renderSettings() {
     field('Shift sloj', selectEl({ true: 'Uključen (Shift = modifikator)', false: 'Isključen (Shift je običan gumb)' }, String(s.shiftLayer), (v) => set('shiftLayer', v === 'true')), 'Dok držiš Shift, kontrole s Shift slojem šalju drugu poruku.'),
     field('Push ekran', selectEl({ editor: 'Samo pregled u editoru', takeover: 'Preuzmi ekran u User modu (eksperimentalno)' }, s.display, (v) => set('display', v)), 'Pokušava crtati na Push 3 ekran dok si u User modu. Ako ga Live drži, ostaje pregled ovdje.'),
     field('Interni clock', selectEl({ true: 'Da (animacije rade i bez Live clocka)', false: 'Ne' }, String(s.internalClock), (v) => set('internalClock', v === 'true'))),
+    el('h4', {}, 'Add-oni'),
+    ...((S.meta && S.meta.addons) || []).map((a) =>
+      field(a.name, selectEl({ true: 'Uključen', false: 'Isključen' }, String(!(s.addons && s.addons[a.id] === false)), (v) => commit((c) => (c.settings.addons = { ...(c.settings.addons || {}), [a.id]: v === 'true' }))), a.description),
+    ),
     el('div', { class: 'btnrow' }, el('button', { class: 'danger', onclick: () => confirm('Vratiti sve na tvorničke postavke?') && send({ t: 'resetConfig' }) }, 'Vrati na zadano')),
     el('p', { class: 'muted small' }, `Konfiguracija: ${S.meta ? S.meta.configFile : ''}`),
   );
