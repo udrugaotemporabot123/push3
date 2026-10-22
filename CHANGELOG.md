@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.12.0 – 2026-10-22
+Shift + enkoder = 10× finije; krivulja velocityja za padove; Panic gumb; ime racka na ekranu pri pozivu varijacije.
+
 ## v0.11.0 – 2026-10-22
 Editor: izvoz/uvoz konfiguracije (.json) i kopiraj/zalijepi kontrola (Cmd+C / Cmd+V), i između stranica.
 

@@ -55,6 +55,9 @@ class DisplayManager {
     if (ev.kind === 'turn') {
       const st = this.engine.ctlState(this.engine.page, ev.id);
       if (m && m.mode === 'absolute' && st.value !== null) detail = `${detail}  ${Math.round(st.value)}`;
+    } else if (ev.kind === 'press' && m && m.type === 'variation') {
+      const v = this.engine.liveState.variations[`${m.target.track}|${m.target.device}`];
+      detail = `${v && v.name ? `${v.name} · ` : ''}Var ${m.index + 1}${this.engine.pressed.has('shift') ? ' (spremi)' : ''}`;
     } else if (ev.kind === 'press' && m && m.behavior === 'toggle') {
       detail = `${detail}  ${this.engine.ctlState(this.engine.page, ev.id).on ? 'ON' : 'OFF'}`;
     }

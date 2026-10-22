@@ -403,6 +403,10 @@ class Engine {
       case 'live':
         this.livePress(ctl, m);
         return;
+      case 'panic':
+        this.panic();
+        this.renderControl(ctl);
+        return;
       case 'addon':
         this.addonCall(m, 'press', { id: ctl.id });
         this.renderControl(ctl);
@@ -414,7 +418,7 @@ class Engine {
         break;
     }
 
-    const value = m.velocity === 'dynamic' ? scaleVelocity(velocity, m) : m.onValue;
+    const value = m.velocity === 'dynamic' ? scaleVelocity(applyCurve(velocity, m.curve), m) : m.onValue;
     const chan = this.channelFor(m);
 
     if (m.behavior === 'toggle') {
@@ -481,6 +485,16 @@ class Engine {
     this.lastPressure.clear();
   }
 
+  // All notes / sound off on every channel of the virtual port.
+  panic() {
+    this.releaseAllHeld();
+    for (let ch = 0; ch < 16; ch++) {
+      this.io.toHost([CC | ch, 64, 0]); // sustain off
+      this.io.toHost([CC | ch, 123, 0]); // all notes off
+    }
+    this.io.log('info', 'Panic: all notes off');
+  }
+
   // Exclusive groups ("radio buttons") within the current page.
   releaseGroup(exceptId, group, silent = false) {
     const page = this.config.pages[this.page];
@@ -530,7 +544,9 @@ class Engine {
     const delta = raw < 64 ? raw : raw - 128; // two's complement
     this.emit('input', { id: ctl.id, kind: 'turn', delta });
     const m = this.mapping(ctl.id);
-    if (m && m.type === 'live' && delta !== 0) return this.liveTurn(ctl, m, delta);
+    // Shift + encoder = fine adjustment (unless the encoder has its own shift mapping).
+    const fine = this.config.settings.shiftFine && this.pressed.has('shift') && this.layerFor(ctl.id) === '' ? 0.1 : 1;
+    if (m && m.type === 'live' && delta !== 0) return this.liveTurn(ctl, m, delta * fine);
     if (!m || m.type !== 'cc' || delta === 0) return;
     const chan = this.channelFor(m);
     if (m.mode === 'relative2c') {
@@ -545,7 +561,7 @@ class Engine {
     const st = this.ctlState(this.page, ctl.id);
     if (st.value === null) st.value = m.min;
     const prev = Math.round(st.value);
-    st.value = Math.min(m.max, Math.max(m.min, st.value + delta * m.sensitivity));
+    st.value = Math.min(m.max, Math.max(m.min, st.value + delta * m.sensitivity * fine));
     const next = Math.round(st.value);
     if (next !== prev) this.io.toHost([CC | chan, m.number, next]);
     this.emit('value', { page: this.page, id: ctl.id, value: next });
@@ -932,6 +948,13 @@ class Engine {
   }
 }
 
+const CURVES = { soft: 0.6, linear: 1, hard: 1.7 };
+function applyCurve(velocity, curve) {
+  const g = CURVES[curve] || 1;
+  if (g === 1) return velocity;
+  return Math.max(1, Math.min(127, Math.round(127 * Math.pow(velocity / 127, g))));
+}
+
 function scaleVelocity(velocity, m) {
   // Map 1..127 onto offValue+1..onValue so "dynamic" still respects the configured range.
   const lo = Math.min(127, m.offValue + 1);
@@ -943,4 +966,4 @@ function variationKey(target) {
   return `${target.track}|${target.device}`;
 }
 
-module.exports = { Engine, variationKey, scaleVelocity };
+module.exports = { Engine, variationKey, scaleVelocity, applyCurve };

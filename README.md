@@ -17,6 +17,7 @@ Max for Live device + editor koji od Push 3 **User moda** radi potpuno podesiv M
 - **Clip slotovi (v0.7)**: pad pokreće/snima clip (track + scena); LED u boji clipa, pulsira dok svira, crveno blinka dok snima; *Obriši clip*, *Stop tracka*; predložak **Clip grid 8×8** (Shift + pad = obriši)
 - **Shift sloj (v0.4)**: svaka kontrola može imati drugu funkciju dok držiš Shift (vlastite boje i stanje); u editoru prekidač *Normalno / Shift sloj*
 - **Drži za stranicu (v0.4)**: dok držiš gumb, prikazana je druga stranica (npr. FX stranica samo dok držiš Select)
+- **Shift + enkoder = 10× finije**, **krivulja velocityja** po padu (meko/linearno/tvrdo), **Panic** gumb (v0.12)
 - **Izvoz/uvoz .json** (Preseti ▾) i **kopiraj/zalijepi** kontrola (Cmd+C / Cmd+V, radi i između stranica)
 - **preseti**, undo/redo, MIDI monitor, popis nepoznatih kontrola (za provjeru na hardveru)
 

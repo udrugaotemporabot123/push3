@@ -42,6 +42,8 @@ Update this file after every step so work can resume after an interruption.
 
 - [x] v0.11.0 editor: export/import .json, copy/paste mappings (incl. shift layer) across controls and pages
 
+- [x] v0.12.0 Shift fine mode for encoders, pad velocity curves, panic action, rack name on display for variation presses
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white

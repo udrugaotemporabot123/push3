@@ -15,7 +15,7 @@ const el = (tag, attrs = {}, ...kids) => {
 };
 
 const T = {
-  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on' },
+  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)' },
   liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka' },
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
   liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', tempo: 'Tempo' },
@@ -320,6 +320,8 @@ function mappingSummary(c, m) {
       const act = a && a.actions[m.addon.action];
       return `◆ ${act ? act.label : 'Add-on'}`;
     }
+    case 'panic':
+      return 'PANIC';
     case 'pageHold':
       return `⇥ ${S.config.pages[m.page] ? S.config.pages[m.page].name : `P${m.page + 1}`}`;
     default:
@@ -584,6 +586,7 @@ function renderButtonInspector(box, ctls, maps) {
     if (type !== 'pc') {
       box.append(field('Ponašanje', selectEl(T.behaviors, common(maps, 'behavior'), (v) => setAll('behavior', v))));
       if (isPad) box.append(field('Velocity', selectEl({ dynamic: 'Dinamički (jačina udarca)', fixed: 'Fiksno (On vrijednost)' }, common(maps, 'velocity'), (v) => setAll('velocity', v))));
+      if (isPad && common(maps, 'velocity') === 'dynamic') box.append(field('Krivulja', selectEl({ soft: 'Meko (lakše do glasnog)', linear: 'Linearno', hard: 'Tvrdo' }, common(maps, 'curve') || 'linear', (v) => setAll('curve', v))));
       box.append(field('On / Off', el('div', { class: 'inline' }, numEl(common(maps, 'onValue'), 0, 127, (v) => setAll('onValue', v)), numEl(common(maps, 'offValue'), 0, 127, (v) => setAll('offValue', v))), 'Vrijednost koja se šalje za uključeno / isključeno'));
       box.append(field('Grupa', textEl(common(maps, 'group'), (v) => setAll('group', v.trim()), 'npr. scene'), 'Kontrole s istim imenom grupe isključuju jedna drugu (radio gumbi).'));
     }
@@ -1068,6 +1071,7 @@ function renderSettings() {
     field('Touch strip', selectEl({ false: 'Pitch bend (vraća se)', true: 'Fader (ostaje gdje pustiš)' }, String(s.stripFader), (v) => set('stripFader', v === 'true'))),
     field('Gumbi za stranice', selectEl({ upper: 'Gornji red (1–8)', none: 'Ništa (mapiraj sam)' }, s.pageButtons, (v) => set('pageButtons', v))),
     field('Nemapirane LED', selectEl({ off: 'Ugašene', dim: 'Lagano upaljene' }, s.unmappedLeds, (v) => set('unmappedLeds', v))),
+    field('Shift + enkoder', selectEl({ true: '10× finije', false: 'Normalno' }, String(s.shiftFine), (v) => set('shiftFine', v === 'true')), 'Vrijedi za enkodere koji nemaju vlastiti Shift sloj.'),
     field('Shift sloj', selectEl({ true: 'Uključen (Shift = modifikator)', false: 'Isključen (Shift je običan gumb)' }, String(s.shiftLayer), (v) => set('shiftLayer', v === 'true')), 'Dok držiš Shift, kontrole s Shift slojem šalju drugu poruku.'),
     field('Push ekran', selectEl({ editor: 'Samo pregled u editoru', takeover: 'Preuzmi ekran u User modu (eksperimentalno)' }, s.display, (v) => set('display', v)), 'Pokušava crtati na Push 3 ekran dok si u User modu. Ako ga Live drži, ostaje pregled ovdje.'),
     field('Interni clock', selectEl({ true: 'Da (animacije rade i bez Live clocka)', false: 'Ne' }, String(s.internalClock), (v) => set('internalClock', v === 'true'))),

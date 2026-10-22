@@ -498,3 +498,31 @@ test('clip slot pads: launch via bridge, LED follows slot state with clip colour
   e.handlePushMessage([0x90, 92, 100]);
   assert.deepEqual(out.live, [{ cmd: 'liveCall', spec: { t: 'slot', track: '1', scene: 1 }, fn: 'fireSlot' }]);
 });
+
+test('Shift + encoder turns 10x finer when the encoder has no shift mapping', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['enc.1'], { sensitivity: 1 });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  e.handleHostMessage([0xb4, 71, 50]);
+  e.handlePushMessage([0xb0, 49, 127]);
+  clear();
+  for (let i = 0; i < 10; i++) e.handlePushMessage([0xb0, 71, 1]);
+  assert.deepEqual(out.host, [[0xb4, 71, 51]]);
+});
+
+test('velocity curves and panic', () => {
+  const { applyCurve } = require('../src/engine');
+  assert.ok(applyCurve(64, 'soft') > 64);
+  assert.ok(applyCurve(64, 'hard') < 64);
+  assert.equal(applyCurve(64, 'linear'), 64);
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls.delete, { type: 'panic' });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  e.handlePushMessage([0x90, 40, 90]);
+  clear();
+  e.handlePushMessage([0xb0, 118, 127]);
+  assert.deepEqual(out.host[0], [0x94, 40, 0]);
+  assert.equal(out.host.filter((m) => m[1] === 123).length, 16);
+});

@@ -12,7 +12,7 @@ const MAX_PAGES = 16;
 
 const PAGE_COLORS = [COLORS.mint, COLORS.blue, COLORS.orange, COLORS.pink, COLORS.yellow, COLORS.purple, COLORS.cyan, COLORS.red];
 
-const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live', 'addon'];
+const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live', 'addon', 'panic'];
 const BEHAVIORS = ['momentary', 'toggle', 'trigger'];
 const ENCODER_TYPES = ['none', 'cc', 'live'];
 const ENCODER_MODES = ['absolute', 'relative2c', 'relativeOffset'];
@@ -51,6 +51,7 @@ function defaultSettings() {
     display: 'editor', // 'editor' = preview in the editor only, 'takeover' = also drive the Push display in User Mode
     shiftLayer: true, // Shift is a modifier: controls with a shift mapping do something else while it is held
     addons: {}, // add-on id -> false to disable it
+    shiftFine: true, // Shift + encoder turns 10x finer
   };
 }
 
@@ -152,6 +153,7 @@ function normalizeButton(m, page, ctl, isShift = false) {
     label: str(m.label, '', 24),
   };
   if (ctl.kind === 'pad') {
+    out.curve = oneOf(m.curve, ['soft', 'linear', 'hard'], 'linear');
     out.pressure = oneOf(m.pressure, PRESSURE_TYPES, 'off');
     out.pressureCc = clampInt(m.pressureCc, 0, 127, 1);
   }
@@ -275,6 +277,7 @@ function normalizeConfig(cfg) {
     internalClock: typeof s.internalClock === 'boolean' ? s.internalClock : ds.internalClock,
     display: oneOf(s.display, ['editor', 'takeover'], ds.display),
     shiftLayer: typeof s.shiftLayer === 'boolean' ? s.shiftLayer : ds.shiftLayer,
+    shiftFine: typeof s.shiftFine === 'boolean' ? s.shiftFine : ds.shiftFine,
     addons: s.addons && typeof s.addons === 'object' ? Object.fromEntries(Object.entries(s.addons).filter(([k, v]) => /^\w{1,32}$/.test(k) && typeof v === 'boolean')) : {},
   };
   const srcPages = Array.isArray(src.pages) && src.pages.length ? src.pages.slice(0, MAX_PAGES) : defaultConfig().pages;
