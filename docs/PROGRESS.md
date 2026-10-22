@@ -75,6 +75,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.30.0 Sampler: recordings load as One-Shot (mode field), Simpler edits on the selected pad (reverse, crop, playback mode, warp) via bridge simplerEdit; lower buttons in the sampler templates
 - [x] v0.31.0 Live encoder target padParam: a parameter of the device on the Drum Rack's selected pad (follows selection, recovers from empty pads, partial name match); sampler templates map encoders 1-8 to the pad's Simpler
 - [x] v0.32.0 Sequencer pattern slots A–H (queued switch at loop end, Shift = copy), in the Drum sequencer template
+- [x] v0.33.0 Editor search (name/label/number, all pages, Enter selects matches), page move/delete freezes automatic channels so Live mappings keep working
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
@@ -82,7 +83,7 @@ Update this file after every step so work can resume after an interruption.
 - [ ] Sampler: "resample master" source (route from Main), verify Simpler parameter names on hardware (S Start, S Length, Ve Attack…).
 - [ ] Looper: overdub (MIDI only in Live session; audio needs a new layer on the next slot), stop-all with fade.
 - [ ] Display: full-screen add-on views (sequencer lanes grid), track colour bars, encoder touch = big value.
-- [ ] Editor: QR code for the tablet link, search by label, drag-to-reorder pages, per-page templates preview.
+- [ ] Editor: QR code for the tablet link, per-page templates preview, engine state follows page moves.
 - [ ] TouchOSC/OSC mirror of the display state (optional add-on).
 
 ## Open questions to verify on hardware

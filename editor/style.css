@@ -59,6 +59,11 @@ input[type=number] { width: 72px; }
 .ctl.touchstrip { border-radius: 6px; background: linear-gradient(#202328, #121417); }
 .ctl.none { opacity: .55; }
 .ctl.reserved { opacity: .4; cursor: not-allowed; }
+.ctl.match { box-shadow: 0 0 0 2px #ffd54a, 0 0 10px #ffd54a88; z-index: 1; }
+.ctl.nomatch { opacity: .25; }
+#search { width: 190px; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line, #333); background: transparent; color: inherit; }
+.tab .hits { margin-left: 6px; padding: 0 6px; border-radius: 8px; background: #ffd54a; color: #000; font-size: 11px; }
+.tab .hits.zero { background: transparent; color: inherit; opacity: .4; }
 .ctl.sel { outline: 2px solid var(--sel); outline-offset: 1px; z-index: 2; }
 .ctl.hit { box-shadow: 0 0 0 3px #fff8, 0 0 18px #fff6; }
 .ctl.verify::after { content: "?"; position: absolute; top: 1px; right: 3px; font-size: 9px; color: var(--warn); }

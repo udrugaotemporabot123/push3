@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.33.0 – 2026-10-22
+Editor: traženje kontrola (ime, oznaka, broj), pomicanje/brisanje stranica čuva MIDI kanale.
+
 ## v0.32.0 – 2026-10-22
 Sekvencer: patterni A–H (prebacivanje na kraju loopa, Shift = kopiraj).
 

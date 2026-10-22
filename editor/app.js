@@ -363,6 +363,9 @@ function updateCtl(id) {
   d.classList.toggle('dark-text', !!bg && luminance(bg) > 0.55);
   d.classList.toggle('sel', S.selected.has(id));
   d.classList.toggle('none', !c.reserved && !pageBtn && m && m.type === 'none');
+  const hit = S.search ? searchMatch(c, m) : false;
+  d.classList.toggle('match', hit);
+  d.classList.toggle('nomatch', !!S.search && !hit);
   const text = c.reserved ? 'User\n(ulaz/izlaz)' : pageBtn ? `${c.short}\n${(S.config.pages[Number(id.split('.')[1]) - 1] || {}).name || '—'}` : ctlText(c, m);
   const lbl = d.firstChild;
   lbl.textContent = '';
@@ -374,6 +377,26 @@ function luminance(color) {
   if (color.startsWith('#')) [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
   else [r, g, b] = color.match(/\d+/g).map(Number);
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+// Search: a number matches the MIDI number (note/CC/PC); text matches name, label and summary.
+function searchMatch(c, m) {
+  const q = S.search;
+  if (!m || m.type === 'none') return false;
+  if (/^\d+$/.test(q)) return m.number === Number(q) || (m.extra || []).some((x) => x.number === Number(q));
+  const text = [c.name, c.short, m.label, ctlText(c, m), m.addon && m.addon.action, m.live && (m.live.action || m.live.target), m.live && m.live.track, m.live && m.live.param].join(' ').toLowerCase();
+  return q.split(/\s+/).every((w) => text.includes(w));
+}
+
+function searchCount(pageIndex) {
+  const page = S.config.pages[pageIndex];
+  let n = 0;
+  for (const c of S.controls) {
+    const base = page.controls[c.id];
+    if (!base) continue;
+    if (searchMatch(c, base) || (base.shift && searchMatch(c, base.shift))) n++;
+  }
+  return n;
 }
 
 function updateAllCtls() {
@@ -450,6 +473,7 @@ function renderPages() {
         el('span', { class: 'dot', style: `background:${hex(p.color)}` }),
         p.name,
         el('span', { class: 'ch' }, `ch ${pageChannel(i)}`),
+        S.search ? el('span', { class: `hits${searchCount(i) ? '' : ' zero'}` }, String(searchCount(i))) : null,
       ),
     );
   });
@@ -1274,8 +1298,17 @@ function applyTemplate(key) {
   });
 }
 
+// Automatic page channels follow the page position: fix them first, so moving or deleting a page
+// never changes what the other pages send (your Live mappings keep working).
+function freezeChannels(c) {
+  c.pages.forEach((p, k) => {
+    if (!p.channel) p.channel = ((c.settings.baseChannel - 1 + k) % 16) + 1;
+  });
+}
+
 function movePage(i, d) {
   commit((c) => {
+    freezeChannels(c);
     const [p] = c.pages.splice(i, 1);
     c.pages.splice(i + d, 0, p);
   });
@@ -1284,7 +1317,10 @@ function movePage(i, d) {
 
 function deletePage(i) {
   if (!confirm(`Obrisati stranicu "${S.config.pages[i].name}"?`)) return;
-  commit((c) => c.pages.splice(i, 1));
+  commit((c) => {
+    freezeChannels(c);
+    c.pages.splice(i, 1);
+  });
   selectPage(Math.max(0, i - 1));
 }
 
@@ -1518,6 +1554,23 @@ function renderAll() {
 
 function wireUi() {
   $('#undoBtn').onclick = undo;
+  const search = $('#search');
+  search.addEventListener('input', () => {
+    S.search = search.value.trim().toLowerCase();
+    updateAllCtls();
+    renderPages();
+  });
+  search.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      search.value = '';
+      search.dispatchEvent(new Event('input'));
+      search.blur();
+    } else if (e.key === 'Enter' && S.search) {
+      S.selected = new Set(S.controls.filter((c) => S.ctlEls.get(c.id) && S.ctlEls.get(c.id).classList.contains('match')).map((c) => c.id));
+      updateAllCtls();
+      renderInspector();
+    }
+  });
   $('#redoBtn').onclick = redo;
   $('#presetsBtn').onclick = () => $('#presetsMenu').classList.toggle('hidden');
   $('#settingsBtn').onclick = () => {
