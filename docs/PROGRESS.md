@@ -109,7 +109,7 @@ Update this file after every step so work can resume after an interruption.
 
 
 ## Open questions to verify on hardware
-- Display takeover: does Live release the USB display in User Mode? (status shown under the preview in the editor)
+- Display takeover: ANSWERED 2026-10-22 on the user's Push 3: no. Live holds the display interface exclusively (claimInterface 0xe00002c5 = kIOReturnExclusiveAccess). The one time it showed, we had grabbed it before Live finished loading, and Live then hung waiting for its display. Only possible with Push 3 not used as a Live control surface. Keep the editor/tablet preview.
 - Sampler: replace_sample with the freshly recorded clip file (Live 12.1+ API) – test on the real set
 - Unconfirmed CCs marked `verify: true` in push3.js (Sets 80, Learn 81, Save 82, Volume 79/111, Undo 119, Session Screen 34, jog nudge 93/95).
 - Which buttons are RGB vs white on Push 3 (the LED colour picker assumes the Push 2 split).

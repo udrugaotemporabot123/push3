@@ -88,6 +88,8 @@ Dodatne funkcije koje nisu dio jezgre i mogu se isključiti (Postavke → Add-on
 
 ## Ekran (v0.3, eksperimentalno)
 
+**Provjereno na Pushu 3 (v0.49.5):** dok je Push 3 spojen kao Liveov kontroler, Live drži ekran isključivo za sebe (macOS: *exclusive access*), pa ga ovaj device ne može preuzeti. Pokušaj da ga se uzme prije Livea zamrzava Live, zato se preuzimanje gasi pri svakom pokretanju. Ekran se vidi u editoru i na tabletu (*Postavke → Pristup s tableta*).
+
 Novo (v0.47): iznad enkodera koji prate Live trackove je traka u boji tracka; kad dodirneš enkoder, njegovo ime i vrijednost pišu veliko u statusnoj liniji.
 
 Motor sam crta ekran od 960×160: imena stranica gore, oznake i vrijednosti enkodera, zadnju radnju u sredini i oznake donjih gumba s bojama LED-ica.
