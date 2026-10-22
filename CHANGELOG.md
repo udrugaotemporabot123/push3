@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.37.0 – 2026-10-22
+Sekvencer: unos korak po korak kad Live stoji (REC + udarci, akordi).
+
 ## v0.36.0 – 2026-10-22
 Sekvencer: lanci patterna (drži jedan + pritisni drugi).
 

@@ -6,7 +6,8 @@
 //   clear – clear the whole sequence
 //   hit   – a drum pad: plays its lane's note right away and selects the lane; while recording (and
 //           Live is playing) the hit is written into the nearest step. Shift + hit clears the lane.
-//   rec   – record on/off for live hits
+//   rec   – record on/off for live hits; with Live stopped, hits are entered step by step (a chord =
+//           pads hit together; the cursor moves on when all pads are released)
 // Hold a step pad and turn encoder 1 = velocity, 2 = chance, 3 = note length (gate); a step that
 // was on is removed on release only if no encoder was turned.
 //   pattern – pattern slot A–H: switches at the end of the loop (at once when stopped); Shift = copy the
@@ -102,7 +103,7 @@ module.exports = {
       const key = name || 'A';
       if (!seqs[key]) {
         const old = saved[key] || {};
-        seqs[key] = { running: old.running !== false, length: 0, loop: int(old.loop, 0), mod: null, pos: -1, lastBase: -1, stepTick: 0, swing: 0, recording: false, selected: old.selected || null, lanes: {}, savedLanes: old.lanes || {}, pattern: slotOf(old.pattern), queued: null, chain: Array.isArray(old.chain) ? old.chain.filter((x) => SLOTS.includes(x)) : [], heldPattern: null, patterns: old.patterns && typeof old.patterns === 'object' ? old.patterns : {} };
+        seqs[key] = { running: old.running !== false, length: 0, loop: int(old.loop, 0), mod: null, pos: -1, lastBase: -1, stepTick: 0, swing: 0, recording: false, selected: old.selected || null, lanes: {}, savedLanes: old.lanes || {}, pattern: slotOf(old.pattern), queued: null, cursor: 0, cursorPending: false, chain: Array.isArray(old.chain) ? old.chain.filter((x) => SLOTS.includes(x)) : [], heldPattern: null, patterns: old.patterns && typeof old.patterns === 'object' ? old.patterns : {} };
       }
       return seqs[key];
     };
@@ -180,7 +181,14 @@ module.exports = {
     // A live hit while recording goes into the step that is closest in time; if that is the coming step,
     // the step is skipped once so the hit is not played twice.
     function recordHit(sq, l, vel) {
-      if (!sq.recording || !transport || !sq.running || !sq.length || sq.pos < 0) return;
+      if (!sq.recording || !sq.length) return;
+      if (!transport || !sq.running) {
+        l.steps[sq.cursor % loopLen(sq)] = vel; // step entry
+        l.chance[sq.cursor % loopLen(sq)] = 0;
+        sq.cursorPending = true;
+        return;
+      }
+      if (sq.pos < 0) return;
       const late = tick - sq.stepTick >= TICKS_PER_STEP / 2;
       const i = late ? (sq.pos + 1) % loopLen(sq) : sq.pos;
       l.steps[i] = vel;
@@ -266,7 +274,10 @@ module.exports = {
         const sq = seqOf(params.seq);
         const vel = Math.max(1, Math.min(127, velocity || 100));
         if (action === 'play') sq.running = !sq.running;
-        else if (action === 'rec') sq.recording = !sq.recording;
+        else if (action === 'rec') {
+          sq.recording = !sq.recording;
+          sq.cursor = 0;
+        }
         else if (action === 'pattern') {
           const slot = slotOf(params.slot);
           if (shift) {
@@ -373,6 +384,14 @@ module.exports = {
         if (!h) return;
         heldHits.delete(id);
         api.sendHost([0x90 | h[0], h[1], 0]);
+        if (!heldHits.size) {
+          for (const sq of Object.values(seqs)) {
+            if (!sq.cursorPending) continue;
+            sq.cursorPending = false;
+            sq.cursor = (sq.cursor + 1) % Math.max(1, loopLen(sq));
+          }
+          api.renderAddons();
+        }
       },
 
       clock(type) {
@@ -420,7 +439,7 @@ module.exports = {
         if (sq.mod) parts.push(`[${sq.mod}]`);
         if (sq.pattern !== 'A' || sq.queued || Object.keys(sq.patterns).length) parts.push(`pat ${sq.pattern}${sq.queued ? `→${sq.queued}` : ''}${sq.chain.length > 1 ? ` (${sq.chain.join('')})` : ''}`);
         if (sq.selected && Object.keys(sq.lanes).length > 1) parts.push(`traka ${sq.selected}`);
-        if (sq.recording) parts.push('● REC');
+        if (sq.recording) parts.push(transport && sq.running ? '● REC' : `● unos ${sq.cursor + 1}`);
         return parts.join(' ');
       },
 
@@ -450,6 +469,7 @@ module.exports = {
         if (i >= loopLen(sq)) return { color: 0, anim: 0 }; // outside the loop
         const on = !!l.steps[i];
         if (transport && sq.running && sq.pos === i) return { color: on ? 3 : 2, anim: 0 }; // playhead
+        if (sq.recording && !(transport && sq.running) && sq.cursor === i) return { color: on ? 3 : 2, anim: 0 }; // entry cursor
         if (on && l.chance[i]) return { color: veryDim(color) - 1, anim: 0 }; // plays only sometimes
         return { color: on ? color : veryDim(color), anim: 0 };
       },

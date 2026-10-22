@@ -261,7 +261,7 @@ test('add-ons: status line and action labels reach the display model', () => {
   e.handlePushMessage([0xb0, 37, 127]); // rec on
   e.handlePushMessage([0xb0, 20, 127]); // lower.1: target D1
   const model = layout.buildModel(e, e.palette || [], null, 0);
-  assert.match(model.status, /Seq A ■ –\/2 ● REC/);
+  assert.match(model.status, /Seq A ■ –\/2 ● unos 1/);
   assert.match(model.status, /Sampler cilj D1/);
   assert.equal(model.lower[0].label, 'Odaberi ciljni pad');
 });
@@ -445,4 +445,29 @@ test('step sequencer: hold a pattern and press another = chain played in turn', 
   }
   // Loop length 1: A (hit), B (empty), C (hit), A (hit).
   assert.deepEqual(played, [1, 0, 1, 1]);
+});
+
+test('step sequencer: with Live stopped, REC enters hits step by step (chords stay together)', () => {
+  const stepseq = require('../../addons/stepseq');
+  const { e, out, clear } = setup((c) => {
+    const ctl = c.pages[0].controls;
+    Object.assign(ctl['pad.0.0'], { type: 'addon', addon: { id: 'stepseq', action: 'hit', params: { seq: 'I', lane: '1', note: '36' } } });
+    Object.assign(ctl['pad.0.1'], { type: 'addon', addon: { id: 'stepseq', action: 'hit', params: { seq: 'I', lane: '2', note: '38' } } });
+    for (let step = 1; step <= 4; step++) Object.assign(ctl[`pad.7.${step - 1}`], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'I', lane: 'selected', step: String(step) } } });
+    Object.assign(ctl['scene.2'], { type: 'addon', addon: { id: 'stepseq', action: 'rec', params: { seq: 'I' } } });
+  }, [stepseq]);
+  e.handlePushMessage([0xb0, 37, 127]); // rec on (Live stopped)
+  e.handlePushMessage([0xb0, 37, 0]);
+  const tap = (note, vel = 100) => (e.handlePushMessage([0x90, note, vel]), e.handlePushMessage([0x80, note, 0]));
+  tap(36); // step 1: kick
+  e.handlePushMessage([0x90, 36, 90]); // step 2: kick + snare together
+  e.handlePushMessage([0x90, 37, 80]);
+  e.handlePushMessage([0x80, 36, 0]);
+  e.handlePushMessage([0x80, 37, 0]);
+  assert.match(e.addonStatus()[0], /unos 3/);
+  e.handlePushMessage([0xb0, 37, 127]); // rec off
+  clear();
+  e.handleHostMessage([0xfa]);
+  for (let i = 0; i < 12; i++) e.handleHostMessage([0xf8]);
+  assert.deepEqual(out.host.filter((m) => m[2] > 0), [[0x94, 36, 100], [0x94, 36, 90], [0x94, 38, 80]]);
 });
