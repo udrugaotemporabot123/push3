@@ -106,3 +106,6 @@ code { background: #0f1113; padding: 1px 4px; border-radius: 4px; }
 }
 
 .qr svg { background: #fff; border-radius: 6px; margin: 2px 0 10px; }
+
+.tgroup { margin: 4px 0; }
+.tgroup > summary { cursor: pointer; padding: 6px 0; font-weight: 600; color: var(--accent); }

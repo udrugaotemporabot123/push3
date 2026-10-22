@@ -1031,8 +1031,14 @@ function renderPageInspector(box) {
     ),
   );
   box.append(el('div', { class: 'sep' }), el('b', {}, 'Predlošci'));
-  for (const [key, t] of Object.entries(TEMPLATES)) {
-    box.append(el('div', { class: 'btnrow' }, el('button', { onclick: () => applyTemplate(key), title: t.help }, t.name)), el('p', { class: 'muted small', style: 'margin:-4px 0 6px' }, t.help));
+  for (const [cat, keys] of TEMPLATE_GROUPS) {
+    const d = el('details', { class: 'tgroup' }, el('summary', {}, cat));
+    for (const key of keys) {
+      const t = TEMPLATES[key];
+      if (!t) continue;
+      d.append(el('div', { class: 'btnrow' }, el('button', { onclick: () => applyTemplate(key), title: t.help }, t.name)), el('p', { class: 'muted small', style: 'margin:-4px 0 6px' }, t.help));
+    }
+    box.append(d);
   }
   box.append(el('div', { class: 'sep' }));
   box.append(
@@ -1075,6 +1081,14 @@ function simplerButtons(target) {
   });
   return r;
 }
+
+const TEMPLATE_GROUPS = [
+  ['Live sampling i looper', ['samplerPads', 'sampler', 'slicer', 'looper']],
+  ['Sekvenceri', ['seqDrum', 'seq8', 'seq16']],
+  ['Sviranje', ['keys']],
+  ['Efekti', ['fxPerform', 'xyfx', 'device', 'variations']],
+  ['Mikser i Live', ['mixer', 'selected', 'sends', 'clips', 'transport']],
+];
 
 const SEQ_SLOTS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 

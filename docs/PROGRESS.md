@@ -89,6 +89,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.44.0 Accent button type (full velocity, momentary/latch) and encoder Snapshots (store/recall CC, 14-bit and Live parameter values per page, persisted)
 - [x] v0.45.0 Touch strip morph between two encoder snapshots (CC, 14-bit, Live parameters)
 - [x] v0.46.0 Template FX performance (device params on encoders, snapshots on scene buttons, strip morph, XY pads)
+- [x] v0.46.1 Editor: templates grouped in collapsible categories
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.

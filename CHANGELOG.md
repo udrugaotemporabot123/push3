@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.46.1 – 2026-10-22
+Editor: predlošci grupirani po kategorijama.
+
 ## v0.46.0 – 2026-10-22
 Predložak FX performans: enkoderi, snapshoti, morph i XY za jedan efekt.
 
