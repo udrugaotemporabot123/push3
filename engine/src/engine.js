@@ -613,6 +613,12 @@ class Engine {
     const m = this.mapping(ctl.id);
     // Shift + encoder = fine adjustment (unless the encoder has its own shift mapping).
     const fine = this.config.settings.shiftFine && this.pressed.has('shift') && this.layerFor(ctl.id) === '' ? 0.1 : 1;
+    // While an add-on control is held, the add-on may take the encoder (e.g. step velocity).
+    if (this.addonHeld.size && delta !== 0) {
+      let used = false;
+      for (const [id, am] of this.addonHeld) if (this.addonCall(am, 'turn', { id, encoder: ctl.id, delta: delta * fine }) === true) used = true;
+      if (used) return;
+    }
     if (m && m.type === 'live' && delta !== 0) return this.liveTurn(ctl, m, delta * fine);
     if (!m || m.type !== 'cc' || delta === 0) return;
     const chan = this.channelFor(m);

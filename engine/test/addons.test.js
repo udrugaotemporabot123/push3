@@ -319,3 +319,36 @@ test('step sequencer: loop length, euclid fill, chance and double', () => {
     Math.random = rnd;
   }
 });
+
+test('step sequencer: hold a step + encoders edit velocity, chance and gate; release removes only untouched steps', () => {
+  const stepseq = require('../../addons/stepseq');
+  const { e, out, clear } = setup((c) => {
+    for (let step = 1; step <= 2; step++) Object.assign(c.pages[0].controls[`pad.0.${step - 1}`], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'G', lane: '1', step: String(step), note: '36' } } });
+  }, [stepseq]);
+  e.handlePushMessage([0x90, 36, 100]); // step 1 on (vel 100)
+  e.handlePushMessage([0xb0, 71, 10]); // enc 1: +10 velocity
+  e.handlePushMessage([0xb0, 73, 6]); // enc 3: gate 3 + 6 = 9 ticks
+  clear();
+  e.handlePushMessage([0xb0, 72, 127]); // enc 2: -5 % chance; consumed by the step, nothing goes to Live
+  assert.deepEqual(out.host, []);
+  assert.match(e.addonStatus()[0], /Korak 1: vel 110 · 95%/);
+  e.handlePushMessage([0x80, 36, 0]);
+  // Press again and release without turning: the step goes away; press + turn keeps it.
+  e.handlePushMessage([0x90, 37, 90]);
+  e.handlePushMessage([0x80, 37, 0]); // step 2 on
+  e.handlePushMessage([0x90, 37, 90]);
+  e.handlePushMessage([0x80, 37, 0]); // step 2 off
+  e.handlePushMessage([0xb0, 72, 1]); // not held: encoder behaves normally again
+  assert.equal(out.host.length, 1);
+  clear();
+  e.handleHostMessage([0xfa]);
+  const rnd = Math.random;
+  Math.random = () => 0; // chance 95 %: plays
+  try {
+    for (let i = 0; i < 12; i++) e.handleHostMessage([0xf8]);
+  } finally {
+    Math.random = rnd;
+  }
+  // Step 1 at 110, its note off 9 ticks later; step 2 silent.
+  assert.deepEqual(out.host, [[0x94, 36, 110], [0x94, 36, 0]]);
+});

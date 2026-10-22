@@ -71,10 +71,11 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.26.0 14-bit absolute encoders (MSB CC 0-31 + LSB CC+32, feedback from both, Shift = single 14-bit steps)
 - [x] v0.27.0 Sequencer modifiers: loop length, Euclid fill, per-step chance, double (mod action, in the Drum sequencer template)
 - [x] v0.28.0 Stability: fuzz tests (random configs/MIDI/Live state/clock with all add-ons: no throws, valid MIDI only, no stuck notes after leaving User Mode); fixes: encoder touch notes and add-on presses now released by the mapping that got them (page/shift/exit), toggled notes turned off when their mapping is edited or a group releases them silently, sequencer drum pad note off follows the note that was sent
+- [x] v0.29.0 Hold step + encoders 1-3: velocity / chance / gate (add-on `turn` hook: encoders go to a held add-on control first), retrigger-safe note offs, step removal on release
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
-- [ ] Sequencer: hold step + encoder (velocity / nudge / gate), pattern slots A–D per seq, copy lane, step input while stopped.
+- [ ] Sequencer: pattern slots A–D per seq, copy lane, step input while stopped, nudge.
 - [ ] Sampler: crop/normalise via Simpler API (crop, warp), "resample master" source.
 - [ ] Looper: overdub (MIDI only in Live session; audio needs a new layer on the next slot), stop-all with fade.
 - [ ] Display: full-screen add-on views (sequencer lanes grid), track colour bars, encoder touch = big value.

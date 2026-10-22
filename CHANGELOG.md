@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.29.0 – 2026-10-22
+Sekvencer: drži korak + enkoderi 1–3 (velocity, vjerojatnost, duljina note); add-on API: turn.
+
 ## v0.28.0 – 2026-10-22
 Stabilnost: fuzz testovi; nema zaglavljenih nota (dodir enkodera, add-on padovi, toggle pri uređivanju i u grupama).
 

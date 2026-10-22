@@ -7,6 +7,8 @@
 //   hit   – a drum pad: plays its lane's note right away and selects the lane; while recording (and
 //           Live is playing) the hit is written into the nearest step. Shift + hit clears the lane.
 //   rec   – record on/off for live hits
+// Hold a step pad and turn encoder 1 = velocity, 2 = chance, 3 = note length (gate); a step that
+// was on is removed on release only if no encoder was turned.
 //   mod   – hold + press a step pad: length (loop ends on that step), euclid (spread N hits of the
 //           selected lane evenly over the loop), chance (cycle the step's probability 100/75/50/25 %);
 //           double: one press copies the loop to the next steps and doubles the loop length
@@ -17,6 +19,7 @@
 
 const TICKS_PER_STEP = 6; // 16th notes at 24 ppqn
 const GATE_TICKS = 3;
+const MAX_GATE = 96; // 4 beats
 const LANE_COLORS = [5, 9, 13, 21, 33, 45, 49, 57, 17, 29, 37, 53, 41, 25, 61, 7];
 const veryDim = (c) => c - ((c - 4) % 4) + 3; // palette groups of four: bright, full, dim, very dim
 const REC_ON = 5;
@@ -99,17 +102,25 @@ module.exports = {
         const out = {};
         for (const [k, sq] of Object.entries(seqs)) {
           out[k] = { running: sq.running, selected: sq.selected, loop: sq.loop, lanes: {} };
-          for (const [lane, l] of Object.entries(sq.lanes)) out[k].lanes[lane] = { steps: l.steps, chance: l.chance };
+          for (const [lane, l] of Object.entries(sq.lanes)) out[k].lanes[lane] = { steps: l.steps, chance: l.chance, gate: l.gate };
         }
         if (api.saveState) api.saveState('stepseq', out);
       }, 500);
       if (saveTimer.unref) saveTimer.unref();
     };
 
-    const noteOn = (l, vel) => {
+    const noteOn = (l, vel, gate = GATE_TICKS) => {
+      // A retrigger ends the previous note first, so its late note off cannot cut the new one.
+      for (let i = pending.length - 1; i >= 0; i--) {
+        if (pending[i].channel === l.channel && pending[i].note === l.note) {
+          api.sendHost([0x90 | l.channel, l.note, 0]);
+          pending.splice(i, 1);
+        }
+      }
       api.sendHost([0x90 | l.channel, l.note, vel]);
-      pending.push({ at: tick + GATE_TICKS, channel: l.channel, note: l.note });
+      pending.push({ at: tick + gate, channel: l.channel, note: l.note });
     };
+    const heldSteps = new Map(); // control id -> { sq, lane, i, removeOnRelease, turned }
 
     const laneOf = (sq, lane) => {
       const key = String(lane || '1');
@@ -120,7 +131,7 @@ module.exports = {
       if (!sq.lanes[lane]) {
         const savedSteps = sq.savedLanes[lane] && Array.isArray(sq.savedLanes[lane].steps) ? sq.savedLanes[lane].steps : [];
         const saved = sq.savedLanes[lane] || {};
-        sq.lanes[lane] = { note, channel: ctx ? ctx.channel : 0, steps: savedSteps.slice(0, 64), chance: Array.isArray(saved.chance) ? saved.chance.slice(0, 64) : [], skip: -1 };
+        sq.lanes[lane] = { note, channel: ctx ? ctx.channel : 0, steps: savedSteps.slice(0, 64), chance: Array.isArray(saved.chance) ? saved.chance.slice(0, 64) : [], gate: Array.isArray(saved.gate) ? saved.gate.slice(0, 64) : [], skip: -1 };
       }
       sq.lanes[lane].note = note;
       if (ctx) sq.lanes[lane].channel = ctx.channel;
@@ -176,7 +187,7 @@ module.exports = {
         }
         if (!vel) continue;
         if (l.chance[sq.pos] && Math.random() * 100 >= l.chance[sq.pos]) continue;
-        noteOn(l, vel);
+        noteOn(l, vel, l.gate[sq.pos] || GATE_TICKS);
       }
     }
 
@@ -235,16 +246,50 @@ module.exports = {
           else if (!l) return;
           else if (shift) l.steps = [];
           else {
-            const i = (Number.parseInt(params.step, 10) || 1) - 1;
-            l.steps[i] = l.steps[i] ? 0 : vel;
-            l.chance[i] = 0;
+            const i = int(params.step, 1) - 1;
+            const wasOn = !!l.steps[i];
+            if (!wasOn) {
+              l.steps[i] = vel;
+              l.chance[i] = 0;
+              l.gate[i] = 0;
+            }
+            heldSteps.set(id, { sq, l, i, removeOnRelease: wasOn, turned: false });
           }
         }
         persist();
         api.renderAddons();
       },
 
+      // Encoders while a step is held: 1 velocity, 2 chance, 3 gate. Returns true = encoder consumed.
+      turn({ id, encoder, delta }) {
+        const h = heldSteps.get(id);
+        if (!h) return false;
+        const { l, i } = h;
+        if (!l.steps[i]) l.steps[i] = 100;
+        if (encoder === 'enc.1') l.steps[i] = Math.max(1, Math.min(127, Math.round(l.steps[i] + delta)));
+        else if (encoder === 'enc.2') {
+          const cur = l.chance[i] || 100;
+          const next = Math.max(5, Math.min(100, Math.round((cur + delta * 5) / 5) * 5));
+          l.chance[i] = next >= 100 ? 0 : next;
+        } else if (encoder === 'enc.3') l.gate[i] = Math.max(1, Math.min(MAX_GATE, Math.round((l.gate[i] || GATE_TICKS) + delta)));
+        else return false;
+        h.turned = true;
+        persist();
+        api.renderAddons();
+        return true;
+      },
+
       release({ params, action, id }) {
+        if (action === 'step') {
+          const h = heldSteps.get(id);
+          heldSteps.delete(id);
+          if (h && h.removeOnRelease && !h.turned) {
+            h.l.steps[h.i] = 0;
+            persist();
+            api.renderAddons();
+          }
+          return;
+        }
         if (action === 'mod') {
           const sq = seqOf(params.seq);
           if (sq.mod === params.mode || (sq.mod === 'length' && !MOD_MODES.includes(params.mode))) sq.mod = null;
@@ -293,6 +338,11 @@ module.exports = {
       status({ params }) {
         const sq = seqOf(params.seq);
         if (!sq.length) return '';
+        for (const h of heldSteps.values()) {
+          if (h.sq !== sq || !h.l.steps[h.i]) continue;
+          const gate = h.l.gate[h.i] || GATE_TICKS;
+          return `Korak ${h.i + 1}: vel ${h.l.steps[h.i]} · ${h.l.chance[h.i] || 100}% · dužina ${+(gate / 6).toFixed(2)}×1/16 (enk. 1–3)`;
+        }
         const playing = transport && sq.running;
         const parts = [`Seq ${params.seq || 'A'} ${playing ? '▶' : '■'} ${playing && sq.pos >= 0 ? sq.pos + 1 : '–'}/${loopLen(sq)}`];
         if (sq.mod) parts.push(`[${sq.mod}]`);
