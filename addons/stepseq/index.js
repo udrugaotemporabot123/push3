@@ -81,6 +81,7 @@ module.exports = {
     let tick = 0;
     let transport = false;
     const pending = []; // note offs: { at, channel, note }
+    const heldHits = new Map(); // control id -> [channel, note] of a held drum pad (its note off goes there)
     let saveTimer = null;
 
     const seqOf = (name) => {
@@ -119,7 +120,7 @@ module.exports = {
       if (!sq.lanes[lane]) {
         const savedSteps = sq.savedLanes[lane] && Array.isArray(sq.savedLanes[lane].steps) ? sq.savedLanes[lane].steps : [];
         const saved = sq.savedLanes[lane] || {};
-        sq.lanes[lane] = { note, channel: ctx ? ctx.channel : 0, steps: savedSteps.slice(0, 64), chance: Array.isArray(saved.chance) ? saved.chance.slice(0, 64) : [], skip: -1, held: 0 };
+        sq.lanes[lane] = { note, channel: ctx ? ctx.channel : 0, steps: savedSteps.slice(0, 64), chance: Array.isArray(saved.chance) ? saved.chance.slice(0, 64) : [], skip: -1 };
       }
       sq.lanes[lane].note = note;
       if (ctx) sq.lanes[lane].channel = ctx.channel;
@@ -204,7 +205,7 @@ module.exports = {
         return [];
       },
 
-      press({ params, action, velocity, shift }) {
+      press({ params, action, velocity, shift, id }) {
         const sq = seqOf(params.seq);
         const vel = Math.max(1, Math.min(127, velocity || 100));
         if (action === 'play') sq.running = !sq.running;
@@ -222,7 +223,9 @@ module.exports = {
           sq.selected = lane;
           if (shift) l.steps = [];
           else {
-            l.held++;
+            const prev = heldHits.get(id);
+            if (prev) api.sendHost([0x90 | prev[0], prev[1], 0]);
+            heldHits.set(id, [l.channel, l.note]);
             api.sendHost([0x90 | l.channel, l.note, vel]);
             recordHit(sq, l, vel);
           }
@@ -241,7 +244,7 @@ module.exports = {
         api.renderAddons();
       },
 
-      release({ params, action }) {
+      release({ params, action, id }) {
         if (action === 'mod') {
           const sq = seqOf(params.seq);
           if (sq.mod === params.mode || (sq.mod === 'length' && !MOD_MODES.includes(params.mode))) sq.mod = null;
@@ -249,10 +252,10 @@ module.exports = {
           return;
         }
         if (action !== 'hit') return;
-        const l = seqOf(params.seq).lanes[String(params.lane || '1')];
-        if (!l || l.held <= 0) return;
-        l.held--;
-        api.sendHost([0x90 | l.channel, l.note, 0]);
+        const h = heldHits.get(id);
+        if (!h) return;
+        heldHits.delete(id);
+        api.sendHost([0x90 | h[0], h[1], 0]);
       },
 
       clock(type) {

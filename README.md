@@ -91,6 +91,9 @@ Motor sam crta ekran od 960×160: imena stranica gore, oznake i vrijednosti enko
   Ako ga Live ne pusti, ništa se ne kvari: pod pregledom piše *Live drži ekran* i ostaje samo pregled u editoru.
 - **Molim testiraj** i javi što piše pod pregledom ekrana u editoru (status) i što se vidi na Pushu.
 
+## Stabilnost
+Uz obične testove, **fuzz testovi** (`engine/test/fuzz.test.js`) pucaju tisuće nasumičnih konfiguracija, MIDI poruka, Live stanja i clocka kroz jezgru sa svim add-onima: ništa ne smije puknuti, sve poslano mora biti ispravan MIDI i nakon izlaska iz User moda ne smije ostati nijedna nota upaljena u Liveu (osim toggle gumba koji su namjerno upaljeni).
+
 ## Što još ne radi / ograničenja
 - **Spremanje varijacije** (Shift + pad) radi samo na praznom mjestu: Live API može samo dodati novu varijaciju na kraj, ne prepisati postojeću.
 - Kontrole označene **?** u editoru imaju MIDI brojeve koji još nisu potvrđeni na pravom Pushu 3 (vidi listu dolje).

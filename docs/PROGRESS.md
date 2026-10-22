@@ -70,6 +70,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.25.0 Editor from a tablet: opt-in LAN listener (port+1, token in link -> HttpOnly cookie, kept in lan.json not in presets), WebSocket Origin check on the local editor
 - [x] v0.26.0 14-bit absolute encoders (MSB CC 0-31 + LSB CC+32, feedback from both, Shift = single 14-bit steps)
 - [x] v0.27.0 Sequencer modifiers: loop length, Euclid fill, per-step chance, double (mod action, in the Drum sequencer template)
+- [x] v0.28.0 Stability: fuzz tests (random configs/MIDI/Live state/clock with all add-ons: no throws, valid MIDI only, no stuck notes after leaving User Mode); fixes: encoder touch notes and add-on presses now released by the mapping that got them (page/shift/exit), toggled notes turned off when their mapping is edited or a group releases them silently, sequencer drum pad note off follows the note that was sent
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.

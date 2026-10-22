@@ -33,6 +33,11 @@ const STOP = 0xfc;
 
 const AT_QUERY_TIMEOUT_MS = 250;
 
+// What a toggle sends, as a comparable string: a different signature means the old notes must stop.
+function noteSignature(m, chan) {
+  return JSON.stringify([m.type, m.number, chan, m.behavior, (m.extra || []).filter((x) => x.type === 'note')]);
+}
+
 class Engine {
   /**
    * @param {object} io { toPush(bytes), toHost(bytes), toLive(obj), log(level, msg), now(), setTimer(fn, ms), clearTimer(id) }
@@ -47,6 +52,8 @@ class Engine {
     this.pressed = new Set(); // control ids physically held
     this.heldOutputs = new Map(); // control id -> bytes to send on release (note offs etc.)
     this.liveHeld = new Map(); // control id -> Live parameter to reset on release (momentary)
+    this.addonHeld = new Map(); // control id -> add-on mapping that got the press (release goes to the same one)
+    this.touchHeld = new Map(); // encoder id -> touch note that was sent (its note off goes to the same note)
     this.mpeChannelPad = new Map(); // MPE member channel -> pad control (for pressure routing)
     this.lastPressure = new Map(); // control id -> last pressure value sent
     this.savedAftertouch = null;
@@ -66,9 +73,18 @@ class Engine {
   // Config
 
   setConfig(config) {
+    const toggled = this.config ? this.toggledNotes() : [];
     this.config = normalizeConfig(config);
     if (this.page >= this.config.pages.length) this.page = 0;
     this.state = this.config.pages.map((p, i) => (this.state && this.state[i]) || {});
+    // A toggled-on note whose mapping was edited would sound forever in Live: send its note off.
+    for (const t of toggled) {
+      const now = this.config.pages[t.page] ? this.mapping(t.id, t.page, t.layer) : null;
+      if (now && noteSignature(now, this.channelFor(now, t.page)) === t.sig) continue;
+      for (const [ch, n] of t.notes) this.io.toHost([NOTE_ON | ch, n, 0]);
+      const st = this.state[t.page] && this.state[t.page][t.layer ? `${t.id}#${t.layer}` : t.id];
+      if (st) st.on = false;
+    }
     this.buildFeedbackIndex();
     this.syncVariationTargets();
     if (this.mode === 'user') {
@@ -77,6 +93,26 @@ class Engine {
       this.updateClock();
     }
     this.emit('config');
+  }
+
+  // Toggles that are on and send notes (so a config edit can turn exactly those off).
+  toggledNotes() {
+    const out = [];
+    this.config.pages.forEach((page, pi) => {
+      for (const [id, base] of Object.entries(page.controls)) {
+        for (const [layer, m] of [['', base], ['s', base.shift]]) {
+          if (!m || m.behavior !== 'toggle') continue;
+          const st = this.state[pi] && this.state[pi][layer ? `${id}#${layer}` : id];
+          if (!st || !st.on) continue;
+          const chan = this.channelFor(m, pi);
+          const notes = [];
+          if (m.type === 'note') notes.push([chan, m.number]);
+          for (const x of m.extra || []) if (x.type === 'note') notes.push([x.channel ? x.channel - 1 : chan, x.number]);
+          if (notes.length) out.push({ page: pi, id, layer, notes, sig: noteSignature(m, chan) });
+        }
+      }
+    });
+    return out;
   }
 
   // Map "status:channel:number" of messages coming back from Live to the controls they belong to.
@@ -415,6 +451,7 @@ class Engine {
         this.renderControl(ctl);
         return;
       case 'addon':
+        this.addonHeld.set(ctl.id, m);
         this.addonCall(m, 'press', { id: ctl.id, velocity, shift: this.pressed.has('shift') });
         this.renderControl(ctl);
         return;
@@ -464,8 +501,11 @@ class Engine {
       this.renderAll();
       return;
     }
-    const am = this.mapping(ctl.id);
-    if (am && am.type === 'addon') this.addonCall(am, 'release', { id: ctl.id });
+    const am = this.addonHeld.get(ctl.id);
+    if (am) {
+      this.addonHeld.delete(ctl.id);
+      this.addonCall(am, 'release', { id: ctl.id });
+    }
     const lheld = this.liveHeld.get(ctl.id);
     if (lheld) {
       this.liveHeld.delete(ctl.id);
@@ -492,6 +532,11 @@ class Engine {
     this.heldOutputs.clear();
     for (const lh of this.liveHeld.values()) this.io.toLive({ cmd: 'liveSet', key: lh.key, spec: lh.spec, value: 0 });
     this.liveHeld.clear();
+    const addonHeld = [...this.addonHeld];
+    this.addonHeld.clear();
+    for (const [id, m] of addonHeld) this.addonCall(m, 'release', { id });
+    for (const t of this.touchHeld.values()) this.io.toHost([NOTE_ON | t.chan, t.note, 0]);
+    this.touchHeld.clear();
     this.pressed.clear();
     this.lastPressure.clear();
   }
@@ -515,7 +560,12 @@ class Engine {
       const st = this.ctlState(this.page, id);
       if (!st.on) continue;
       st.on = false;
-      if (!silent && m.behavior === 'toggle') this.sendValue(m, this.channelFor(m), m.offValue, false);
+      if (m.behavior === 'toggle') {
+        const chan = this.channelFor(m);
+        if (!silent) this.sendValue(m, chan, m.offValue, false);
+        // Even a silent release must not leave a toggled note sounding in Live.
+        else for (const x of [m, ...(m.extra || [])]) if (x.type === 'note') this.io.toHost([NOTE_ON | (x.channel && x !== m ? x.channel - 1 : chan), x.number, 0]);
+      }
       this.renderControl(push3.byId.get(id));
     }
   }
@@ -617,9 +667,17 @@ class Engine {
     this.emit('input', { id: ctl.id, kind: touched ? 'touch' : 'untouch' });
     if (touched) this.pressed.add(ctl.id);
     else this.pressed.delete(ctl.id);
+    const prev = this.touchHeld.get(ctl.id);
+    if (prev) {
+      this.touchHeld.delete(ctl.id);
+      this.io.toHost([NOTE_ON | prev.chan, prev.note, 0]);
+    }
+    if (!touched) return;
     const m = this.mapping(ctl.id);
     if (!m || m.type === 'none' || m.touch !== 'note') return;
-    this.io.toHost([NOTE_ON | this.channelFor(m), m.touchNumber, touched ? 127 : 0]);
+    const t = { chan: this.channelFor(m), note: m.touchNumber };
+    this.touchHeld.set(ctl.id, t);
+    this.io.toHost([NOTE_ON | t.chan, t.note, 127]);
   }
 
   stripValue(value14) {

@@ -604,3 +604,20 @@ test('14-bit encoder: MSB + LSB out, Shift reaches single steps, feedback from b
   const cfg = normalizeConfig({ pages: [{ controls: { 'enc.2': { type: 'cc', mode: 'absolute14', number: 72 } } }] });
   assert.equal(cfg.pages[0].controls['enc.2'].number, 31);
 });
+
+test('editing a toggled-on note mapping sends its note off (no stuck notes)', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['pad.0.0'], { type: 'note', number: 40, behavior: 'toggle' });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  e.handlePushMessage([0x90, 36, 100]);
+  e.handlePushMessage([0x80, 36, 0]);
+  clear();
+  const cfg = JSON.parse(JSON.stringify(e.config));
+  e.setConfig(cfg); // unchanged: the toggle stays on
+  assert.deepEqual(out.host, []);
+  cfg.pages[0].controls['pad.0.0'].number = 41;
+  e.setConfig(cfg);
+  assert.deepEqual(out.host, [[0x94, 40, 0]]);
+  assert.equal(e.ctlState(0, 'pad.0.0').on, false);
+});
