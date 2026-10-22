@@ -532,6 +532,10 @@ function liveCall(msg) {
     else if (num(slot.get('has_clip')) === 1) slot.call('delete_clip');
     return;
   }
+  if (/^(track|scene|device)(Prev|Next)$/.test(msg.fn)) {
+    navigate(msg.fn);
+    return;
+  }
   if (msg.fn === 'clipToPad') {
     clipToPad(spec);
     return;
@@ -699,4 +703,38 @@ function hasSample(simpler) {
 
 function notice(text) {
   outlet(0, 'liveState', JSON.stringify({ type: 'notice', text: text }));
+}
+
+// Move the selected track / scene / device one step.
+function navigate(fn) {
+  var dir = /Next$/.test(fn) ? 1 : -1;
+  var view = new LiveAPI('live_set view');
+  var set = new LiveAPI('live_set');
+  if (/^track/.test(fn)) {
+    var sel = new LiveAPI('live_set view selected_track');
+    var paths = [];
+    var nt = set.getcount('tracks');
+    for (var i = 0; i < nt; i++) paths.push('live_set tracks ' + i);
+    var nr = set.getcount('return_tracks');
+    for (var r = 0; r < nr; r++) paths.push('live_set return_tracks ' + r);
+    paths.push('live_set master_track');
+    var cur = -1;
+    for (var k = 0; k < paths.length; k++) if (new LiveAPI(paths[k]).id == sel.id) cur = k;
+    var next = Math.max(0, Math.min(paths.length - 1, cur + dir));
+    view.set('selected_track', 'id', new LiveAPI(paths[next]).id);
+  } else if (/^scene/.test(fn)) {
+    var idx = sceneIndex(0);
+    var count = set.getcount('scenes');
+    var ns = Math.max(0, Math.min(count - 1, idx + dir));
+    view.set('selected_scene', 'id', new LiveAPI('live_set scenes ' + ns).id);
+  } else {
+    var tr = new LiveAPI('live_set view selected_track');
+    var cnt = tr.getcount('devices');
+    if (cnt < 1) return;
+    var selDev = new LiveAPI(tr.unquotedpath + ' view selected_device');
+    var at = 0;
+    for (var d = 0; d < cnt; d++) if (new LiveAPI(tr.unquotedpath + ' devices ' + d).id == selDev.id) at = d;
+    var nd = Math.max(0, Math.min(cnt - 1, at + dir));
+    view.call('select_device', 'id', new LiveAPI(tr.unquotedpath + ' devices ' + nd).id);
+  }
 }

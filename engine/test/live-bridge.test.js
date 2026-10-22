@@ -337,3 +337,15 @@ test('bridge: "#2" addresses the second rack on a track', () => {
   const st = states(b.out).filter((x) => x.type === 'variations').at(-1);
   assert.deepEqual([st.ok, st.count, st.name], [true, 5, 'Second Rack']);
 });
+
+test('bridge: track navigation moves the selection', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'nav' }, fn: 'trackPrev' }));
+  assert.equal(live.songView.props.selected_track, live.bass.id);
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'nav' }, fn: 'trackPrev' }));
+  assert.equal(live.songView.props.selected_track, live.bass.id); // clamps at the first track
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'nav' }, fn: 'trackNext' }));
+  assert.equal(live.songView.props.selected_track, live.vio.id);
+});

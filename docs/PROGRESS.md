@@ -44,6 +44,8 @@ Update this file after every step so work can resume after an interruption.
 
 - [x] v0.12.0 Shift fine mode for encoders, pad velocity curves, panic action, rack name on display for variation presses
 
+- [x] v0.13.0 navigation actions (track/scene/device prev/next); templates Selected device (8 params), Sends
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white

@@ -796,6 +796,8 @@ class Engine {
       if (cur) cur.value = next ? 1 : 0; // optimistic, corrected by the observer
     } else if (a === 'clip' || a === 'clipDelete') {
       this.io.toLive({ cmd: 'liveCall', spec, fn: a === 'clip' ? 'fireSlot' : 'deleteSlot' });
+    } else if (/^(track|scene|device)(Prev|Next)$/.test(a)) {
+      this.io.toLive({ cmd: 'liveCall', spec: { t: 'nav' }, fn: a });
     } else if (a === 'stopTrack') {
       this.io.toLive({ cmd: 'liveCall', spec: { t: 'trackSelect', track: m.live.track }, fn: 'stopTrack' });
     } else if (a === 'select') {

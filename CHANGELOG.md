@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.13.0 – 2026-10-22
+Navigacija: prethodni/sljedeći track, scena i device kao Live radnje; predlošci Odabrani device (8 parametara) i Sendovi odabranog tracka.
+
 ## v0.12.0 – 2026-10-22
 Shift + enkoder = 10× finije; krivulja velocityja za padove; Panic gumb; ime racka na ekranu pri pozivu varijacije.
 

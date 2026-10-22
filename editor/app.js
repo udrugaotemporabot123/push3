@@ -16,7 +16,7 @@ const el = (tag, attrs = {}, ...kids) => {
 
 const T = {
   types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)' },
-  liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka' },
+  liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka', trackPrev: '◀ Prethodni track', trackNext: 'Sljedeći track ▶', scenePrev: '▲ Prethodna scena', sceneNext: 'Sljedeća scena ▼', devicePrev: '◀ Prethodni device', deviceNext: 'Sljedeći device ▶' },
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
   liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', tempo: 'Tempo' },
   behaviors: { momentary: 'Momentary (dok držiš)', toggle: 'Toggle (uklj/isklj)', trigger: 'Trigger (jedan impuls)' },
@@ -904,6 +904,11 @@ function renderPageInspector(box) {
   );
 }
 
+const NAV_BUTTONS = () => {
+  const N = (action) => ({ type: 'live', colorOn: 127, colorOff: 16, live: { action } });
+  return { left: N('trackPrev'), right: N('trackNext'), up: N('scenePrev'), down: N('sceneNext'), pageLeft: N('devicePrev'), pageRight: N('deviceNext') };
+};
+
 // One-click page templates built from Live-aware mappings (no MIDI mapping needed).
 const TEMPLATES = {
   mixer: {
@@ -956,6 +961,26 @@ const TEMPLATES = {
         r[`scene.${i}`] = { type: 'live', colorOn: 21, colorOff: 23, live: { action: 'scene', scene: i } };
         r[`lower.${i}`] = { type: 'live', colorOn: 5, colorOff: 7, live: { action: 'stopTrack', track: String(i) } };
       }
+      return r;
+    },
+  },
+  device: {
+    name: 'Odabrani device (8 parametara)',
+    help: 'Enkoderi 1–8 = parametri 1–8 odabranog devicea (imena i vrijednosti na ekranu). Strelice ◀ ▶ = prethodni/sljedeći track, ▲ ▼ = scena, Page ◀ ▶ = prethodni/sljedeći device.',
+    apply() {
+      const r = {};
+      for (let i = 1; i <= 8; i++) r[`enc.${i}`] = { type: 'live', sensitivity: 0.5, live: { target: 'deviceParam', track: 'selected', index: i } };
+      Object.assign(r, NAV_BUTTONS());
+      return r;
+    },
+  },
+  sends: {
+    name: 'Sendovi odabranog tracka',
+    help: 'Enkoderi 1–8 = send A–H odabranog tracka, Volume enkoder = volumen tracka; strelice za navigaciju.',
+    apply() {
+      const r = { 'enc.volume': { type: 'live', sensitivity: 0.5, live: { target: 'volume', track: 'selected' } } };
+      for (let i = 1; i <= 8; i++) r[`enc.${i}`] = { type: 'live', sensitivity: 0.5, live: { target: 'send', track: 'selected', index: i } };
+      Object.assign(r, NAV_BUTTONS());
       return r;
     },
   },
