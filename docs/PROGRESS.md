@@ -59,6 +59,8 @@ Update this file after every step so work can resume after an interruption.
 
 - [x] v0.18.0 setup check (health checklist in Settings), version in the editor header
 
+- [x] v0.19.0 encoder steps mode (up/down triggers, step size), extra messages per button (up to 4)
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white

@@ -15,7 +15,7 @@ const PAGE_COLORS = [COLORS.mint, COLORS.blue, COLORS.orange, COLORS.pink, COLOR
 const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live', 'addon', 'panic'];
 const BEHAVIORS = ['momentary', 'toggle', 'trigger'];
 const ENCODER_TYPES = ['none', 'cc', 'live'];
-const ENCODER_MODES = ['absolute', 'relative2c', 'relativeOffset'];
+const ENCODER_MODES = ['absolute', 'relative2c', 'relativeOffset', 'steps'];
 const STRIP_TYPES = ['none', 'pitchbend', 'cc', 'live'];
 const PRESSURE_TYPES_ALL = ['off', 'polyAT', 'channelAT', 'cc', 'live'];
 const PRESSURE_TYPES = ['off', 'polyAT', 'channelAT', 'cc'];
@@ -153,6 +153,14 @@ function normalizeButton(m, page, ctl, isShift = false) {
     group: str(m.group, '', 32),
     label: str(m.label, '', 24),
   };
+  // Up to four extra messages sent together with the main one.
+  if (Array.isArray(m.extra) && (out.type === 'note' || out.type === 'cc')) {
+    out.extra = m.extra
+      .slice(0, 4)
+      .filter((x) => x && typeof x === 'object')
+      .map((x) => ({ type: oneOf(x.type, ['note', 'cc'], 'cc'), number: clampInt(x.number, 0, 127, 0), channel: clampInt(x.channel, 0, 16, 0) }));
+    if (!out.extra.length) delete out.extra;
+  }
   if (ctl.kind === 'pad') {
     out.curve = oneOf(m.curve, ['soft', 'linear', 'hard'], 'linear');
     out.pressure = oneOf(m.pressure, PRESSURE_TYPES_ALL, 'off');
@@ -217,6 +225,13 @@ function normalizeEncoder(m, page, ctl, isShift = false) {
     touchNumber: clampInt(m.touchNumber, 0, 127, d.touchNumber),
     label: str(m.label, '', 24),
   };
+  if (out.mode === 'steps') {
+    // Each detent (or every N detents) sends an "up" or "down" trigger.
+    out.stepType = oneOf(m.stepType, ['cc', 'note'], 'cc');
+    out.upNumber = clampInt(m.upNumber, 0, 127, d.number);
+    out.downNumber = clampInt(m.downNumber, 0, 127, Math.max(0, d.number - 1));
+    out.stepSize = clampInt(m.stepSize, 1, 32, 1);
+  }
   if (out.type === 'live') {
     const l = m.live && typeof m.live === 'object' ? m.live : {};
     out.live = {

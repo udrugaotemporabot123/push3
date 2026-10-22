@@ -516,6 +516,11 @@ class Engine {
   }
 
   sendValue(m, chan, value, isOn) {
+    this.sendOne(m, chan, value, isOn);
+    if (m.extra) for (const x of m.extra) this.sendOne({ type: x.type, number: x.number }, x.channel ? x.channel - 1 : chan, value, isOn);
+  }
+
+  sendOne(m, chan, value, isOn) {
     switch (m.type) {
       case 'note':
         // Note-off as note-on with velocity 0 keeps running status simple for Live.
@@ -559,6 +564,20 @@ class Engine {
     if (m.mode === 'relative2c') {
       const d = Math.max(-63, Math.min(63, delta));
       this.io.toHost([CC | chan, m.number, d >= 0 ? d : 128 + d]);
+      return;
+    }
+    if (m.mode === 'steps') {
+      // Accumulate detents; every stepSize detents fire one up/down trigger (on + off).
+      const st = this.ctlState(this.page, ctl.id);
+      st.acc = (st.acc || 0) + delta;
+      while (Math.abs(st.acc) >= m.stepSize) {
+        const up = st.acc > 0;
+        st.acc += up ? -m.stepSize : m.stepSize;
+        const number = up ? m.upNumber : m.downNumber;
+        const status = m.stepType === 'note' ? NOTE_ON : CC;
+        this.io.toHost([status | chan, number, 127]);
+        this.io.toHost([status | chan, number, 0]);
+      }
       return;
     }
     if (m.mode === 'relativeOffset') {

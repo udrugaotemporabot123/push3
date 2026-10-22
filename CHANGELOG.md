@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.19.0 – 2026-10-22
+Enkoder kao gumbi (gore/dolje koraci, npr. jog za listanje) i do 4 dodatne poruke s jednog gumba.
+
 ## v0.18.0 – 2026-10-22
 Provjera postavljanja u editoru (Postavke → Provjera): Push, virtualni port, Live most, povratna info, MIDI clock, User mode – s uputom što uključiti. Verzija u zaglavlju editora.
 

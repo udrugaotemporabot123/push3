@@ -20,6 +20,8 @@ Max for Live device + editor koji od Push 3 **User moda** radi potpuno podesiv M
 - **Izražajnost prema Liveu (v0.15)**: touch strip i pritisak prsta na padu mogu direktno pokretati Live parametar (makro, filter, send…), bez mapiranja
 - **Navigacija (v0.13)**: Live radnje prethodni/sljedeći track, scena i device; predlošci **Odabrani device (8 parametara)** i **Sendovi odabranog tracka** (strelice = navigacija)
 - **Shift + enkoder = 10× finije**, **krivulja velocityja** po padu (meko/linearno/tvrdo), **Panic** gumb (v0.12)
+- **Enkoder kao gumbi (v0.19)**: svaki korak (ili svakih N) šalje "gore"/"dolje" – za listanje preseta, scena, clipova (jog!)
+- **Više poruka s jednog gumba (v0.19)**: do 4 dodatne CC/note poruke uz glavnu
 - **Izvoz/uvoz .json** (Preseti ▾) i **kopiraj/zalijepi** kontrola (Cmd+C / Cmd+V, radi i između stranica)
 - **preseti**, undo/redo, MIDI monitor, popis nepoznatih kontrola (za provjeru na hardveru)
 

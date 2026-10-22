@@ -20,7 +20,7 @@ const T = {
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
   liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', tempo: 'Tempo' },
   behaviors: { momentary: 'Momentary (dok držiš)', toggle: 'Toggle (uklj/isklj)', trigger: 'Trigger (jedan impuls)' },
-  encModes: { absolute: 'Apsolutno (0–127, s povratnom info)', relative2c: 'Relativno – 2’s complement', relativeOffset: 'Relativno – offset 64' },
+  encModes: { absolute: 'Apsolutno (0–127, s povratnom info)', relative2c: 'Relativno – 2’s complement', relativeOffset: 'Relativno – offset 64', steps: 'Koraci (gore/dolje kao gumbi)' },
   anims: { none: 'Bez', 'pulse-slow': 'Pulsira sporo', pulse: 'Pulsira', 'pulse-fast': 'Pulsira brzo', 'blink-slow': 'Blinka sporo', blink: 'Blinka', 'blink-fast': 'Blinka brzo' },
   pressure: { off: 'Isključeno', polyAT: 'Poly aftertouch', channelAT: 'Channel aftertouch', cc: 'CC', live: 'Live parametar' },
   varActions: { recall: 'Pozovi varijaciju', store: 'Spremi u varijaciju', delete: 'Obriši varijaciju', recallLast: 'Zadnja korištena', randomize: 'Random makroi' },
@@ -595,6 +595,7 @@ function renderButtonInspector(box, ctls, maps) {
       if (isPad && common(maps, 'velocity') === 'dynamic') box.append(field('Krivulja', selectEl({ soft: 'Meko (lakše do glasnog)', linear: 'Linearno', hard: 'Tvrdo' }, common(maps, 'curve') || 'linear', (v) => setAll('curve', v))));
       box.append(field('On / Off', el('div', { class: 'inline' }, numEl(common(maps, 'onValue'), 0, 127, (v) => setAll('onValue', v)), numEl(common(maps, 'offValue'), 0, 127, (v) => setAll('offValue', v))), 'Vrijednost koja se šalje za uključeno / isključeno'));
       box.append(field('Grupa', textEl(common(maps, 'group'), (v) => setAll('group', v.trim()), 'npr. scene'), 'Kontrole s istim imenom grupe isključuju jedna drugu (radio gumbi).'));
+      if (type !== 'pc') renderExtraFields(box, maps);
     }
     if (isPad) {
       const pr = common(maps, 'pressure');
@@ -626,6 +627,38 @@ function renderButtonInspector(box, ctls, maps) {
   box.append(el('div', { class: 'sep' }));
   box.append(field('Oznaka', textEl(common(maps, 'label'), (v) => setAll('label', v), 'npr. Reverb'), 'Samo za prikaz u editoru'));
   renderBatchTools(box, ctls);
+}
+
+// Extra messages sent together with the main one (up to four).
+function renderExtraFields(box, maps) {
+  const extra = common(maps, (m) => m.extra || []);
+  if (extra === undefined) {
+    box.append(field('Dodatne poruke', el('span', { class: 'muted small' }, 'različito')));
+    return;
+  }
+  const wrap = el('div', {});
+  const update = (fn) =>
+    setAll((m) => {
+      m.extra = JSON.parse(JSON.stringify(m.extra || []));
+      fn(m.extra);
+      if (!m.extra.length) delete m.extra;
+    });
+  extra.forEach((x, i) => {
+    const chOpts = { 0: 'kanal str.' };
+    for (let c = 1; c <= 16; c++) chOpts[c] = `ch ${c}`;
+    wrap.append(
+      el(
+        'div',
+        { class: 'inline', style: 'margin-bottom:4px' },
+        selectEl({ cc: 'CC', note: 'Nota' }, x.type, (v) => update((a) => (a[i].type = v))),
+        numEl(x.number, 0, 127, (v) => update((a) => (a[i].number = v))),
+        selectEl(chOpts, String(x.channel || 0), (v) => update((a) => (a[i].channel = Number(v)))),
+        el('button', { onclick: () => update((a) => a.splice(i, 1)) }, '×'),
+      ),
+    );
+  });
+  if (extra.length < 4) wrap.append(el('button', { onclick: () => update((a) => a.push({ type: 'cc', number: 0, channel: 0 })) }, '+ dodaj poruku'));
+  box.append(field('Dodatne poruke', wrap, 'Šalju se zajedno s glavnom porukom (iste vrijednosti)'));
 }
 
 function setType(m, v) {
@@ -850,7 +883,12 @@ function renderEncoderInspector(box, ctls, maps) {
     box.append(channelSelect(maps));
     const mode = common(maps, 'mode');
     box.append(field('Način', selectEl(T.encModes, mode, (v) => setAll('mode', v))));
-    if (mode === 'absolute') {
+    if (mode === 'steps') {
+      box.append(field('Šalje', selectEl({ cc: 'CC (127 pa 0)', note: 'Notu (on/off)' }, common(maps, 'stepType'), (v) => setAll('stepType', v))));
+      box.append(field('Gore / dolje', el('div', { class: 'inline' }, numEl(common(maps, 'upNumber'), 0, 127, (v) => setAll('upNumber', v)), numEl(common(maps, 'downNumber'), 0, 127, (v) => setAll('downNumber', v))), 'Broj poruke za okret udesno / ulijevo'));
+      box.append(field('Korak', numEl(common(maps, 'stepSize'), 1, 32, (v) => setAll('stepSize', v)), 'Koliko pomaka enkodera za jedan korak (veće = sporije)'));
+      box.append(el('p', { class: 'muted small' }, 'U Liveu mapiraj gore/dolje kao gumbe (npr. sljedeći/prethodni preset, scena, clip).'));
+    } else if (mode === 'absolute') {
       box.append(field('Osjetljivost', numEl(common(maps, 'sensitivity'), 0.05, 8, (v) => setAll('sensitivity', v), 0.05), '1 = jedan korak enkodera je jedan korak vrijednosti. 0.5 = finije.'));
       box.append(field('Raspon', el('div', { class: 'inline' }, numEl(common(maps, 'min'), 0, 127, (v) => setAll('min', v)), numEl(common(maps, 'max'), 0, 127, (v) => setAll('max', v)))));
       box.append(el('p', { class: 'muted small' }, 'U Liveu mapiraj kao Absolute. Uključi Remote na izlazu porta da enkoder prati promjene iz Livea (nema skokova).'));

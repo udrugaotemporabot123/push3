@@ -548,3 +548,36 @@ test('touch strip and pad pressure can drive Live parameters directly', () => {
     ['named', 0],
   ]);
 });
+
+test('encoder steps mode fires up/down triggers every N detents', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls.jog, { mode: 'steps', stepType: 'cc', upNumber: 101, downNumber: 100, stepSize: 2 });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  clear();
+  e.handlePushMessage([0xb0, 70, 1]);
+  assert.equal(out.host.length, 0);
+  e.handlePushMessage([0xb0, 70, 1]);
+  e.handlePushMessage([0xb0, 70, 127]);
+  e.handlePushMessage([0xb0, 70, 127]);
+  assert.deepEqual(out.host, [
+    [0xb4, 101, 127],
+    [0xb4, 101, 0],
+    [0xb4, 100, 127],
+    [0xb4, 100, 0],
+  ]);
+});
+
+test('extra messages are sent together with the main one', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls.mute, { behavior: 'toggle', extra: [{ type: 'cc', number: 20, channel: 0 }, { type: 'note', number: 60, channel: 2 }] });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  clear();
+  e.handlePushMessage([0xb0, 60, 127]);
+  assert.deepEqual(out.host, [
+    [0xb4, 60, 127],
+    [0xb4, 20, 127],
+    [0x91, 60, 127],
+  ]);
+});
