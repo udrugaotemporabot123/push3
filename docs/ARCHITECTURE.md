@@ -5,9 +5,13 @@
         ▲                              │  ▲                                        │
         └──── LED / sysex ◄────────────┘  └──── povratna info (Remote out) ◄────────┘
                                        │
-                         editor (WebSocket, 127.0.0.1:47391)
+      editor (WebSocket, 127.0.0.1:47391; opcija: LAN :47392 s tajnim ključem)
                                        │
-                 Max: node.script ◄──► js p3um-live.js (Live API: rack varijacije)
+        Max: node.script ◄──► js p3um-live.js (Live API: trackovi, parametri, clipovi, varijacije, Drum Rack / Simpler)
+                                       │
+                       add-oni (addons/*: looper, sampler, stepseq, xyfx)
+                                       │
+               ekran: vlastiti renderer 960×160 → pregled u editoru / USB (eksperimentalno)
 ```
 
 ## Ključne odluke
@@ -23,6 +27,10 @@
 - **Ništa ne ostaje "zaglavljeno"**: promjena stranice, izlaz iz User moda i gašenje šalju note-off/off za sve što se drži.
 - **Jedna instanca**: port editora (47391) služi kao lock; drugi device u setu ostaje neaktivan.
 - **Portovi se skeniraju svake 2 s**: isključivanje/uključivanje Pusha ne traži restart.
+- **Add-oni su odvojeni od jezgre**: svaki poziv (press/release/led/watch/clock/status/turn) je u try/catch; pokvaren add-on gasi samo svoje kontrole. Release uvijek ide mapiranju koje je dobilo press (i kad se u međuvremenu promijeni stranica, Shift ili konfiguracija).
+- **Live API most je ES5** (Max `[js]`), testira se u Nodeu na lažnom Live Object Modelu (`engine/test/live-bridge.test.js`); promjene u Liveu se nikad ne rade iz callbacka promatrača (Live to zabranjuje), nego iz poruka ili Taska.
+- **Fuzz testovi** (`engine/test/fuzz.test.js`): nasumične konfiguracije, MIDI, Live stanje i clock; provjerava da nema iznimki, da je sav MIDI ispravan i da nakon izlaska iz User moda nema zaglavljenih nota.
+- **Sigurnost editora**: WebSocket s tuđih web stranica (Origin) se odbija; LAN pristup je isključen dok ga ne uključiš na računalu i traži ključ (cookie HttpOnly), a ne sprema se u presete.
 
 ## Izvori
 
