@@ -165,7 +165,20 @@ function findTrack(spec) {
 
 // First rack on the track (or the rack with that name), searching one level into chains.
 function findRack(track, spec) {
-  var wanted = spec && spec !== 'first' ? String(spec).toLowerCase() : null;
+  var str0 = spec ? String(spec) : 'first';
+  // "#2" = the second rack on the track (top level), counting only racks.
+  var m = /^#([0-9]+)$/.exec(str0);
+  if (m) {
+    var want = parseInt(m[1], 10);
+    var n = track.getcount('devices');
+    var seen = 0;
+    for (var i = 0; i < n; i++) {
+      var d = new LiveAPI(track.unquotedpath + ' devices ' + i);
+      if (num(d.get('can_have_chains')) === 1 && ++seen === want) return d;
+    }
+    return null;
+  }
+  var wanted = str0 !== 'first' ? str0.toLowerCase() : null;
   return searchDevices(track.unquotedpath, wanted, 0);
 }
 

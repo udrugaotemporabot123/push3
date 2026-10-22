@@ -38,6 +38,8 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.9.0 Sampler add-on: record on a source track, then clip file → next empty Simpler in a Drum Rack
       (SimplerDevice.replace_sample, polls until the recording file exists), notices on display; Sampler template
 
+- [x] v0.10.0 "#n" rack addressing for variations; template Variations (8 racks x 8)
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white

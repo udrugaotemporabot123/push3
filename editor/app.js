@@ -759,7 +759,7 @@ function renderVariationFields(box, maps) {
   const setTrack = (v) => setAll((m) => (m.target = { ...m.target, track: v.trim() || 'selected' }));
   const setDevice = (v) => setAll((m) => (m.target = { ...m.target, device: v.trim() || 'first' }));
   box.append(field('Track', textEl(tr, setTrack, 'selected'), 'selected = trenutno odabrani track, ili točno ime tracka'));
-  box.append(field('Rack', textEl(dv, setDevice, 'first'), 'first = prvi rack na tracku, ili točno ime racka'));
+  box.append(field('Rack', textEl(dv, setDevice, 'first'), 'first = prvi rack, #2 = drugi rack na tracku, ili točno ime racka'));
   box.append(field('Varijacija', numEl(common(maps, (m) => m.index + 1), 1, 128, (v) => setAll('index', v - 1))));
   box.append(field('Radnja', selectEl(T.varActions, common(maps, 'action'), (v) => setAll('action', v))));
   const ls = S.snapshot.liveState && S.snapshot.liveState.variations;
@@ -952,6 +952,22 @@ const TEMPLATES = {
       for (let i = 1; i <= 8; i++) {
         r[`scene.${i}`] = { type: 'live', colorOn: 21, colorOff: 23, live: { action: 'scene', scene: i } };
         r[`lower.${i}`] = { type: 'live', colorOn: 5, colorOff: 7, live: { action: 'stopTrack', track: String(i) } };
+      }
+      return r;
+    },
+  },
+  variations: {
+    name: 'Varijacije (8 rackova × 8)',
+    help: 'Red padova = rack #1…#8 na tracku (gornji red = prvi rack), stupac = varijacija 1–8. Svijetli = postoji, bijelo = aktivna. Shift + pad = spremi novu varijaciju.',
+    ask: [{ key: 'track', label: 'Track (selected = odabrani, ili ime/broj)', default: 'selected' }],
+    apply(a) {
+      const colors = [29, 45, 9, 57, 13, 49, 33, 5];
+      const r = {};
+      for (let row = 0; row < 8; row++) {
+        const rackNo = 8 - row;
+        for (let col = 0; col < 8; col++) {
+          r[`pad.${row}.${col}`] = { type: 'variation', target: { track: a.track, device: `#${rackNo}` }, index: col, action: 'recall', colorOn: 3, colorOff: colors[rackNo - 1] };
+        }
       }
       return r;
     },

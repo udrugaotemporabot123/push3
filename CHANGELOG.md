@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.10.0 – 2026-10-22
+Varijacije za više rackova: rack se bira i kao #2, #3…; predložak Varijacije (8 rackova × 8) – svaki red padova je jedan rack.
+
 ## v0.9.0 – 2026-10-22
 Sampler add-on: snimi zvuk (mic/violina) i automatski ga učitaj u sljedeći prazni Simpler u Drum Racku; zadnji clip → sljedeći/odabrani pad; obavijest na ekranu; predložak Sampler.
 

@@ -121,7 +121,7 @@ function makeLive() {
       return (this.o.children[k] || []).length;
     }
   }
-  return { LiveAPI, song, bass, vio, rack, master, songView, calls, pads, drums };
+  return { LiveAPI, song, bass, vio, rack, master, songView, calls, pads, drums, obj };
 }
 
 function loadBridge(live) {
@@ -326,4 +326,14 @@ test('bridge: recorded clip lands in the next empty Simpler and that pad gets se
   assert.equal(live.drums.children.view.props.selected_drum_pad, live.pads[2].id);
   const n = b.out.filter((x) => x[0] === 'liveState').map((x) => x[1]).filter((x) => x.type === 'notice').at(-1);
   assert.equal(n.text, 'Uzorak → D1');
+});
+
+test('bridge: "#2" addresses the second rack on a track', () => {
+  const live = makeLive();
+  live.vio.children.devices.push(live.obj({ name: 'Second Rack', can_have_chains: 1, variation_count: 5, selected_variation_index: 1 }, { parameters: [], chains: [] }));
+  const b = loadBridge(live);
+  b.init();
+  b.live(JSON.stringify({ cmd: 'watch', targets: { 'Violin|#2': { track: 'Violin', device: '#2' } } }));
+  const st = states(b.out).filter((x) => x.type === 'variations').at(-1);
+  assert.deepEqual([st.ok, st.count, st.name], [true, 5, 'Second Rack']);
 });
