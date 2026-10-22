@@ -52,6 +52,7 @@ Max for Live device + editor koji od Push 3 **User moda** radi potpuno podesiv M
 - Više padova odabereš povlačenjem miša preko njih; *Redom…* dodijeli brojeve redom, *Pretvori u varijacije* napravi red varijacija.
 - U Liveu uđi u MIDI Map mode (Cmd+M), klikni parametar i pritisni kontrolu na Pushu (u User modu). Gotovo.
 - Enkoderi: zadano šalju **apsolutni CC** (0–127) i prate vrijednost iz Livea. Ako više voliš relativno, odaberi *Relativno – 2's complement* u editoru **i** isti Mapping Mode u Liveovoj statusnoj traci.
+- **14-bit enkoderi** (v0.26): način *Apsolutno 14-bit* šalje par CC (npr. 20 + 52) = 16384 koraka umjesto 128. U Liveu nakon MIDI mapiranja odaberi Mapping Mode *Absolute (14-bit)*. Shift + enkoder ide u najfinijim koracima (idealno za filter, pitch, delay time).
 
 Konfiguracija se sprema automatski u `~/Documents/Push3UserMode/config.json` (preseti u `presets/`, a najviše jednom u 10 minuta i automatske sigurnosne kopije u `backups/`, zadnjih 20).
 

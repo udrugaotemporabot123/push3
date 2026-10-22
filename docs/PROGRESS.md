@@ -68,6 +68,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.23.0 Sequencer: drum pads (hit: play + select lane + live record into nearest step), steps of the selected lane, MPC swing, template Drum sequencer 16 + 32 (+ Sampler)
 - [x] v0.24.0 Add-on status on the display (status hook: sequencer position/REC, sampler target, looper count), add-on action labels on display buttons, Looper clear all (Shift)
 - [x] v0.25.0 Editor from a tablet: opt-in LAN listener (port+1, token in link -> HttpOnly cookie, kept in lan.json not in presets), WebSocket Origin check on the local editor
+- [x] v0.26.0 14-bit absolute encoders (MSB CC 0-31 + LSB CC+32, feedback from both, Shift = single 14-bit steps)
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
@@ -77,7 +78,6 @@ Update this file after every step so work can resume after an interruption.
 - [ ] Display: full-screen add-on views (sequencer lanes grid), track colour bars, encoder touch = big value.
 - [ ] Editor: QR code for the tablet link, search by label, drag-to-reorder pages, per-page templates preview.
 - [ ] TouchOSC/OSC mirror of the display state (optional add-on).
-- [ ] 14-bit encoders (CC pairs) for fine absolute control.
 
 ## Open questions to verify on hardware
 - Display takeover: does Live release the USB display in User Mode? (status shown under the preview in the editor)

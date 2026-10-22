@@ -8,7 +8,7 @@
 //  y 138-160 lower display buttons: labels with their LED colour
 
 const push3 = require('../push3');
-const { pageChannel } = require('../config');
+const { pageChannel, range14 } = require('../config');
 const { liveKey } = require('../live');
 
 const TEMPO_KEY = liveKey({ t: 'param', target: 'tempo' });
@@ -103,7 +103,11 @@ function buildModel(engine, palette, lastAction, now) {
       enc0.frac = v && v.ok ? v.value : 0;
     } else if (em && em.type === 'cc') {
       enc0.label = summary(enc, em);
-      if (em.mode !== 'absolute') enc0.relative = true;
+      if (em.mode === 'absolute14') {
+        const [lo, hi] = range14(em);
+        enc0.text = st.value === null ? '–' : (st.value / 128).toFixed(1);
+        enc0.frac = st.value === null ? 0 : (st.value - lo) / Math.max(1, hi - lo);
+      } else if (em.mode !== 'absolute') enc0.relative = true;
       else {
         enc0.text = st.value === null ? '–' : String(Math.round(st.value));
         enc0.frac = st.value === null ? 0 : (st.value - em.min) / Math.max(1, em.max - em.min);

@@ -15,7 +15,12 @@ const PAGE_COLORS = [COLORS.mint, COLORS.blue, COLORS.orange, COLORS.pink, COLOR
 const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live', 'addon', 'panic'];
 const BEHAVIORS = ['momentary', 'toggle', 'trigger'];
 const ENCODER_TYPES = ['none', 'cc', 'live'];
-const ENCODER_MODES = ['absolute', 'relative2c', 'relativeOffset', 'steps'];
+const ENCODER_MODES = ['absolute', 'absolute14', 'relative2c', 'relativeOffset', 'steps'];
+
+// 14-bit range of an absolute14 encoder in 0..16383 units (min/max are kept in 0..127 like 7-bit).
+function range14(m) {
+  return [m.min * 128, m.max === 127 ? 16383 : m.max * 128];
+}
 const STRIP_TYPES = ['none', 'pitchbend', 'cc', 'live'];
 const PRESSURE_TYPES_ALL = ['off', 'polyAT', 'channelAT', 'cc', 'live'];
 const PRESSURE_TYPES = ['off', 'polyAT', 'channelAT', 'cc'];
@@ -225,6 +230,8 @@ function normalizeEncoder(m, page, ctl, isShift = false) {
     touchNumber: clampInt(m.touchNumber, 0, 127, d.touchNumber),
     label: str(m.label, '', 24),
   };
+  // 14-bit: MSB on CC 0-31, LSB on CC + 32 (the MIDI standard pair; Live: Absolute (14-bit)).
+  if (out.mode === 'absolute14') out.number = Math.min(31, out.number);
   if (out.mode === 'steps') {
     // Each detent (or every N detents) sends an "up" or "down" trigger.
     out.stepType = oneOf(m.stepType, ['cc', 'note'], 'cc');
@@ -337,4 +344,5 @@ module.exports = {
   normalizeConfig,
   normalizeMapping,
   pageChannel,
+  range14,
 };

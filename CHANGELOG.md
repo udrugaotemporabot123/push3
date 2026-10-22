@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.26.0 – 2026-10-22
+14-bit enkoderi (CC par MSB + LSB, Shift = najfiniji koraci, povratna info iz Livea).
+
 ## v0.25.0 – 2026-10-22
 Editor s tableta (opt-in, link s tajnim ključem); lokalni editor odbija veze s drugih web stranica.
 

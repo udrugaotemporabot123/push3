@@ -581,3 +581,26 @@ test('extra messages are sent together with the main one', () => {
     [0x91, 60, 127],
   ]);
 });
+
+test('14-bit encoder: MSB + LSB out, Shift reaches single steps, feedback from both CCs', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['enc.1'], { mode: 'absolute14', number: 20, sensitivity: 1 });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  clear();
+  e.handlePushMessage([0xb0, 71, 1]); // +1 detent = 128 units
+  assert.deepEqual(out.host, [[0xb4, 20, 1], [0xb4, 52, 0]]);
+  clear();
+  e.handlePushMessage([0xb0, 49, 127]); // shift
+  e.handlePushMessage([0xb0, 71, 1]); // fine: +12.8 -> 141
+  e.handlePushMessage([0xb0, 49, 0]);
+  assert.deepEqual(out.host, [[0xb4, 20, 1], [0xb4, 52, 13]]);
+  // Feedback: MSB then LSB from Live.
+  e.handleHostMessage([0xb4, 20, 100]);
+  e.handleHostMessage([0xb4, 52, 5]);
+  assert.equal(e.ctlState(0, 'enc.1').value, 100 * 128 + 5);
+  // Normalisation keeps the MSB in 0-31.
+  const { normalizeConfig } = require('../src/config');
+  const cfg = normalizeConfig({ pages: [{ controls: { 'enc.2': { type: 'cc', mode: 'absolute14', number: 72 } } }] });
+  assert.equal(cfg.pages[0].controls['enc.2'].number, 31);
+});

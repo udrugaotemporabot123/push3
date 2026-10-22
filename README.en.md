@@ -11,7 +11,7 @@ Live-aware extras. *(Hrvatski: [README.md](README.md))*
   restores Push's setting when you leave. Everything goes out on the channel you choose (per page) on a
   virtual port **`Push3 UM`**.
 - **Momentary / toggle / trigger**, radio groups, up to 4 extra messages per button, velocity curves,
-  encoder modes (absolute with feedback, relative, up/down steps), Shift + encoder = fine.
+  encoder modes (absolute with feedback, 14-bit absolute CC pairs, relative, up/down steps), Shift + encoder = fine.
 - **Colours and animations** (pulse/blink) for on and off states.
 - **Two-way feedback**: LEDs and encoder values follow Live through the virtual port.
 - **Pages (up to 16)** selected with the upper display buttons, **shift layer** per control,

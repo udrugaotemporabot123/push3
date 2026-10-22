@@ -14,7 +14,7 @@
 //   not visible and switching pages is instant.
 
 const push3 = require('./push3');
-const { normalizeConfig, pageChannel } = require('./config');
+const { normalizeConfig, pageChannel, range14 } = require('./config');
 const { dimOf, DEFAULT_PALETTE } = require('./palette');
 const live = require('./live');
 
@@ -91,6 +91,11 @@ class Engine {
           const key = `${m.type}:${chan}:${m.number}`;
           if (!this.feedbackIndex.has(key)) this.feedbackIndex.set(key, []);
           this.feedbackIndex.get(key).push({ page: pi, id, layer });
+          if (m.type === 'cc' && m.mode === 'absolute14') {
+            const lsbKey = `cc:${chan}:${m.number + 32}`;
+            if (!this.feedbackIndex.has(lsbKey)) this.feedbackIndex.set(lsbKey, []);
+            this.feedbackIndex.get(lsbKey).push({ page: pi, id, layer, lsb: true });
+          }
         }
       }
     });
@@ -584,6 +589,21 @@ class Engine {
       this.io.toHost([CC | chan, m.number, Math.max(1, Math.min(127, 64 + delta))]);
       return;
     }
+    if (m.mode === 'absolute14') {
+      // Same travel as 7-bit (sensitivity in 7-bit steps); Shift (fine) reaches single 14-bit steps.
+      const [lo, hi] = range14(m);
+      const st = this.ctlState(this.page, ctl.id);
+      if (st.value === null) st.value = lo;
+      const prev = Math.round(st.value);
+      st.value = Math.min(hi, Math.max(lo, st.value + delta * m.sensitivity * 128 * fine));
+      const next = Math.round(st.value);
+      if (next !== prev) {
+        this.io.toHost([CC | chan, m.number, next >> 7]);
+        this.io.toHost([CC | chan, m.number + 32, next & 0x7f]);
+      }
+      this.emit('value', { page: this.page, id: ctl.id, value: next / 128 });
+      return;
+    }
     const st = this.ctlState(this.page, ctl.id);
     if (st.value === null) st.value = m.min;
     const prev = Math.round(st.value);
@@ -657,7 +677,13 @@ class Engine {
       const m = this.mapping(t.id, t.page, t.layer);
       const st = this.ctlState(t.page, t.id, t.layer);
       const visible = t.page === this.page && this.layerFor(t.id) === t.layer;
-      if (ctl.kind === 'encoder') {
+      if (ctl.kind === 'encoder' && m.mode === 'absolute14') {
+        const [lo, hi] = range14(m);
+        const cur = st.value === null ? 0 : Math.round(st.value);
+        const v14 = t.lsb ? (cur & ~0x7f) | value : value << 7;
+        st.value = Math.min(hi, Math.max(lo, v14));
+        this.emit('value', { page: t.page, id: t.id, value: st.value / 128 });
+      } else if (ctl.kind === 'encoder') {
         st.value = Math.min(m.max, Math.max(m.min, value));
         this.emit('value', { page: t.page, id: t.id, value });
       } else {

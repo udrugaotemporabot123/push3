@@ -20,7 +20,7 @@ const T = {
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
   liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', tempo: 'Tempo' },
   behaviors: { momentary: 'Momentary (dok držiš)', toggle: 'Toggle (uklj/isklj)', trigger: 'Trigger (jedan impuls)' },
-  encModes: { absolute: 'Apsolutno (0–127, s povratnom info)', relative2c: 'Relativno – 2’s complement', relativeOffset: 'Relativno – offset 64', steps: 'Koraci (gore/dolje kao gumbi)' },
+  encModes: { absolute: 'Apsolutno (0–127, s povratnom info)', absolute14: 'Apsolutno 14-bit (CC 0–31 + LSB)', relative2c: 'Relativno – 2’s complement', relativeOffset: 'Relativno – offset 64', steps: 'Koraci (gore/dolje kao gumbi)' },
   anims: { none: 'Bez', 'pulse-slow': 'Pulsira sporo', pulse: 'Pulsira', 'pulse-fast': 'Pulsira brzo', 'blink-slow': 'Blinka sporo', blink: 'Blinka', 'blink-fast': 'Blinka brzo' },
   pressure: { off: 'Isključeno', polyAT: 'Poly aftertouch', channelAT: 'Channel aftertouch', cc: 'CC', live: 'Live parametar' },
   varActions: { recall: 'Pozovi varijaciju', store: 'Spremi u varijaciju', delete: 'Obriši varijaciju', recallLast: 'Zadnja korištena', randomize: 'Random makroi' },
@@ -888,12 +888,29 @@ function renderEncoderInspector(box, ctls, maps) {
     box.append(field('CC broj', numRow));
     box.append(channelSelect(maps));
     const mode = common(maps, 'mode');
-    box.append(field('Način', selectEl(T.encModes, mode, (v) => setAll('mode', v))));
+    box.append(
+      field(
+        'Način',
+        selectEl(T.encModes, mode, (v) => {
+          // 14-bit needs MSB CC 0-31: move the default CCs (71-78) to free pairs 20-27 / 52-59.
+          setAll((m, ctl) => {
+            m.mode = v;
+            if (v !== 'absolute14' || m.number <= 31) return;
+            const n = /^enc\.(\d)$/.exec(ctl.id);
+            m.number = n ? 19 + Number(n[1]) : 28 + (S.controls.indexOf(ctl) % 4);
+          });
+        }),
+      ),
+    );
     if (mode === 'steps') {
       box.append(field('Šalje', selectEl({ cc: 'CC (127 pa 0)', note: 'Notu (on/off)' }, common(maps, 'stepType'), (v) => setAll('stepType', v))));
       box.append(field('Gore / dolje', el('div', { class: 'inline' }, numEl(common(maps, 'upNumber'), 0, 127, (v) => setAll('upNumber', v)), numEl(common(maps, 'downNumber'), 0, 127, (v) => setAll('downNumber', v))), 'Broj poruke za okret udesno / ulijevo'));
       box.append(field('Korak', numEl(common(maps, 'stepSize'), 1, 32, (v) => setAll('stepSize', v)), 'Koliko pomaka enkodera za jedan korak (veće = sporije)'));
       box.append(el('p', { class: 'muted small' }, 'U Liveu mapiraj gore/dolje kao gumbe (npr. sljedeći/prethodni preset, scena, clip).'));
+    } else if (mode === 'absolute14') {
+      box.append(field('Osjetljivost', numEl(common(maps, 'sensitivity'), 0.05, 8, (v) => setAll('sensitivity', v), 0.05), 'Isti hod kao 7-bit; Shift + enkoder ide u najfinijim 14-bit koracima.'));
+      box.append(field('Raspon', el('div', { class: 'inline' }, numEl(common(maps, 'min'), 0, 127, (v) => setAll('min', v)), numEl(common(maps, 'max'), 0, 127, (v) => setAll('max', v)))));
+      box.append(el('p', { class: 'muted small' }, `Šalje CC ${common(maps, 'number')} (grubo) i CC ${Number(common(maps, 'number')) + 32} (fino). U Liveu: MIDI Map, okreni enkoder, pa u statusnoj traci Mapping Mode = Absolute (14-bit).`));
     } else if (mode === 'absolute') {
       box.append(field('Osjetljivost', numEl(common(maps, 'sensitivity'), 0.05, 8, (v) => setAll('sensitivity', v), 0.05), '1 = jedan korak enkodera je jedan korak vrijednosti. 0.5 = finije.'));
       box.append(field('Raspon', el('div', { class: 'inline' }, numEl(common(maps, 'min'), 0, 127, (v) => setAll('min', v)), numEl(common(maps, 'max'), 0, 127, (v) => setAll('max', v)))));
