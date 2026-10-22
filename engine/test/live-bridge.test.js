@@ -213,3 +213,27 @@ test('bridge: rack variations recall through selected index', () => {
   assert.equal(live.rack.props.selected_variation_index, 2);
   assert.ok(live.calls.some((c) => c[1] === 'recall_selected_variation'));
 });
+
+test('bridge: named device parameter (inside a rack chain) by parameter name', () => {
+  const live = makeLive();
+  // Put a "Beat Repeat" device inside the rack's first chain.
+  const chainParent = live.rack;
+  const LiveAPI = live.LiveAPI;
+  const b = loadBridge(live);
+  b.init();
+  const spec = { t: 'param', target: 'named', track: 'Violin', device: 'FX Rack', param: 'macro 1' };
+  b.live(JSON.stringify({ cmd: 'watchLive', targets: { n: spec } }));
+  const st = states(b.out).at(-1);
+  assert.deepEqual([st.ok, st.name], [true, 'Macro 1']);
+  b.live(JSON.stringify({ cmd: 'liveSet', key: 'n', spec, value: 0 }));
+  assert.equal(chainParent.children.parameters[1].props.value, 0);
+  assert.ok(LiveAPI);
+});
+
+test('bridge: unknown device name reports not found', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  b.live(JSON.stringify({ cmd: 'watchLive', targets: { x: { t: 'param', target: 'named', track: 'Violin', device: 'Nope', param: '1' } } }));
+  assert.equal(states(b.out).at(-1).ok, false);
+});

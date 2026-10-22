@@ -27,6 +27,9 @@ Update this file after every step so work can resume after an interruption.
       transport, scene launch; encoders on volume/pan/send/macro/device param/tempo with names+values on the display.
       Bridge tested against a fake LOM (engine/test/live-bridge.test.js).
 
+- [x] v0.6.0 named device parameters (buttons: toggle/momentary/trigger; encoders) incl. search inside racks;
+      page templates in the editor (Mixer 8, Selected track macros+variations, Transport)
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white

@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.6.0 – 2026-10-22
+Parametri bilo kojeg devicea po imenu (gumbi toggle/momentary/trigger, enkoderi), i unutar rackova — npr. Record na Record.To.Simpleru. Predlošci stranica: Mixer, Odabrani track, Transport.
+
 ## v0.5.0 – 2026-10-22
 Live funkcije bez MIDI mapiranja: Mute/Solo/Arm/Select tracka (LED u boji tracka), transport, scene; enkoderi na volumen/pan/send, makro racka, parametar devicea, tempo — s imenom i vrijednošću na ekranu.
 

@@ -12,6 +12,8 @@ Max for Live device + editor koji od Push 3 **User moda** radi potpuno podesiv M
 - **stranice (do 16)**: gornji red gumba bira stranice 1–8, svaka stranica ima svoj kanal i boju
 - **Rack varijacije**: padovi direktno pozivaju varijacije racka (odabrani track ili po imenu), bez MIDI mapiranja; Shift + pad sprema novu varijaciju; može više redova i više rackova
 - **Live funkcije bez mapiranja (v0.5)**: gumb može direktno raditi Mute/Solo/Arm/Select tracka (odabrani, po broju ili imenu; LED u boji tracka), Play, Stop, Session Record, Metronom, Overdub, Tap, Undo/Redo, Capture, pokretanje scene; enkoder može direktno vrtjeti volumen/pan/send tracka, makro racka, parametar odabranog devicea ili tempo, a **ekran pokazuje pravo ime i vrijednost** (npr. „-6.0 dB")
+- **Bilo koji parametar bilo kojeg devicea po imenu (v0.6)**: npr. *Record* na Record.To.Simpleru, *Device On* na Beat Repeatu, *Dry/Wet* na reverbu; gumb kao toggle / momentary / trigger, enkoder za vrijednost; traži i unutar rackova
+- **Predlošci stranica (v0.6)**: *Mixer (8 trackova)*, *Odabrani track (makroi + varijacije)*, *Transport* – jedan klik u postavkama stranice
 - **Shift sloj (v0.4)**: svaka kontrola može imati drugu funkciju dok držiš Shift (vlastite boje i stanje); u editoru prekidač *Normalno / Shift sloj*
 - **Drži za stranicu (v0.4)**: dok držiš gumb, prikazana je druga stranica (npr. FX stranica samo dok držiš Select)
 - **preseti**, undo/redo, MIDI monitor, popis nepoznatih kontrola (za provjeru na hardveru)

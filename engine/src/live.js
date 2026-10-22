@@ -2,8 +2,9 @@
 // Live-aware mappings: controls that act on Live directly through the Live API bridge
 // (p3um-live.js) instead of sending MIDI, with real state/feedback coming back.
 
-const BUTTON_ACTIONS = ['mute', 'solo', 'arm', 'select', 'scene', 'play', 'stop', 'record', 'metronome', 'overdub', 'tap', 'undo', 'redo', 'capture'];
-const ENCODER_TARGETS = ['volume', 'pan', 'send', 'macro', 'deviceParam', 'tempo'];
+const BUTTON_ACTIONS = ['mute', 'solo', 'arm', 'select', 'scene', 'play', 'stop', 'record', 'metronome', 'overdub', 'tap', 'undo', 'redo', 'capture', 'param'];
+const PARAM_MODES = ['toggle', 'momentary', 'trigger'];
+const ENCODER_TARGETS = ['volume', 'pan', 'send', 'macro', 'deviceParam', 'named', 'tempo'];
 
 // What to observe for a button action (null = nothing to show).
 function specForButton(live) {
@@ -23,6 +24,8 @@ function specForButton(live) {
       return { t: 'song', prop: 'metronome' };
     case 'overdub':
       return { t: 'song', prop: 'arrangement_overdub' };
+    case 'param':
+      return { t: 'param', target: 'named', track: live.track, device: live.device, param: live.param };
     default:
       return null;
   }
@@ -37,6 +40,10 @@ function specForEncoder(live) {
     spec.index = live.index;
   }
   if (live.target === 'deviceParam') spec.index = live.index;
+  if (live.target === 'named') {
+    spec.device = live.device;
+    spec.param = live.param;
+  }
   if (live.target === 'tempo') return { t: 'param', target: 'tempo' };
   return spec;
 }
@@ -68,4 +75,4 @@ function nearestPaletteIndex(rgb, palette) {
   return best;
 }
 
-module.exports = { BUTTON_ACTIONS, ENCODER_TARGETS, specForButton, specForEncoder, liveKey, nearestPaletteIndex };
+module.exports = { BUTTON_ACTIONS, PARAM_MODES, ENCODER_TARGETS, specForButton, specForEncoder, liveKey, nearestPaletteIndex };

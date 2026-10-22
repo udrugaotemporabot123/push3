@@ -463,3 +463,20 @@ test('transport live actions call the bridge', () => {
     { cmd: 'liveCall', spec: { t: 'scene', index: 3 }, fn: 'fire' },
   ]);
 });
+
+test('live param button: momentary sets 1 on press and 0 on release; toggle follows Live', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['pad.0.0'], { type: 'live', live: { action: 'param', track: 'MIC', device: 'Record.To.Simpler', param: 'Record', mode: 'momentary' } });
+    Object.assign(c.pages[0].controls['pad.0.1'], { type: 'live', live: { action: 'param', track: 'VIO', device: 'Beat Repeat', param: 'Device On', mode: 'toggle' } });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  const watch = out.live.filter((x) => x.cmd === 'watchLive').at(-1).targets;
+  const keyToggle = Object.keys(watch).find((k) => k.includes('Beat Repeat'));
+  e.handleLiveState({ type: 'live', key: keyToggle, ok: true, value: 1 });
+  clear();
+  e.handlePushMessage([0x90, 36, 100]);
+  e.handlePushMessage([0x80, 36, 0]);
+  e.handlePushMessage([0x90, 37, 100]);
+  assert.deepEqual(out.live.map((x) => x.value), [1, 0, 0]);
+  assert.equal(out.live[2].spec.param, 'Device On');
+});

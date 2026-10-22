@@ -310,6 +310,12 @@ function livePath(spec) {
         return { path: rack.unquotedpath + ' parameters ' + (spec.index | 0), prop: 'value', param: true, trackId: tr.id };
       case 'deviceParam':
         return { path: base + ' view selected_device parameters ' + (spec.index | 0), prop: 'value', param: true, trackId: tr.id, viewPath: base + ' view' };
+      case 'named':
+        var dev = findDevice(tr, spec.device);
+        if (!dev) return null;
+        var pp = findParam(dev, spec.param);
+        if (!pp) return null;
+        return { path: pp, prop: 'value', param: true, trackId: tr.id, viewPath: spec.device === 'selected' ? base + ' view' : null };
     }
   }
   return null;
@@ -448,4 +454,55 @@ function liveCall(msg) {
   } else if (SONG_CALLS[msg.fn]) {
     new LiveAPI('live_set').call(SONG_CALLS[msg.fn]);
   }
+}
+
+// Device on a track by name (searching inside rack chains), 'first' or 'selected'.
+function findDevice(track, spec) {
+  var name = spec ? String(spec) : 'selected';
+  if (name === 'selected') {
+    var sel = new LiveAPI(track.unquotedpath + ' view selected_device');
+    return sel.id && sel.id != 0 ? sel : null;
+  }
+  if (name === 'first') {
+    if (track.getcount('devices') < 1) return null;
+    return new LiveAPI(track.unquotedpath + ' devices 0');
+  }
+  return searchByName(track.unquotedpath, name.toLowerCase(), 0);
+}
+
+function searchByName(path, wanted, depth) {
+  var parent = new LiveAPI(path);
+  var n = parent.getcount('devices');
+  var i;
+  for (i = 0; i < n; i++) {
+    var d = new LiveAPI(path + ' devices ' + i);
+    if (str(d.get('name')).toLowerCase() === wanted) return d;
+  }
+  if (depth > 1) return null;
+  for (i = 0; i < n; i++) {
+    var r = new LiveAPI(path + ' devices ' + i);
+    if (num(r.get('can_have_chains')) !== 1) continue;
+    var chains = r.getcount('chains');
+    for (var c = 0; c < chains; c++) {
+      var found = searchByName(path + ' devices ' + i + ' chains ' + c, wanted, depth + 1);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// Parameter path by number (1 = first after "Device On", 0 = "Device On") or by name.
+function findParam(device, spec) {
+  var s = String(spec === undefined ? '1' : spec);
+  var n = device.getcount('parameters');
+  if (/^[0-9]+$/.test(s)) {
+    var idx = parseInt(s, 10);
+    return idx < n ? device.unquotedpath + ' parameters ' + idx : null;
+  }
+  var wanted = s.toLowerCase();
+  for (var i = 0; i < n; i++) {
+    var p = new LiveAPI(device.unquotedpath + ' parameters ' + i);
+    if (str(p.get('name')).toLowerCase() === wanted) return device.unquotedpath + ' parameters ' + i;
+  }
+  return null;
 }

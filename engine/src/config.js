@@ -170,6 +170,9 @@ function normalizeButton(m, page, ctl, isShift = false) {
       track: str(l.track, 'selected', 64) || 'selected',
       scene: clampInt(l.scene, 0, 999, 0), // 0 = selected scene
       trackColor: l.trackColor !== false, // light in the track's colour when on
+      device: str(l.device, 'selected', 64) || 'selected', // for action 'param': device name, 'first' or 'selected'
+      param: str(l.param, '1', 64) || '1', // parameter name or number (1 = first parameter after "Device On")
+      mode: oneOf(l.mode, live.PARAM_MODES, 'toggle'),
     };
   }
   if (!isShift) attachShift(out, m, (x) => normalizeButton(x, page, ctl, true));
@@ -208,6 +211,7 @@ function normalizeEncoder(m, page, ctl, isShift = false) {
       track: str(l.track, 'selected', 64) || 'selected',
       device: str(l.device, 'first', 64) || 'first',
       index: clampInt(l.index, 1, 128, 1),
+      param: str(l.param, '1', 64) || '1',
     };
   }
   if (!isShift) attachShift(out, m, (x) => normalizeEncoder(x, page, ctl, true));

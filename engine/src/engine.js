@@ -46,6 +46,7 @@ class Engine {
     this.ledCache = new Map(); // ledKey -> encoded value
     this.pressed = new Set(); // control ids physically held
     this.heldOutputs = new Map(); // control id -> bytes to send on release (note offs etc.)
+    this.liveHeld = new Map(); // control id -> Live parameter to reset on release (momentary)
     this.mpeChannelPad = new Map(); // MPE member channel -> pad control (for pressure routing)
     this.lastPressure = new Map(); // control id -> last pressure value sent
     this.savedAftertouch = null;
@@ -443,6 +444,11 @@ class Engine {
       this.renderAll();
       return;
     }
+    const lheld = this.liveHeld.get(ctl.id);
+    if (lheld) {
+      this.liveHeld.delete(ctl.id);
+      this.io.toLive({ cmd: 'liveSet', key: lheld.key, spec: lheld.spec, value: 0 });
+    }
     const held = this.heldOutputs.get(ctl.id);
     if (held) {
       this.heldOutputs.delete(ctl.id);
@@ -462,6 +468,8 @@ class Engine {
       if (s && held.m.behavior === 'momentary' && !held.m.group) s.on = false;
     }
     this.heldOutputs.clear();
+    for (const lh of this.liveHeld.values()) this.io.toLive({ cmd: 'liveSet', key: lh.key, spec: lh.spec, value: 0 });
+    this.liveHeld.clear();
     this.pressed.clear();
     this.lastPressure.clear();
   }
@@ -683,7 +691,15 @@ class Engine {
     const a = m.live.action;
     const spec = live.specForButton(m.live);
     const cur = this.liveValue(m);
-    if (spec && (spec.t === 'trackProp' || spec.t === 'song')) {
+    if (a === 'param') {
+      const mode = m.live.mode;
+      const key = live.liveKey(spec);
+      const next = mode === 'toggle' ? !(cur && cur.value >= 0.5) : true;
+      this.io.toLive({ cmd: 'liveSet', key, spec, value: next ? 1 : 0 });
+      if (cur) cur.value = next ? 1 : 0;
+      if (mode === 'trigger') this.io.toLive({ cmd: 'liveSet', key, spec, value: 0 });
+      if (mode === 'momentary') this.liveHeld.set(ctl.id, { key, spec });
+    } else if (spec && (spec.t === 'trackProp' || spec.t === 'song')) {
       // Toggle whatever Live currently reports (true if unknown).
       const next = !(cur && cur.value);
       this.io.toLive({ cmd: 'liveSet', key: live.liveKey(spec), spec, value: next ? 1 : 0 });
@@ -764,7 +780,7 @@ class Engine {
     }
     if (m.type === 'live') {
       const v = this.liveValue(m);
-      const on = held || !!(v && v.ok && v.value);
+      const on = held || !!(v && v.ok && v.value >= 0.5);
       if (!on) return { color: v && v.ok ? m.colorOff : 0, anim: 0 };
       const color = m.live.trackColor && v && v.color ? live.nearestPaletteIndex(v.color, this.palette) : m.colorOn;
       return { color, anim: v && v.value ? push3.ANIMATIONS[m.anim] || 0 : 0 };
