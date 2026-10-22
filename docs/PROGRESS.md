@@ -91,13 +91,13 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.46.0 Template FX performance (device params on encoders, snapshots on scene buttons, strip morph, XY pads)
 - [x] v0.46.1 Editor: templates grouped in collapsible categories
 - [x] v0.46.2 Review fixes: poly AT follows transposed notes, snapshots never saved empty and skip values from another encoder type/mode, morph reaches B in Fader mode, accent/repeat bound to their page (and cleared on exit), Repeat picks up pads already held, accent keeps repeats at full velocity, Song Position keeps repeat on the grid, pageHold returns by page uid, editor morph summary
+- [x] v0.47.0 Display: track colour stripe above Live encoders, touched encoder shown in the status line (name + value)
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
 - [ ] Sequencer: per-step micro-timing (nudge within a step).
 - [ ] Sampler: "resample master" source (route from Main), verify Simpler parameter names on hardware (S Start, S Length, Ve Attack…).
 - [ ] Looper: overdub (MIDI only in Live session; audio needs a new layer on the next slot), stop-all with fade.
-- [ ] Display: track colour bars, encoder touch = big value.
 - [ ] Editor: per-page templates preview.
 - [ ] TouchOSC/OSC mirror of the display state (optional add-on).
 

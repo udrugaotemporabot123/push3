@@ -89,6 +89,8 @@ Dodatne funkcije koje nisu dio jezgre i mogu se isključiti (Postavke → Add-on
 
 ## Ekran (v0.3, eksperimentalno)
 
+Novo (v0.47): iznad enkodera koji prate Live trackove je traka u boji tracka; kad dodirneš enkoder, njegovo ime i vrijednost pišu veliko u statusnoj liniji.
+
 Motor sam crta ekran od 960×160: imena stranica gore, oznake i vrijednosti enkodera, zadnju radnju u sredini i oznake donjih gumba s bojama LED-ica.
 
 - U editoru je **uvijek** vidljiv pregled tog ekrana (u sredini Pusha).

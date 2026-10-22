@@ -116,6 +116,7 @@ function buildModel(engine, palette, lastAction, now) {
       enc0.label = em.label || ((t === 'volume' || t === 'pan' || t === 'send') && trackLabel) || (v && v.ok && v.name) || summary(enc, em);
       enc0.text = v && v.ok ? v.display || String(Math.round(v.value * 127)) : '–';
       enc0.frac = v && v.ok ? v.value : 0;
+      if (v && v.ok && Array.isArray(v.color) && v.color.length === 3) enc0.color = v.color; // track colour
     } else if (em && em.type === 'cc') {
       enc0.label = summary(enc, em);
       if (em.mode === 'absolute14') {
@@ -134,6 +135,9 @@ function buildModel(engine, palette, lastAction, now) {
     const lled = engine.ledFor(low);
     model.lower.push({ label: buttonLabel(engine, low, lm), color: lled && lled.color ? hexToRgb(palette[lled.color]) : null, on: !!(lm && engine.ctlState(engine.page, low.id).on) });
   }
+  // A touched encoder shows its name and value large in the status line (readable on stage).
+  const t = model.encoders.find((e) => e.touched && e.label);
+  if (t && !model.action) model.action = { title: t.label, detail: t.relative ? '↑↓' : t.text || '–', touch: true };
   return model;
 }
 
@@ -164,6 +168,7 @@ function draw(canvas, model) {
     const x = i * COL;
     if (i > 0) canvas.fillRect(x, 30, 1, 66, [28, 30, 34]);
     if (!e.label) return;
+    if (e.color) canvas.fillRect(x + 12, 26, COL - 24, 2, e.color);
     canvas.text(x + COL / 2, 30, e.label, { font: 'small', color: e.touched ? WHITE : GREY, align: 'center', maxWidth: COL - 12 });
     if (e.relative) {
       canvas.text(x + COL / 2, 56, '↑↓', { font: 'big', color: e.touched ? WHITE : DIM, align: 'center' });

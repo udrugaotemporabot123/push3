@@ -507,7 +507,7 @@ function sendLive(key) {
       disp = String(Math.round(v * 100) / 100);
     }
     var tname = info.trackId ? str(new LiveAPI('id ' + info.trackId).get('name')) : '';
-    reportLive(key, { ok: true, value: max > min ? (v - min) / (max - min) : 0, name: str(api.get('name')), display: disp, track: tname });
+    reportLive(key, { ok: true, value: max > min ? (v - min) / (max - min) : 0, name: str(api.get('name')), display: disp, track: tname, color: info.trackId ? trackColor(info.trackId) : null });
   } else {
     var val = num(api.get(info.prop));
     var name = spec.t === 'song' ? info.prop : str(api.get('name'));

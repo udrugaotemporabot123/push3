@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.47.0 – 2026-10-22
+Ekran: boje trackova iznad enkodera, dodirnuti enkoder veliko u statusnoj liniji.
+
 ## v0.46.2 – 2026-10-22
 Popravci iz drugog pregleda koda (aftertouch uz transpoziciju, prazni snapshoti, morph do kraja, accent/repeat po stranici).
 
