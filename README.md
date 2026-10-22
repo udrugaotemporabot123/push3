@@ -1,5 +1,7 @@
 # Push 3 User Mode → pravi MIDI kontroler
 
+*(English: [README.en.md](README.en.md) · pisanje add-ona: [docs/ADDONS.md](docs/ADDONS.md))*
+
 Max for Live device + editor koji od Push 3 **User moda** radi potpuno podesiv MIDI kontroler
 (u stilu Novation Components / Launchpad Pro custom modea):
 

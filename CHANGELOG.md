@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.20.0 – 2026-10-22
+Dokumentacija za community: README na engleskom i vodič za pisanje add-ona (docs/ADDONS.md).
+
 ## v0.19.0 – 2026-10-22
 Enkoder kao gumbi (gore/dolje koraci, npr. jog za listanje) i do 4 dodatne poruke s jednog gumba.
 
