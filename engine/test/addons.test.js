@@ -124,7 +124,7 @@ test('sampler: first press records on the source, second stops and loads it into
   e.handlePushMessage([0xb0, 65, 127]);
   assert.deepEqual(out.live, [
     { cmd: 'liveCall', spec: { t: 'slot', track: 'MIC', scene: 2 }, fn: 'fireSlot' },
-    { cmd: 'liveCall', spec: { t: 'clipToPad', source: 'MIC', scene: 2, target: 'DRUMS', rack: 'first', pad: 'next' }, fn: 'clipToPad' },
+    { cmd: 'liveCall', spec: { t: 'clipToPad', source: 'MIC', scene: 2, target: 'DRUMS', rack: 'first', pad: 'next', mode: 'oneshot' }, fn: 'clipToPad' },
   ]);
   // Bridge notices show up as log lines (and on the display).
   e.handleLiveState({ type: 'notice', text: 'Uzorak → D1' });

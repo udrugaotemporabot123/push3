@@ -4,6 +4,8 @@
 //                    recording into the next empty Simpler of the Drum Rack on the target track
 //   lastToPad      – load the last clip of the source track into the next empty pad
 //   lastToSelected – load the last clip of the source track into the Drum Rack's selected pad
+//   simpler        – edit the Simpler on the selected pad: reverse, crop, one-shot/classic/slice, warp on/off
+// Loaded samples are switched to One-Shot by default (field "mode": oneshot / classic / slice / keep).
 // Preparation: put a Drum Rack on the target track with empty Simplers on the pads you want to fill.
 
 const SLOT = { EMPTY: 0, STOPPED: 1, PLAYING: 2, RECORDING: 3, TRIGGERED: 4 };
@@ -11,6 +13,7 @@ const TRACK_FIELDS = {
   source: { label: 'Snima s tracka', default: 'selected', help: 'Audio track koji snima (npr. mic in - sampling): ime, broj ili selected' },
   target: { label: 'Drum Rack na tracku', default: 'selected', help: 'Track s Drum Rackom: ime, broj ili selected' },
   rack: { label: 'Drum Rack', default: 'first', help: 'first ili ime Drum Racka' },
+  mode: { label: 'Simpler način', default: 'oneshot', help: 'oneshot = cijeli zvuk na udarac (bubnjevi), classic, slice ili keep = ne mijenjaj' },
 };
 
 module.exports = {
@@ -26,6 +29,14 @@ module.exports = {
       label: 'Odaberi ciljni pad',
       fields: { target: TRACK_FIELDS.target, rack: TRACK_FIELDS.rack, note: { label: 'Nota pada', default: '36', help: '36 = C1 (donji lijevi pad Drum Racka)' } },
     },
+    simpler: {
+      label: 'Uredi uzorak na odabranom padu',
+      fields: {
+        target: TRACK_FIELDS.target,
+        rack: TRACK_FIELDS.rack,
+        op: { label: 'Radnja', default: 'reverse', help: 'reverse, crop, oneshot, classic, slice ili warp (uklj/isklj)' },
+      },
+    },
   },
 
   create(api) {
@@ -40,7 +51,7 @@ module.exports = {
       return -1;
     };
     const load = (p, slotIndex, pad) =>
-      api.toLive({ cmd: 'liveCall', spec: { t: 'clipToPad', source: p.source || 'selected', scene: slotIndex + 1, target: p.target || 'selected', rack: p.rack || 'first', pad }, fn: 'clipToPad' });
+      api.toLive({ cmd: 'liveCall', spec: { t: 'clipToPad', source: p.source || 'selected', scene: slotIndex + 1, target: p.target || 'selected', rack: p.rack || 'first', pad, mode: p.mode || 'oneshot' }, fn: 'clipToPad' });
     const fire = (p, slotIndex) => api.toLive({ cmd: 'liveCall', spec: { t: 'slot', track: p.source || 'selected', scene: slotIndex + 1 }, fn: 'fireSlot' });
 
     const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -49,11 +60,15 @@ module.exports = {
 
     return {
       watch(params, action) {
-        if (action === 'targetPad') return [];
+        if (action === 'targetPad' || action === 'simpler') return [];
         return action === 'sampleToPad' || action === 'sampleToSelected' ? [slotsSpec(params), armSpec(params)] : [slotsSpec(params)];
       },
 
       press({ params, action }) {
+        if (action === 'simpler') {
+          api.toLive({ cmd: 'liveCall', spec: { t: 'simpler', target: params.target || 'selected', rack: params.rack || 'first', op: params.op || 'reverse' }, fn: 'simpler' });
+          return;
+        }
         if (action === 'targetPad') {
           target = Number.parseInt(params.note, 10) || 36;
           api.toLive({ cmd: 'liveCall', spec: { t: 'drumPad', target: params.target || 'selected', rack: params.rack || 'first', note: target }, fn: 'selectDrumPad' });
@@ -82,7 +97,7 @@ module.exports = {
       },
 
       status({ params, action }) {
-        const s = action === 'targetPad' ? null : slots(params);
+        const s = action === 'targetPad' || action === 'simpler' ? null : slots(params);
         const parts = [];
         if (s && s.includes(SLOT.RECORDING)) parts.push('● snima');
         if (target !== null) parts.push(`cilj ${noteName(target)}`);
@@ -92,6 +107,7 @@ module.exports = {
       led({ params, action, held }) {
         if (held) return { color: 3, anim: 0 };
         if (action === 'targetPad') return { color: Number.parseInt(params.note, 10) === target ? 3 : 49, anim: 0 };
+        if (action === 'simpler') return { color: 53, anim: 0 };
         const s = slots(params);
         if (!s) return { color: 0, anim: 0 };
         if (action === 'sampleToPad' || action === 'sampleToSelected') return s.includes(SLOT.RECORDING) ? { color: 5, anim: api.ANIM.blink } : { color: 50, anim: 0 };

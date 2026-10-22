@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.30.0 – 2026-10-22
+Sampler: snimke kao One-Shot, uređivanje uzorka na odabranom padu (Reverse, Crop, One-Shot/Classic/Slice, Warp).
+
 ## v0.29.0 – 2026-10-22
 Sekvencer: drži korak + enkoderi 1–3 (velocity, vjerojatnost, duljina note); add-on API: turn.
 

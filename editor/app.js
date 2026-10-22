@@ -999,6 +999,15 @@ const NAV_BUTTONS = () => {
 };
 
 // One-click page templates built from Live-aware mappings (no MIDI mapping needed).
+// Lower display buttons 1-5: edit the sample on the selected Drum Rack pad.
+function simplerButtons(target) {
+  const r = {};
+  ['reverse', 'crop', 'oneshot', 'classic', 'warp'].forEach((op, i) => {
+    r[`lower.${i + 1}`] = { type: 'addon', label: { reverse: 'Reverse', crop: 'Crop', oneshot: 'One-Shot', classic: 'Classic', warp: 'Warp' }[op], addon: { id: 'sampler', action: 'simpler', params: { target, rack: 'first', op } } };
+  });
+  return r;
+}
+
 const TEMPLATES = {
   mixer: {
     name: 'Mixer (8 trackova)',
@@ -1132,7 +1141,7 @@ const TEMPLATES = {
   },
   seqDrum: {
     name: 'Drum sekvencer 16 padova + 32 koraka (+ Sampler)',
-    help: 'Donji lijevi 4×4 = drum padovi (note 36–51): udarac svira i odabire traku. Gornja 4 reda = 32 koraka odabrane trake (Shift + korak briše traku). Scene 1 = Play/Stop, Scene 2 = snimanje udaraca (svira dok Live svira, upisuje u najbliži korak), Scene 8 = obriši. Donji red desno: drži Length + korak = duljina loopa, drži Euclid + korak N = N udaraca ravnomjerno, drži Chance + korak = vjerojatnost (100/75/50/25 %), Double = udvostruči loop. Shift + drum pad = ciljni pad za Sampler, Capture = snimi u njega.',
+    help: 'Donji lijevi 4×4 = drum padovi (note 36–51): udarac svira i odabire traku. Gornja 4 reda = 32 koraka odabrane trake (Shift + korak briše traku). Scene 1 = Play/Stop, Scene 2 = snimanje udaraca (svira dok Live svira, upisuje u najbliži korak), Scene 8 = obriši. Donji red desno: drži Length + korak = duljina loopa, drži Euclid + korak N = N udaraca ravnomjerno, drži Chance + korak = vjerojatnost (100/75/50/25 %), Double = udvostruči loop. Shift + drum pad = ciljni pad za Sampler, Capture = snimi u njega; gumbi ispod ekrana 1–5 uređuju uzorak (Reverse, Crop, One-Shot, Classic, Warp).',
     ask: [
       { key: 'source', label: 'Track koji snima (npr. mic in - sampling)', default: 'selected' },
       { key: 'target', label: 'Track s Drum Rackom', default: 'selected' },
@@ -1157,12 +1166,13 @@ const TEMPLATES = {
       r['scene.2'] = Q('rec', {});
       r['scene.8'] = Q('clear', {});
       r.capture = { type: 'addon', addon: { id: 'sampler', action: 'sampleToSelected', params: { source: a.source, target: a.target, rack: 'first', autoArm: 'yes' } } };
+      Object.assign(r, simplerButtons(a.target));
       return r;
     },
   },
   samplerPads: {
     name: 'Sampler + Drum Rack 4×4',
-    help: 'Donji lijevi 4×4 padovi sviraju Drum Rack (note 36–51); Shift + pad = odaberi taj pad kao cilj; Capture = snimi u odabrani pad; New = zadnji clip u odabrani pad.',
+    help: 'Donji lijevi 4×4 padovi sviraju Drum Rack (note 36–51); Shift + pad = odaberi taj pad kao cilj; Capture = snimi u odabrani pad; New = zadnji clip u odabrani pad. Gumbi ispod ekrana 1–5: Reverse, Crop, One-Shot, Classic, Warp za uzorak na odabranom padu.',
     ask: [
       { key: 'source', label: 'Track koji snima (npr. mic in - sampling)', default: 'selected' },
       { key: 'target', label: 'Track s Drum Rackom', default: 'selected' },
@@ -1186,6 +1196,7 @@ const TEMPLATES = {
       const S2 = (action) => ({ type: 'addon', addon: { id: 'sampler', action, params: { source: a.source, target: a.target, rack: 'first', autoArm: 'yes' } } });
       r.capture = S2('sampleToSelected');
       r.new = S2('lastToSelected');
+      Object.assign(r, simplerButtons(a.target));
       return r;
     },
   },

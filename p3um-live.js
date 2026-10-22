@@ -560,6 +560,10 @@ function liveCall(msg) {
     clipToPad(spec);
     return;
   }
+  if (msg.fn === 'simpler') {
+    simplerEdit(spec);
+    return;
+  }
   if (msg.fn === 'stopTrack') {
     var st = trackApi(spec.track);
     if (st) st.call('stop_all_clips');
@@ -690,7 +694,29 @@ function loadIntoPad(spec, file) {
   }
   if (!simpler) return notice('Sampler: nema praznog Simplera na padovima');
   simpler.call('replace_sample', file);
+  if (SIMPLER_MODES.hasOwnProperty(spec.mode)) simpler.set('playback_mode', SIMPLER_MODES[spec.mode]);
   notice('Uzorak → ' + (padName || 'pad'));
+}
+
+var SIMPLER_MODES = { classic: 0, oneshot: 1, slice: 2 };
+var SIMPLER_LABELS = { reverse: 'Reverse', crop: 'Crop', classic: 'Classic', oneshot: 'One-Shot', slice: 'Slice', warp: 'Warp' };
+
+// Edit the Simpler on the selected Drum Rack pad: reverse, crop, playback mode, warp on/off.
+function simplerEdit(spec) {
+  var tr = trackApi(spec.target);
+  var rack = tr ? findDrumRack(tr, spec.rack) : null;
+  if (!rack) return notice('Sampler: Drum Rack nije pronađen');
+  var pad = new LiveAPI(rack.unquotedpath + ' view selected_drum_pad');
+  var simpler = padSimpler(pad);
+  if (!simpler || !hasSample(simpler)) return notice('Sampler: odabrani pad nema uzorak');
+  var op = String(spec.op);
+  if (op === 'reverse' || op === 'crop') simpler.call(op);
+  else if (SIMPLER_MODES.hasOwnProperty(op)) simpler.set('playback_mode', SIMPLER_MODES[op]);
+  else if (op === 'warp') {
+    var sample = new LiveAPI(simpler.unquotedpath + ' sample');
+    sample.set('warping', num(sample.get('warping')) === 1 ? 0 : 1);
+  } else return;
+  notice((SIMPLER_LABELS[op] || op) + ' → ' + (str(pad.get('name')) || 'pad'));
 }
 
 function findDrumRack(track, name) {

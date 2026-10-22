@@ -372,3 +372,28 @@ test('bridge: selectDrumPad selects the pad with that note, then lastToSelected 
   b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'clipToPad', source: 'Violin', scene: 1, target: 'Bass', rack: 'first', pad: 'selected' }, fn: 'clipToPad' }));
   assert.equal(live.pads[3].children.chains[0].children.devices[0].children.sample.props.file_path, '/rec/shaker.wav');
 });
+
+test('bridge: recordings load as One-Shot; Simpler edits act on the selected pad', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  const vioSlot = new live.LiveAPI('live_set tracks 1 clip_slots 0').o;
+  Object.assign(vioSlot.props, { has_clip: 1, is_recording: 0 });
+  vioSlot.children.clip = { id: 9004, props: { file_path: '/rec/clap.wav' }, children: {} };
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'drumPad', target: 'Bass', rack: 'first', note: 38 }, fn: 'selectDrumPad' }));
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'clipToPad', source: 'Violin', scene: 1, target: 'Bass', rack: 'first', pad: 'selected', mode: 'oneshot' }, fn: 'clipToPad' }));
+  const sim = live.pads[2].children.chains[0].children.devices[0];
+  assert.equal(sim.children.sample.props.file_path, '/rec/clap.wav');
+  assert.equal(sim.props.playback_mode, 1);
+  live.calls.length = 0;
+  const edit = (op) => b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'simpler', target: 'Bass', rack: 'first', op }, fn: 'simpler' }));
+  edit('reverse');
+  edit('crop');
+  assert.deepEqual(live.calls.map((c) => c[1]), ['reverse', 'crop']);
+  edit('slice');
+  assert.equal(sim.props.playback_mode, 2);
+  edit('warp');
+  assert.equal(sim.children.sample.props.warping, 1);
+  edit('warp');
+  assert.equal(sim.children.sample.props.warping, 0);
+});
