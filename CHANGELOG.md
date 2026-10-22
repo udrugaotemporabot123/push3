@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.49.0 – 2026-10-22
+Looper: zaustavi sve clipove.
+
 ## v0.48.0 – 2026-10-22
 Sekvencer: mikro pomak koraka (drži korak + enkoder 4).
 

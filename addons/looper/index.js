@@ -4,6 +4,7 @@
 //   undoLast  – delete the last clip on the track (the most recent loop)
 //   playStop  – stop the track if something plays, otherwise play its last clip
 //   arm       – arm/disarm the track (feedback)
+//   stopAll   – stop every clip in the set (quantised to Live's launch quantisation)
 //   clearAll  – delete every clip on the track (hold Shift for safety: needs shift unless confirm = no)
 
 const SLOT = { EMPTY: 0, STOPPED: 1, PLAYING: 2, RECORDING: 3, TRIGGERED: 4 };
@@ -24,6 +25,7 @@ module.exports = {
     undoLast: { label: 'Poništi zadnji loop', fields: { track: { label: 'Track', default: 'selected' } } },
     playStop: { label: 'Play / Stop tracka', fields: { track: { label: 'Track', default: 'selected' } } },
     arm: { label: 'Arm tracka', fields: { track: { label: 'Track', default: 'selected' } } },
+    stopAll: { label: 'Zaustavi sve clipove', fields: {} },
     clearAll: {
       label: 'Obriši sve loopove',
       fields: {
@@ -56,10 +58,12 @@ module.exports = {
 
     return {
       watch(params, action) {
+        if (action === 'stopAll') return [];
         return action === 'arm' ? [armSpec(params)] : [slotsSpec(params), armSpec(params)];
       },
 
-      status({ params }) {
+      status({ params, action }) {
+        if (action === 'stopAll') return '';
         const s = slots(params);
         if (!s) return '';
         const n = s.filter((x) => x !== SLOT.EMPTY && x !== SLOT.RECORDING).length;
@@ -68,6 +72,7 @@ module.exports = {
       },
 
       press({ params, action, shift }) {
+        if (action === 'stopAll') return api.toLive({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'stopAll' });
         if (action === 'arm') {
           const v = api.liveValue(armSpec(params));
           api.toLive({ cmd: 'liveSet', key: api.liveKey(armSpec(params)), spec: armSpec(params), value: v && v.value ? 0 : 1 });
@@ -103,6 +108,7 @@ module.exports = {
 
       led({ params, action, held }) {
         if (held) return { color: 3, anim: 0 };
+        if (action === 'stopAll') return { color: 7, anim: 0 };
         if (action === 'arm') {
           const v = api.liveValue(armSpec(params));
           return { color: v && v.value ? 5 : 7, anim: 0 };

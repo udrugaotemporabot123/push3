@@ -449,3 +449,11 @@ test('bridge: slicer loads the recording into the track Simpler in Slice mode', 
   assert.equal(slicer.children.sample.props.file_path, '/rec/phrase.wav');
   assert.equal(slicer.props.playback_mode, 2);
 });
+
+test('bridge: stopAll stops every clip in the set', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'stopAll' }));
+  assert.ok(live.calls.some((c) => c[1] === 'stop_all_clips'));
+});

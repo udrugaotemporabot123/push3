@@ -546,7 +546,7 @@ function liveSet(msg) {
   }
 }
 
-var SONG_CALLS = { play: 'start_playing', stop: 'stop_playing', tap: 'tap_tempo', undo: 'undo', redo: 'redo', capture: 'capture_midi' };
+var SONG_CALLS = { play: 'start_playing', stop: 'stop_playing', tap: 'tap_tempo', undo: 'undo', redo: 'redo', capture: 'capture_midi', stopAll: 'stop_all_clips' };
 
 // Scene number (1-based) or 0 = the selected scene -> 0-based index.
 function sceneIndex(scene) {

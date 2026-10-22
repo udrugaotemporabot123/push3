@@ -557,3 +557,12 @@ test('step sequencer: hold step + encoder 4 nudges it late or early (micro-timin
   }
   assert.deepEqual(at, [2, 11]);
 });
+
+test('looper: stop all calls Live once', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['pad.0.0'], { type: 'addon', addon: { id: 'looper', action: 'stopAll', params: {} } });
+  });
+  clear();
+  e.handlePushMessage([0x90, 36, 100]);
+  assert.deepEqual(out.live, [{ cmd: 'liveCall', spec: { t: 'song' }, fn: 'stopAll' }]);
+});

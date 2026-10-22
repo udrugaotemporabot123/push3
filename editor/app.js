@@ -1381,7 +1381,7 @@ const TEMPLATES = {
   },
   looper: {
     name: 'Looper (8 trackova)',
-    help: 'Stupac = track 1–8: gornji pad snima sljedeći loop (drugi pritisak zatvara loop), ispod Play/Stop, Poništi zadnji, Arm, a Shift + pad u 4. redu briše sve loopove tracka. Brojeve trackova možeš zamijeniti imenima.',
+    help: 'Stupac = track 1–8: gornji pad snima sljedeći loop (drugi pritisak zatvara loop), ispod Play/Stop, Poništi zadnji, Arm, a Shift + pad u 4. redu briše sve loopove tracka, Stop = zaustavi sve clipove. Brojeve trackova možeš zamijeniti imenima.',
     apply() {
       const r = {};
       const A = (action, track) => ({ type: 'addon', addon: { id: 'looper', action, params: { track, autoArm: 'yes' } } });
@@ -1393,6 +1393,7 @@ const TEMPLATES = {
         r[`pad.4.${c}`] = A('arm', t);
         r[`pad.3.${c}`] = A('clearAll', t);
       }
+      r.stop = { type: 'addon', addon: { id: 'looper', action: 'stopAll', params: {} } };
       return r;
     },
   },
