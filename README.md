@@ -99,17 +99,17 @@ Uz obične testove, **fuzz testovi** (`engine/test/fuzz.test.js`) pucaju tisuće
 - Kontrole označene **?** u editoru imaju MIDI brojeve koji još nisu potvrđeni na pravom Pushu 3 (vidi listu dolje).
 - Device je testiran logikom i automatskim testovima, ali **ne na pravom Pushu 3**: prvo testiranje je kod tebe.
 
-## Lista za testiranje (v0.11)
+## Lista za testiranje (v0.31)
 
-Osnove (iz v0.1) su potvrđene na tvom Pushu. Novo, po važnosti:
+Osnove (iz v0.1) su potvrđene na tvom Pushu. Novo, po važnosti (svaka točka je kratka):
 
 1. **Ekran**: Postavke → *Push ekran* → *Preuzmi ekran u User modu*, pa uđi u User mode. Javi što piše ispod pregleda ekrana u editoru (*prikazuje se na Pushu* ili *Live drži ekran*) i što se vidi na Pushu. Kad izađeš iz User moda, Push ekran mora opet raditi normalno.
-2. **Shift sloj**: na nekom gumbu u editoru odaberi *Shift sloj* i postavi drugu funkciju; drži Shift na Pushu i probaj.
-3. **Live funkcije**: predložak *Mixer (8 trackova)* na praznoj stranici, pa probaj mute (LED u boji tracka), volumen na enkoderima (ime i dB na ekranu/pregledu), scene.
-4. **Varijacije (8 rackova × 8)**: predložak na tracku s više rackova.
-5. **Looper**: predložak *Looper (8 trackova)*; gornji pad snimi → opet pritisni → loop svira.
-6. **Sampler**: predložak *Sampler*; treba Drum Rack s praznim Simplerima. Capture: snimi → opet Capture → zvuk mora završiti na sljedećem praznom padu.
-7. **Clip grid 8×8** i **Transport** predlošci.
+2. **Live sampling na padove** (glavna stvar): predložak *Drum sekvencer 16 padova + 32 koraka (+ Sampler)* na praznoj stranici; track s Drum Rackom (prazni Simpleri na padovima) i audio track s mikrofonom. Shift + drum pad = odaberi pad → Capture snimi → Capture opet → zvuk mora biti na tom padu kao One-Shot. Zatim gumbi ispod ekrana (Reverse, Crop…) i enkoderi 1–8 (Start, Transpose, Filter…): javi koji enkoder pokazuje **–** (znači da se parametar u tvojoj verziji Simplera zove drukčije).
+3. **Sekvencer**: Live → izlaz *Push3 UM* → Sync ON, MIDI track s *MIDI From = Push3 UM*. Play u Liveu, Scene 1 = play sekvence, gornja 4 reda = koraci. Probaj Scene 2 (snimanje udaraca), Length/Euclid/Chance/Double (donji red desno) i drži korak + enkoder 1–3.
+4. **Looper**: predložak *Looper (8 trackova)*; gornji pad snimi → opet pritisni → loop svira; Shift + 4. red briše sve.
+5. **Editor s tableta**: Postavke → *Pristup s tableta* → uključi, otvori link na tabletu.
+6. **14-bit enkoder**: enkoderu postavi *Apsolutno 14-bit*, mapiraj u Liveu, Mapping Mode *Absolute (14-bit)*, probaj Shift + okret.
+7. **Shift sloj**, **Mixer**, **Varijacije (8 rackova × 8)**, **Clip grid** i **Transport** predlošci (od ranije).
 
 Ako nešto ne radi, pošalji screenshot editora (Log u MIDI monitoru) i Max Console poruke koje počinju s `[p3um]` ili `p3um-live`.
 
