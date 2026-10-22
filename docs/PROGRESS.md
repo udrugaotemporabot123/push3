@@ -69,10 +69,11 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.24.0 Add-on status on the display (status hook: sequencer position/REC, sampler target, looper count), add-on action labels on display buttons, Looper clear all (Shift)
 - [x] v0.25.0 Editor from a tablet: opt-in LAN listener (port+1, token in link -> HttpOnly cookie, kept in lan.json not in presets), WebSocket Origin check on the local editor
 - [x] v0.26.0 14-bit absolute encoders (MSB CC 0-31 + LSB CC+32, feedback from both, Shift = single 14-bit steps)
+- [x] v0.27.0 Sequencer modifiers: loop length, Euclid fill, per-step chance, double (mod action, in the Drum sequencer template)
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
-- [ ] Sequencer: per-step note length / probability, pattern pages (bars 1–4), copy lane, loop length per lane, step input while stopped.
+- [ ] Sequencer: hold step + encoder (velocity / nudge / gate), pattern slots A–D per seq, copy lane, step input while stopped.
 - [ ] Sampler: crop/normalise via Simpler API (crop, warp), "resample master" source.
 - [ ] Looper: overdub (MIDI only in Live session; audio needs a new layer on the next slot), stop-all with fade.
 - [ ] Display: full-screen add-on views (sequencer lanes grid), track colour bars, encoder touch = big value.

@@ -7,6 +7,9 @@
 //   hit   – a drum pad: plays its lane's note right away and selects the lane; while recording (and
 //           Live is playing) the hit is written into the nearest step. Shift + hit clears the lane.
 //   rec   – record on/off for live hits
+//   mod   – hold + press a step pad: length (loop ends on that step), euclid (spread N hits of the
+//           selected lane evenly over the loop), chance (cycle the step's probability 100/75/50/25 %);
+//           double: one press copies the loop to the next steps and doubles the loop length
 // A step pad with lane "selected" edits the lane chosen with the last hit (Push-style drum sequencer:
 // 16 drum pads + 32 steps of the selected lane). Swing (MPC style, 50 = straight) is set on Play.
 // Live setup: Settings > MIDI > Output "Push3 UM": Sync ON (clock), and a MIDI track with
@@ -24,6 +27,11 @@ const int = (v, d) => {
 };
 // MPC-style swing percentage -> delay of every second 16th in clock ticks (24 ppqn: 6 ticks per 16th).
 const swingTicks = (pct) => Math.max(0, Math.min(3, Math.round(((int(pct, 50) - 50) / 25) * 3)));
+const CHANCES = [100, 75, 50, 25];
+const MOD_COLORS = { length: 45, euclid: 9, chance: 13, double: 21 };
+const MOD_MODES = Object.keys(MOD_COLORS);
+// Euclidean rhythm: k hits spread as evenly as possible over n steps, starting on step 1.
+const euclid = (k, n) => Array.from({ length: n }, (_, i) => (i * k) % n < k);
 const laneColor = (lane) => LANE_COLORS[(int(lane, 1) - 1 + 64) % LANE_COLORS.length];
 
 module.exports = {
@@ -57,6 +65,13 @@ module.exports = {
       },
     },
     clear: { label: 'Obriši sekvencu', fields: { seq: { label: 'Sekvenca', default: 'A' } } },
+    mod: {
+      label: 'Modifikator koraka',
+      fields: {
+        seq: { label: 'Sekvenca', default: 'A' },
+        mode: { label: 'Način', default: 'length', help: 'length = drži + korak: duljina loopa; euclid = drži + korak N: N udaraca ravnomjerno; chance = drži + korak: vjerojatnost; double = udvostruči loop' },
+      },
+    },
   },
 
   create(api) {
@@ -72,7 +87,7 @@ module.exports = {
       const key = name || 'A';
       if (!seqs[key]) {
         const old = saved[key] || {};
-        seqs[key] = { running: old.running !== false, length: 0, pos: -1, lastBase: -1, stepTick: 0, swing: 0, recording: false, selected: old.selected || null, lanes: {}, savedLanes: old.lanes || {} };
+        seqs[key] = { running: old.running !== false, length: 0, loop: int(old.loop, 0), mod: null, pos: -1, lastBase: -1, stepTick: 0, swing: 0, recording: false, selected: old.selected || null, lanes: {}, savedLanes: old.lanes || {} };
       }
       return seqs[key];
     };
@@ -82,8 +97,8 @@ module.exports = {
       saveTimer = setTimeout(() => {
         const out = {};
         for (const [k, sq] of Object.entries(seqs)) {
-          out[k] = { running: sq.running, selected: sq.selected, lanes: {} };
-          for (const [lane, l] of Object.entries(sq.lanes)) out[k].lanes[lane] = { steps: l.steps };
+          out[k] = { running: sq.running, selected: sq.selected, loop: sq.loop, lanes: {} };
+          for (const [lane, l] of Object.entries(sq.lanes)) out[k].lanes[lane] = { steps: l.steps, chance: l.chance };
         }
         if (api.saveState) api.saveState('stepseq', out);
       }, 500);
@@ -103,11 +118,40 @@ module.exports = {
     function registerLane(sq, lane, note, ctx) {
       if (!sq.lanes[lane]) {
         const savedSteps = sq.savedLanes[lane] && Array.isArray(sq.savedLanes[lane].steps) ? sq.savedLanes[lane].steps : [];
-        sq.lanes[lane] = { note, channel: ctx ? ctx.channel : 0, steps: savedSteps.slice(0, 64), skip: -1, held: 0 };
+        const saved = sq.savedLanes[lane] || {};
+        sq.lanes[lane] = { note, channel: ctx ? ctx.channel : 0, steps: savedSteps.slice(0, 64), chance: Array.isArray(saved.chance) ? saved.chance.slice(0, 64) : [], skip: -1, held: 0 };
       }
       sq.lanes[lane].note = note;
       if (ctx) sq.lanes[lane].channel = ctx.channel;
       if (!sq.selected || !sq.lanes[sq.selected]) sq.selected = lane;
+    }
+
+    // Steps that play: the loop length if set (and not longer than the steps there are), else all.
+    const loopLen = (sq) => (sq.loop > 0 && sq.loop < sq.length ? sq.loop : sq.length);
+
+    function applyMod(sq, l, i) {
+      const n = loopLen(sq);
+      if (sq.mod === 'length') sq.loop = i + 1 >= sq.length ? 0 : i + 1;
+      else if (sq.mod === 'euclid' && l) {
+        const hits = euclid(Math.min(i + 1, n), n);
+        for (let s = 0; s < n; s++) l.steps[s] = hits[s] ? l.steps[s] || 100 : 0;
+      } else if (sq.mod === 'chance' && l && l.steps[i]) {
+        const cur = CHANCES.indexOf(l.chance[i] || 100);
+        l.chance[i] = CHANCES[(cur + 1) % CHANCES.length];
+        if (l.chance[i] === 100) l.chance[i] = 0; // 0 = always (keeps the saved file small)
+      }
+    }
+
+    function double(sq) {
+      const n = loopLen(sq);
+      if (n * 2 > sq.length) return api.log('info', `Sekvencer: nema mjesta za udvostručenje (${n} od ${sq.length} koraka)`);
+      for (const l of Object.values(sq.lanes)) {
+        for (let s = 0; s < n; s++) {
+          l.steps[s + n] = l.steps[s] || 0;
+          l.chance[s + n] = l.chance[s] || 0;
+        }
+      }
+      sq.loop = n * 2 >= sq.length ? 0 : n * 2;
     }
 
     // A live hit while recording goes into the step that is closest in time; if that is the coming step,
@@ -115,13 +159,13 @@ module.exports = {
     function recordHit(sq, l, vel) {
       if (!sq.recording || !transport || !sq.running || !sq.length || sq.pos < 0) return;
       const late = tick - sq.stepTick >= TICKS_PER_STEP / 2;
-      const i = late ? (sq.pos + 1) % sq.length : sq.pos;
+      const i = late ? (sq.pos + 1) % loopLen(sq) : sq.pos;
       l.steps[i] = vel;
       if (late) l.skip = i;
     }
 
     function playStep(sq) {
-      sq.pos = (sq.pos + 1) % Math.max(1, sq.length);
+      sq.pos = (sq.pos + 1) % Math.max(1, loopLen(sq));
       sq.stepTick = tick;
       for (const l of Object.values(sq.lanes)) {
         const vel = l.steps[sq.pos] || 0;
@@ -130,6 +174,7 @@ module.exports = {
           continue;
         }
         if (!vel) continue;
+        if (l.chance[sq.pos] && Math.random() * 100 >= l.chance[sq.pos]) continue;
         noteOn(l, vel);
       }
     }
@@ -164,6 +209,11 @@ module.exports = {
         const vel = Math.max(1, Math.min(127, velocity || 100));
         if (action === 'play') sq.running = !sq.running;
         else if (action === 'rec') sq.recording = !sq.recording;
+        else if (action === 'mod') {
+          const mode = MOD_MODES.includes(params.mode) ? params.mode : 'length';
+          if (mode === 'double') double(sq);
+          else sq.mod = mode;
+        }
         else if (action === 'clear') for (const l of Object.values(sq.lanes)) l.steps = [];
         else if (action === 'hit') {
           const lane = String(params.lane || '1');
@@ -178,11 +228,13 @@ module.exports = {
           }
         } else if (action === 'step') {
           const l = laneOf(sq, params.lane);
-          if (!l) return;
-          if (shift) l.steps = [];
+          if (sq.mod) applyMod(sq, l, int(params.step, 1) - 1);
+          else if (!l) return;
+          else if (shift) l.steps = [];
           else {
             const i = (Number.parseInt(params.step, 10) || 1) - 1;
             l.steps[i] = l.steps[i] ? 0 : vel;
+            l.chance[i] = 0;
           }
         }
         persist();
@@ -190,6 +242,12 @@ module.exports = {
       },
 
       release({ params, action }) {
+        if (action === 'mod') {
+          const sq = seqOf(params.seq);
+          if (sq.mod === params.mode || (sq.mod === 'length' && !MOD_MODES.includes(params.mode))) sq.mod = null;
+          api.renderAddons();
+          return;
+        }
         if (action !== 'hit') return;
         const l = seqOf(params.seq).lanes[String(params.lane || '1')];
         if (!l || l.held <= 0) return;
@@ -215,7 +273,7 @@ module.exports = {
           let stepped = false;
           for (const sq of Object.values(seqs)) {
             if (!sq.running || !sq.length) continue;
-            const next = (sq.pos + 1) % sq.length;
+            const next = (sq.pos + 1) % loopLen(sq);
             const base = tick - (tick % TICKS_PER_STEP);
             if (base !== sq.lastBase && tick % TICKS_PER_STEP === (next % 2 ? sq.swing : 0)) {
               sq.lastBase = base;
@@ -233,7 +291,8 @@ module.exports = {
         const sq = seqOf(params.seq);
         if (!sq.length) return '';
         const playing = transport && sq.running;
-        const parts = [`Seq ${params.seq || 'A'} ${playing ? '▶' : '■'} ${playing && sq.pos >= 0 ? sq.pos + 1 : '–'}/${sq.length}`];
+        const parts = [`Seq ${params.seq || 'A'} ${playing ? '▶' : '■'} ${playing && sq.pos >= 0 ? sq.pos + 1 : '–'}/${loopLen(sq)}`];
+        if (sq.mod) parts.push(`[${sq.mod}]`);
         if (sq.selected && Object.keys(sq.lanes).length > 1) parts.push(`traka ${sq.selected}`);
         if (sq.recording) parts.push('● REC');
         return parts.join(' ');
@@ -244,6 +303,7 @@ module.exports = {
         if (held) return { color: 3, anim: 0 };
         if (action === 'play') return { color: sq.running ? 21 : 23, anim: 0 };
         if (action === 'clear') return { color: 7, anim: 0 };
+        if (action === 'mod') return { color: sq.mod === params.mode ? 3 : MOD_COLORS[params.mode] || MOD_COLORS.length, anim: 0 };
         if (action === 'rec') return { color: sq.recording ? REC_ON : REC_OFF, anim: sq.recording ? api.ANIM.pulse || 0 : 0 };
         const laneKey = String(params.lane || '1') === 'selected' ? sq.selected : String(params.lane || '1');
         const l = sq.lanes[laneKey];
@@ -254,8 +314,10 @@ module.exports = {
           return { color: laneKey === sq.selected ? color : veryDim(color) - 1, anim: 0 };
         }
         const i = int(params.step, 1) - 1;
+        if (i >= loopLen(sq)) return { color: 0, anim: 0 }; // outside the loop
         const on = !!l.steps[i];
         if (transport && sq.running && sq.pos === i) return { color: on ? 3 : 2, anim: 0 }; // playhead
+        if (on && l.chance[i]) return { color: veryDim(color) - 1, anim: 0 }; // plays only sometimes
         return { color: on ? color : veryDim(color), anim: 0 };
       },
     };

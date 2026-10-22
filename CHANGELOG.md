@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.27.0 – 2026-10-22
+Sekvencer: duljina loopa, Euclid, vjerojatnost koraka, Double (modifikatori u predlošku Drum sekvencer).
+
 ## v0.26.0 – 2026-10-22
 14-bit enkoderi (CC par MSB + LSB, Shift = najfiniji koraci, povratna info iz Livea).
 

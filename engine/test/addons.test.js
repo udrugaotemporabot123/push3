@@ -265,3 +265,57 @@ test('add-ons: status line and action labels reach the display model', () => {
   assert.match(model.status, /Sampler cilj D1/);
   assert.equal(model.lower[0].label, 'Odaberi ciljni pad');
 });
+
+test('step sequencer: loop length, euclid fill, chance and double', () => {
+  const stepseq = require('../../addons/stepseq');
+  const { e, out, clear } = setup((c) => {
+    const ctl = c.pages[0].controls;
+    for (let step = 1; step <= 16; step++) {
+      const row = 7 - Math.floor((step - 1) / 8);
+      Object.assign(ctl[`pad.${row}.${(step - 1) % 8}`], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'E', lane: '1', step: String(step), note: '36' } } });
+    }
+    ['length', 'euclid', 'chance', 'double'].forEach((mode, i) => Object.assign(ctl[`pad.0.${i}`], { type: 'addon', addon: { id: 'stepseq', action: 'mod', params: { seq: 'E', mode } } }));
+  }, [stepseq]);
+  const stepNote = (step) => (step <= 8 ? 92 + step - 1 : 84 + step - 9);
+  const tap = (note) => (e.handlePushMessage([0x90, note, 100]), e.handlePushMessage([0x80, note, 0]));
+  // Hold Length + step 4: loop = 4 steps.
+  e.handlePushMessage([0x90, 36, 100]);
+  tap(stepNote(4));
+  e.handlePushMessage([0x80, 36, 0]);
+  assert.match(e.addonStatus()[0], /\/4$/);
+  // Hold Euclid + step 3: 3 hits over 4 steps -> x . x x (Bjorklund E(3,4)).
+  e.handlePushMessage([0x90, 37, 100]);
+  tap(stepNote(3));
+  e.handlePushMessage([0x80, 37, 0]);
+  // Double: loop 8, steps copied.
+  tap(39);
+  assert.match(e.addonStatus()[0], /\/8$/);
+  clear();
+  e.handleHostMessage([0xfa]);
+  const played = [];
+  for (let i = 0; i < 48; i++) {
+    const n = out.host.length;
+    e.handleHostMessage([0xf8]);
+    if (out.host.slice(n).some((m) => m[2] > 0)) played.push(i / 6 + 1);
+  }
+  assert.deepEqual(played, [1, 3, 4, 5, 7, 8]);
+  // Chance: a step at 25 % plays sometimes, never always.
+  e.handleHostMessage([0xfc]);
+  e.handlePushMessage([0x90, 38, 100]);
+  for (let k = 0; k < 3; k++) tap(stepNote(1)); // 100 -> 75 -> 50 -> 25
+  e.handlePushMessage([0x80, 38, 0]);
+  const rnd = Math.random;
+  try {
+    Math.random = () => 0.5; // 50 >= 25: skipped
+    clear();
+    e.handleHostMessage([0xfa]);
+    e.handleHostMessage([0xf8]);
+    assert.equal(out.host.filter((m) => m[2] > 0).length, 0);
+    Math.random = () => 0.1;
+    e.handleHostMessage([0xfa]);
+    e.handleHostMessage([0xf8]);
+    assert.equal(out.host.filter((m) => m[2] > 0).length, 1);
+  } finally {
+    Math.random = rnd;
+  }
+});
