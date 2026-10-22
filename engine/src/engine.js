@@ -79,25 +79,42 @@ class Engine {
     this.feedbackIndex = new Map();
     this.config.pages.forEach((page, pi) => {
       const ch = pageChannel(this.config, pi);
-      for (const [id, m] of Object.entries(page.controls)) {
-        if (m.type !== 'note' && m.type !== 'cc') continue;
-        const chan = m.channel ? m.channel - 1 : ch;
-        const key = `${m.type}:${chan}:${m.number}`;
-        if (!this.feedbackIndex.has(key)) this.feedbackIndex.set(key, []);
-        this.feedbackIndex.get(key).push({ page: pi, id });
+      for (const [id, base] of Object.entries(page.controls)) {
+        for (const [layer, m] of [['', base], ['s', base.shift]]) {
+          if (!m || (m.type !== 'note' && m.type !== 'cc')) continue;
+          const chan = m.channel ? m.channel - 1 : ch;
+          const key = `${m.type}:${chan}:${m.number}`;
+          if (!this.feedbackIndex.has(key)) this.feedbackIndex.set(key, []);
+          this.feedbackIndex.get(key).push({ page: pi, id, layer });
+        }
       }
     });
   }
 
-  ctlState(pageIndex, id) {
+  // Each layer ('' normal, 's' shift) keeps its own on/off and encoder value.
+  ctlState(pageIndex, id, layer = this.layerFor(id, pageIndex)) {
     const s = this.state[pageIndex];
-    if (!s[id]) s[id] = { on: false, value: null };
-    return s[id];
+    const key = layer ? `${id}#${layer}` : id;
+    if (!s[key]) s[key] = { on: false, value: null };
+    return s[key];
   }
 
-  mapping(id, pageIndex = this.page) {
+  shiftHeld() {
+    return this.config.settings.shiftLayer && this.pressed.has('shift');
+  }
+
+  // The shift layer applies to a control only while Shift is held and the control has one.
+  layerFor(id, pageIndex = this.page) {
+    if (pageIndex !== this.page || !this.shiftHeld()) return '';
     const page = this.config.pages[pageIndex];
-    return page ? page.controls[id] : undefined;
+    const base = page && page.controls[id];
+    return base && base.shift && base.shift.type !== 'none' ? 's' : '';
+  }
+
+  mapping(id, pageIndex = this.page, layer = this.layerFor(id, pageIndex)) {
+    const page = this.config.pages[pageIndex];
+    const base = page ? page.controls[id] : undefined;
+    return layer === 's' && base ? base.shift : base;
   }
 
   channelFor(m, pageIndex = this.page) {
@@ -347,13 +364,28 @@ class Engine {
       return;
     }
 
-    const m = this.mapping(ctl.id);
+    // Shift is a pure modifier while the shift layer is enabled: show the shift layer.
+    if (ctl.id === 'shift' && this.config.settings.shiftLayer) {
+      this.renderAll();
+      return;
+    }
+
+    const layer = this.layerFor(ctl.id);
+    const m = this.mapping(ctl.id, this.page, layer);
     if (!m) return;
-    const st = this.ctlState(this.page, ctl.id);
+    const st = this.ctlState(this.page, ctl.id, layer);
 
     switch (m.type) {
       case 'page':
         this.setPage(m.page);
+        return;
+      case 'pageHold':
+        // Show another page only while this control is held.
+        if (m.page !== this.page) {
+          const ret = this.page;
+          this.setPage(m.page);
+          this.pageHold = { id: ctl.id, ret };
+        }
         return;
       case 'pageNext':
         this.setPage((this.page + 1) % this.config.pages.length);
@@ -387,7 +419,7 @@ class Engine {
       if (m.group) this.releaseGroup(ctl.id, m.group);
       st.on = true;
       this.sendValue(m, chan, value, true);
-      if (m.type !== 'pc') this.heldOutputs.set(ctl.id, { m, chan });
+      if (m.type !== 'pc') this.heldOutputs.set(ctl.id, { m, chan, layer });
     }
     this.renderControl(ctl);
   }
@@ -396,12 +428,21 @@ class Engine {
     this.pressed.delete(ctl.id);
     this.emit('input', { id: ctl.id, kind: 'release' });
     this.lastPressure.delete(ctl.id);
+    if (this.pageHold && this.pageHold.id === ctl.id) {
+      const ret = this.pageHold.ret;
+      this.pageHold = null;
+      this.setPage(ret);
+      return;
+    }
+    if (ctl.id === 'shift' && this.config.settings.shiftLayer) {
+      this.renderAll();
+      return;
+    }
     const held = this.heldOutputs.get(ctl.id);
     if (held) {
       this.heldOutputs.delete(ctl.id);
       this.sendValue(held.m, held.chan, held.m.offValue, false);
-      const m = this.mapping(ctl.id);
-      if (m && m.behavior === 'momentary' && !m.group) this.ctlState(this.page, ctl.id).on = false;
+      if (held.m.behavior === 'momentary' && !held.m.group) this.ctlState(this.page, ctl.id, held.layer).on = false;
     }
     this.renderControl(ctl);
   }
@@ -411,7 +452,8 @@ class Engine {
   releaseAllHeld() {
     for (const [id, held] of this.heldOutputs) {
       this.sendValue(held.m, held.chan, held.m.offValue, false);
-      const s = this.state[this.page] && this.state[this.page][id];
+      const key = held.layer ? `${id}#${held.layer}` : id;
+      const s = this.state[this.page] && this.state[this.page][key];
       if (s && held.m.behavior === 'momentary' && !held.m.group) s.on = false;
     }
     this.heldOutputs.clear();
@@ -422,8 +464,9 @@ class Engine {
   // Exclusive groups ("radio buttons") within the current page.
   releaseGroup(exceptId, group, silent = false) {
     const page = this.config.pages[this.page];
-    for (const [id, m] of Object.entries(page.controls)) {
-      if (id === exceptId || m.group !== group) continue;
+    for (const id of Object.keys(page.controls)) {
+      const m = this.mapping(id);
+      if (id === exceptId || !m || m.group !== group) continue;
       const st = this.ctlState(this.page, id);
       if (!st.on) continue;
       st.on = false;
@@ -546,16 +589,17 @@ class Engine {
     if (!targets) return;
     for (const t of targets) {
       const ctl = push3.byId.get(t.id);
-      const m = this.config.pages[t.page].controls[t.id];
-      const st = this.ctlState(t.page, t.id);
+      const m = this.mapping(t.id, t.page, t.layer);
+      const st = this.ctlState(t.page, t.id, t.layer);
+      const visible = t.page === this.page && this.layerFor(t.id) === t.layer;
       if (ctl.kind === 'encoder') {
         st.value = Math.min(m.max, Math.max(m.min, value));
         this.emit('value', { page: t.page, id: t.id, value });
       } else {
         // While a momentary control is held, its own echo must not turn the LED off early.
-        if (t.page === this.page && this.heldOutputs.has(t.id) && value === 0) continue;
+        if (visible && this.heldOutputs.has(t.id) && value === 0) continue;
         st.on = value > 0;
-        if (t.page === this.page) this.renderControl(ctl);
+        if (visible) this.renderControl(ctl);
       }
     }
   }
@@ -640,6 +684,7 @@ class Engine {
       if (!page) return { color: 0, anim: 0 };
       return { color: idx === this.page ? page.color : dimOf(page.color), anim: 0 };
     }
+    if (ctl.id === 'shift' && this.config.settings.shiftLayer) return { color: this.pressed.has('shift') ? 127 : 16, anim: 0 };
     const m = this.mapping(ctl.id);
     if (!m) return { color: 0, anim: 0 };
     const held = this.pressed.has(ctl.id);
@@ -655,8 +700,8 @@ class Engine {
       if (m.index >= v.count) return { color: 0, anim: 0 };
       return m.index === v.selected ? { color: m.colorOn, anim: push3.ANIMATIONS[m.anim] || 0 } : { color: m.colorOff, anim: 0 };
     }
-    if (m.type === 'page' || m.type === 'pageNext' || m.type === 'pagePrev') {
-      const active = m.type === 'page' && m.page === this.page;
+    if (m.type === 'page' || m.type === 'pageHold' || m.type === 'pageNext' || m.type === 'pagePrev') {
+      const active = (m.type === 'page' || m.type === 'pageHold') && m.page === this.page;
       return { color: held || active ? m.colorOn : m.colorOff, anim: 0 };
     }
     const st = this.ctlState(this.page, ctl.id);

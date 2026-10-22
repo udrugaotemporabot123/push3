@@ -11,7 +11,7 @@ const MAX_PAGES = 16;
 
 const PAGE_COLORS = [COLORS.mint, COLORS.blue, COLORS.orange, COLORS.pink, COLORS.yellow, COLORS.purple, COLORS.cyan, COLORS.red];
 
-const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageNext', 'pagePrev', 'variation'];
+const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation'];
 const BEHAVIORS = ['momentary', 'toggle', 'trigger'];
 const ENCODER_TYPES = ['none', 'cc'];
 const ENCODER_MODES = ['absolute', 'relative2c', 'relativeOffset'];
@@ -48,6 +48,7 @@ function defaultSettings() {
     unmappedLeds: 'off', // 'off' | 'dim' (show the layout of unmapped controls dimly)
     internalClock: true, // drive blink/pulse LED animations when Live sends no clock
     display: 'editor', // 'editor' = preview in the editor only, 'takeover' = also drive the Push display in User Mode
+    shiftLayer: true, // Shift is a modifier: controls with a shift mapping do something else while it is held
   };
 }
 
@@ -131,8 +132,8 @@ function defaultConfig(pageCount = 4) {
   return { version: CONFIG_VERSION, settings: defaultSettings(), pages };
 }
 
-function normalizeButton(m, page, ctl) {
-  const d = defaultMapping(page, ctl);
+function normalizeButton(m, page, ctl, isShift = false) {
+  const d = isShift ? { ...defaultMapping(page, ctl), type: 'none' } : defaultMapping(page, ctl);
   if (!m || typeof m !== 'object') return d;
   const out = {
     type: oneOf(m.type, BUTTON_TYPES, d.type),
@@ -152,7 +153,7 @@ function normalizeButton(m, page, ctl) {
     out.pressure = oneOf(m.pressure, PRESSURE_TYPES, 'off');
     out.pressureCc = clampInt(m.pressureCc, 0, 127, 1);
   }
-  if (out.type === 'page') out.page = clampInt(m.page, 0, MAX_PAGES - 1, 0);
+  if (out.type === 'page' || out.type === 'pageHold') out.page = clampInt(m.page, 0, MAX_PAGES - 1, 0);
   if (out.type === 'variation') {
     out.target = {
       track: str(m.target && m.target.track, 'selected', 64) || 'selected',
@@ -161,15 +162,24 @@ function normalizeButton(m, page, ctl) {
     out.index = clampInt(m.index, 0, 127, 0);
     out.action = oneOf(m.action, VARIATION_ACTIONS, 'recall');
   }
+  if (!isShift) attachShift(out, m, (x) => normalizeButton(x, page, ctl, true));
   return out;
 }
 
-function normalizeEncoder(m, page, ctl) {
-  const d = defaultEncoderMapping(page, ctl);
+// Optional alternate mapping used while Shift is held (stored only when it does something).
+function attachShift(out, m, normalize) {
+  if (m && m.shift && typeof m.shift === 'object') {
+    const sh = normalize(m.shift);
+    if (sh.type !== 'none') out.shift = sh;
+  }
+}
+
+function normalizeEncoder(m, page, ctl, isShift = false) {
+  const d = isShift ? { ...defaultEncoderMapping(page, ctl), type: 'none' } : defaultEncoderMapping(page, ctl);
   if (!m || typeof m !== 'object') return d;
   const min = clampInt(m.min, 0, 127, d.min);
   const max = clampInt(m.max, 0, 127, d.max);
-  return {
+  const out = {
     type: oneOf(m.type, ENCODER_TYPES, d.type),
     number: clampInt(m.number, 0, 127, d.number),
     channel: clampInt(m.channel, 0, 16, 0),
@@ -181,6 +191,8 @@ function normalizeEncoder(m, page, ctl) {
     touchNumber: clampInt(m.touchNumber, 0, 127, d.touchNumber),
     label: str(m.label, '', 24),
   };
+  if (!isShift) attachShift(out, m, (x) => normalizeEncoder(x, page, ctl, true));
+  return out;
 }
 
 function normalizeStrip(m) {
@@ -230,6 +242,7 @@ function normalizeConfig(cfg) {
     unmappedLeds: oneOf(s.unmappedLeds, ['off', 'dim'], ds.unmappedLeds),
     internalClock: typeof s.internalClock === 'boolean' ? s.internalClock : ds.internalClock,
     display: oneOf(s.display, ['editor', 'takeover'], ds.display),
+    shiftLayer: typeof s.shiftLayer === 'boolean' ? s.shiftLayer : ds.shiftLayer,
   };
   const srcPages = Array.isArray(src.pages) && src.pages.length ? src.pages.slice(0, MAX_PAGES) : defaultConfig().pages;
   const pages = srcPages.map((p, i) => normalizePage(p, i));

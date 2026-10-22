@@ -21,10 +21,11 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.3.0 display: font atlas (Inter), canvas + BGR565 frame encoding, layout, editor preview,
       experimental USB takeover in User Mode (setting `display: takeover`), one-time npm install of `usb`
 
+- [x] v0.4.0 shift layer (per-control alternate mapping, own state/LEDs/feedback) + pageHold
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white
-- [ ] v0.4 Shift layer (alternate mapping while Shift is held) + hold-to-switch page
 - [ ] v0.5 Live-aware controls via Live API (track mute/solo/arm/select with track colours, scene/clip launch,
       rack macros with names and values on the display) — no MIDI mapping needed
 - [ ] v0.6 add-on framework (`addons/`), first add-ons from SVEBOR's workflow: sampling station (record mic/violin

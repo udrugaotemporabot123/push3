@@ -356,3 +356,61 @@ test('touch surfaces (D-pad note 13) are mappable; jog touch is note 11', () => 
   ]);
   assert.equal(e.snapshot().discovered.length, 0);
 });
+
+test('shift layer: alternate mapping while Shift is held, with its own state and LEDs', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls.mute, { behavior: 'toggle', colorOn: 5, colorOff: 7, shift: { type: 'cc', number: 90, behavior: 'toggle', colorOn: 45, colorOff: 47 } });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  clear();
+  e.handlePushMessage([0xb0, 49, 127]); // Shift down: consumed, LEDs switch to the shift layer
+  assert.equal(out.host.length, 0);
+  assert.deepEqual(out.push.filter((m) => m[1] === 60).at(-1), [0xb0, 60, 47]);
+  e.handlePushMessage([0xb0, 60, 127]);
+  e.handlePushMessage([0xb0, 60, 0]);
+  assert.deepEqual(out.host, [[0xb4, 90, 127]]);
+  assert.deepEqual(out.push.filter((m) => m[1] === 60).at(-1), [0xb0, 60, 45]);
+  e.handlePushMessage([0xb0, 49, 0]); // Shift up: normal layer, still off
+  assert.deepEqual(out.push.filter((m) => m[1] === 60).at(-1), [0xb0, 60, 7]);
+  clear();
+  e.handlePushMessage([0xb0, 60, 127]);
+  assert.deepEqual(out.host, [[0xb4, 60, 127]]);
+  // Feedback for the hidden shift layer updates its state without touching the visible LED.
+  clear();
+  e.handleHostMessage([0xb4, 90, 0]);
+  assert.equal(out.push.length, 0);
+  assert.equal(e.ctlState(0, 'mute', 's').on, false);
+});
+
+test('shift layer: releasing the control after Shift sends the matching note off', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['pad.0.0'], { shift: { type: 'note', number: 10, behavior: 'momentary', velocity: 'fixed', onValue: 100 } });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  e.handlePushMessage([0xb0, 49, 127]);
+  clear();
+  e.handlePushMessage([0x90, 36, 60]);
+  e.handlePushMessage([0xb0, 49, 0]);
+  e.handlePushMessage([0x80, 36, 0]);
+  assert.deepEqual(out.host, [
+    [0x94, 10, 100],
+    [0x94, 10, 0],
+  ]);
+});
+
+test('page hold: shows a page only while held', () => {
+  const { e } = setup((c) => {
+    Object.assign(c.pages[0].controls.select, { type: 'pageHold', page: 2 });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  e.handlePushMessage([0xb0, 48, 127]);
+  assert.equal(e.page, 2);
+  e.handlePushMessage([0xb0, 48, 0]);
+  assert.equal(e.page, 0);
+});
+
+test('config keeps shift mappings and drops empty ones', () => {
+  const c = normalizeConfig({ pages: [{ controls: { mute: { type: 'cc', number: 60, shift: { type: 'cc', number: 300 } }, solo: { type: 'cc', number: 61, shift: { type: 'none' } } } }] });
+  assert.equal(c.pages[0].controls.mute.shift.number, 127);
+  assert.equal(c.pages[0].controls.solo.shift, undefined);
+});

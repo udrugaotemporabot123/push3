@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.4.0 – 2026-10-22
+Shift sloj: svaka kontrola može imati drugu funkciju dok držiš Shift (vlastite boje, stanje i povratna info). Nova funkcija 'Drži za stranicu'. Shift je modifikator (može se isključiti u Postavkama).
+
 ## v0.3.0 – 2026-10-22
 Ekran: motor crta vlastiti ekran (stranice, enkoderi s vrijednostima, zadnja radnja, donji gumbi); pregled uživo u editoru; eksperimentalno preuzimanje Push 3 USB ekrana u User modu (Postavke → Push ekran).
 

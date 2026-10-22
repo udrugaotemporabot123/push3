@@ -15,7 +15,7 @@ const el = (tag, attrs = {}, ...kids) => {
 };
 
 const T = {
-  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija' },
+  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija' },
   behaviors: { momentary: 'Momentary (dok držiš)', toggle: 'Toggle (uklj/isklj)', trigger: 'Trigger (jedan impuls)' },
   encModes: { absolute: 'Apsolutno (0–127, s povratnom info)', relative2c: 'Relativno – 2’s complement', relativeOffset: 'Relativno – offset 64' },
   anims: { none: 'Bez', 'pulse-slow': 'Pulsira sporo', pulse: 'Pulsira', 'pulse-fast': 'Pulsira brzo', 'blink-slow': 'Blinka sporo', blink: 'Blinka', 'blink-fast': 'Blinka brzo' },
@@ -40,7 +40,36 @@ const S = {
   monitorOn: false,
   dragSelecting: false,
   lastAnchor: null,
+  layer: '', // '' = normal mapping, 's' = shift layer
 };
+
+// The mapping being edited/shown for the current layer. With create=true a missing shift
+// mapping is created (type none) so it can be filled in.
+function layerMap(base, ctl, create = false) {
+  if (!base || S.layer !== 's') return base;
+  if (base.shift) return base.shift;
+  const sh = shiftDefaults(ctl);
+  if (create) base.shift = sh;
+  return sh;
+}
+
+function shiftDefaults(ctl) {
+  if (ctl.kind === 'encoder') return { type: 'none', number: ctl.cc, mode: 'absolute', sensitivity: 0.5, min: 0, max: 127, touch: 'none', touchNumber: ctl.touchNote };
+  const rgb = ctl.led === 'rgb';
+  return {
+    type: 'none',
+    number: ctl.kind === 'pad' || ctl.kind === 'touch' ? ctl.note : ctl.cc,
+    behavior: 'momentary',
+    velocity: ctl.kind === 'pad' ? 'dynamic' : 'fixed',
+    onValue: 127,
+    offValue: 0,
+    colorOn: rgb ? 45 : 127,
+    colorOff: rgb ? 1 : 16,
+    anim: 'none',
+    pressure: 'off',
+    pressureCc: 1,
+  };
+}
 
 // ---------------------------------------------------------------------------------------
 // Connection
@@ -297,7 +326,7 @@ function updateCtl(id) {
   const d = S.ctlEls.get(id);
   if (!c || !d || !S.config) return;
   const pageBtn = S.config.settings.pageButtons === 'upper' && id.startsWith('upper.');
-  const m = curPage().controls[id];
+  const m = layerMap(curPage().controls[id], c);
   const led = S.leds[id];
   let bg = '';
   if (led && (c.kind === 'pad' || c.kind === 'button')) {
@@ -430,7 +459,7 @@ function setAll(key, value, filter) {
   commit((cfg) => {
     const page = cfg.pages[S.snapshot.page];
     for (const id of S.selected) {
-      const m = page.controls[id];
+      const m = layerMap(page.controls[id], S.byId.get(id), true);
       if (!m || (filter && !filter(m, S.byId.get(id)))) continue;
       if (typeof key === 'function') key(m, S.byId.get(id));
       else m[key] = value;
@@ -498,7 +527,12 @@ function renderInspector() {
     return;
   }
   const page = curPage();
-  const maps = ctls.map((c) => page.controls[c.id]).filter(Boolean);
+  if (S.config.settings.shiftLayer && ctls.some((c) => c.id === 'shift')) {
+    box.append(el('div', { class: 'note' }, 'Shift je modifikator: dok ga držiš, kontrole koje imaju Shift sloj rade drugo. To možeš isključiti u Postavkama (Shift sloj).'));
+    return;
+  }
+  box.append(layerSwitch());
+  const maps = ctls.map((c) => layerMap(page.controls[c.id], c)).filter(Boolean);
   if (S.config.settings.pageButtons === 'upper' && ctls.some((c) => c.id.startsWith('upper.'))) {
     box.append(el('div', { class: 'note' }, 'Gornji red gumba trenutno bira stranice 1–8. To možeš isključiti u Postavkama (Gumbi za stranice → Ništa).'));
     return;
@@ -507,6 +541,12 @@ function renderInspector() {
   if (kind === 'btn') renderButtonInspector(box, ctls, maps);
   else if (kind === 'encoder') renderEncoderInspector(box, ctls, maps);
   else if (kind === 'touchstrip') renderStripInspector(box, maps);
+}
+
+function layerSwitch() {
+  if (!S.config.settings.shiftLayer) return el('span');
+  const btn = (layer, label) => el('button', { class: S.layer === layer ? 'primary' : '', onclick: () => ((S.layer = layer), renderAll()) }, label);
+  return el('div', { class: 'btnrow' }, btn('', 'Normalno'), btn('s', 'Shift sloj'), el('span', { class: 'muted small', style: 'align-self:center' }, S.layer === 's' ? 'radi dok držiš Shift' : ''));
 }
 
 function channelSelect(maps) {
@@ -539,7 +579,7 @@ function renderButtonInspector(box, ctls, maps) {
       box.append(field('Pritisak', selectEl(T.pressure, pr, (v) => setAll('pressure', v)), 'Što šalje pritisak prsta nakon udarca (poly aftertouch s Pusha).'));
       if (pr === 'cc') box.append(field('Pritisak CC', numEl(common(maps, 'pressureCc'), 0, 127, (v) => setAll('pressureCc', v))));
     }
-  } else if (type === 'page') {
+  } else if (type === 'page' || type === 'pageHold') {
     const opts = {};
     S.config.pages.forEach((p, i) => (opts[i] = p.name));
     box.append(field('Stranica', selectEl(opts, common(maps, 'page'), (v) => setAll('page', Number(v)))));
@@ -673,6 +713,7 @@ function renderPageInspector(box) {
   const i = S.snapshot.page;
   const p = curPage();
   box.append(el('h3', {}, p.name), el('div', { class: 'sub' }, 'Postavke stranice · odaberi kontrolu za uređivanje'));
+  box.append(layerSwitch());
   box.append(field('Ime', textEl(p.name, (v) => commit((c) => (c.pages[i].name = v.slice(0, 24) || c.pages[i].name)))));
   const chOpts = { 0: `Automatski (${((S.config.settings.baseChannel - 1 + i) % 16) + 1})` };
   for (let k = 1; k <= 16; k++) chOpts[k] = `${k}`;
@@ -736,6 +777,7 @@ function renderSettings() {
     field('Touch strip', selectEl({ false: 'Pitch bend (vraća se)', true: 'Fader (ostaje gdje pustiš)' }, String(s.stripFader), (v) => set('stripFader', v === 'true'))),
     field('Gumbi za stranice', selectEl({ upper: 'Gornji red (1–8)', none: 'Ništa (mapiraj sam)' }, s.pageButtons, (v) => set('pageButtons', v))),
     field('Nemapirane LED', selectEl({ off: 'Ugašene', dim: 'Lagano upaljene' }, s.unmappedLeds, (v) => set('unmappedLeds', v))),
+    field('Shift sloj', selectEl({ true: 'Uključen (Shift = modifikator)', false: 'Isključen (Shift je običan gumb)' }, String(s.shiftLayer), (v) => set('shiftLayer', v === 'true')), 'Dok držiš Shift, kontrole s Shift slojem šalju drugu poruku.'),
     field('Push ekran', selectEl({ editor: 'Samo pregled u editoru', takeover: 'Preuzmi ekran u User modu (eksperimentalno)' }, s.display, (v) => set('display', v)), 'Pokušava crtati na Push 3 ekran dok si u User modu. Ako ga Live drži, ostaje pregled ovdje.'),
     field('Interni clock', selectEl({ true: 'Da (animacije rade i bez Live clocka)', false: 'Ne' }, String(s.internalClock), (v) => set('internalClock', v === 'true'))),
     el('div', { class: 'btnrow' }, el('button', { class: 'danger', onclick: () => confirm('Vratiti sve na tvorničke postavke?') && send({ t: 'resetConfig' }) }, 'Vrati na zadano')),
