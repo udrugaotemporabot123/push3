@@ -750,3 +750,45 @@ test('touch strip morph blends encoders between two snapshots', () => {
   e.handlePushMessage([0xe0, 0, 64]); // strip in the middle (8192)
   assert.deepEqual(out.host.filter((m) => m[0] === 0xb4 && m[1] === 71), [[0xb4, 71, 50]]);
 });
+
+test('review fixes: transposed aftertouch, no empty snapshots, morph reaches B in Fader mode, accent stays on its page', () => {
+  let saved = null;
+  const { e, out, clear } = setup((c) => {
+    c.settings.stripFader = true;
+    Object.assign(c.pages[0].controls['pad.0.0'], { type: 'note', number: 36, behavior: 'momentary', velocity: 'dynamic', pressure: 'polyAT' });
+    Object.assign(c.pages[0].controls.octUp, { type: 'transpose', amount: 12 });
+    Object.assign(c.pages[0].controls.accent, { type: 'accent', behavior: 'toggle' });
+    Object.assign(c.pages[0].controls['scene.1'], { type: 'snapshot', slot: 1 });
+    Object.assign(c.pages[0].controls['scene.2'], { type: 'snapshot', slot: 2 });
+    c.pages[0].controls.strip = { type: 'morph', slotA: 1, slotB: 2 };
+    Object.assign(c.pages[1].controls['pad.0.0'], { type: 'note', number: 36, behavior: 'momentary', velocity: 'dynamic' });
+  });
+  e.io.saveAddonState = (id, data) => (saved = JSON.parse(JSON.stringify(data)));
+  e.handlePushMessage(SYSEX_USER);
+  // 1. Aftertouch goes to the transposed note.
+  e.handlePushMessage([0xb0, 55, 127]);
+  clear();
+  e.handlePushMessage([0x90, 36, 100]);
+  e.handlePushMessage([0xa0, 36, 80]);
+  e.handlePushMessage([0x80, 36, 0]);
+  assert.deepEqual(out.host.find((m) => (m[0] & 0xf0) === 0xa0), [0xa4, 48, 80]);
+  // 2. Nothing to store yet: no empty snapshot is saved.
+  e.handlePushMessage([0xb0, 36, 127]);
+  e.handlePushMessage([0xb0, 36, 0]);
+  assert.equal(saved, null);
+  // 3. Morph in Fader mode: the top of the strip is exactly snapshot B.
+  e.handleHostMessage([0xb4, 71, 0]);
+  e.handlePushMessage([0xb0, 36, 127]);
+  e.handleHostMessage([0xb4, 71, 127]);
+  e.handlePushMessage([0xb0, 37, 127]);
+  e.handlePushMessage([0xe0, 0, 64]); // middle
+  clear();
+  e.handlePushMessage([0xe0, 127, 127]); // top (Fader mode sends 7 bits)
+  assert.deepEqual(out.host.filter((m) => m[0] === 0xb4 && m[1] === 71).at(-1), [0xb4, 71, 127]);
+  // 4. Latched accent on page 1 does not touch page 2.
+  e.handlePushMessage([0xb0, 57, 127]);
+  e.setPage(1);
+  clear();
+  e.handlePushMessage([0x90, 36, 40]);
+  assert.ok(out.host[0][2] < 127);
+});

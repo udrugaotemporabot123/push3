@@ -306,6 +306,7 @@ function mappingSummary(c, m) {
   if (c.kind === 'encoder' || c.kind === 'touchstrip') {
     if (m.type === 'none') return '—';
     if (m.type === 'pitchbend') return 'PB';
+    if (m.type === 'morph') return `Morph ${m.slotA}→${m.slotB}`;
     if (m.type === 'live') return `Live ${(T.liveTargets[m.live && m.live.target] || '').split(' ')[0]}`;
     return `CC${m.number}${m.mode && m.mode !== 'absolute' ? ' rel' : ''}`;
   }

@@ -38,6 +38,11 @@ function noteSignature(m, chan) {
   return JSON.stringify([m.type, m.number, chan, m.behavior, (m.extra || []).filter((x) => x.type === 'note')]);
 }
 
+// What a snapshot value means for an encoder: its type and mode (7-bit, 14-bit or a Live parameter).
+function snapshotKind(m) {
+  return m.type === 'live' ? 'live' : `${m.type}:${m.mode}`;
+}
+
 class Engine {
   /**
    * @param {object} io { toPush(bytes), toHost(bytes), toLive(obj), log(level, msg), now(), setTimer(fn, ms), clearTimer(id) }
@@ -492,8 +497,9 @@ class Engine {
         // Show another page only while this control is held.
         if (m.page !== this.page) {
           const ret = this.page;
+          const retUid = this.pageUid();
           this.setPage(m.page);
-          this.pageHold = { id: ctl.id, ret };
+          this.pageHold = { id: ctl.id, ret, retUid };
         }
         return;
       case 'pageNext':
@@ -513,8 +519,9 @@ class Engine {
         this.renderControl(ctl);
         return;
       case 'accent':
-        if (m.behavior === 'toggle') this.accent = this.accent && this.accent.id === ctl.id ? null : { id: ctl.id, latch: true };
-        else this.accent = { id: ctl.id, latch: false };
+        // Accent and repeat belong to the page they were switched on (another page is never affected).
+        if (m.behavior === 'toggle') this.accent = this.accentOn() ? null : { id: ctl.id, latch: true, uid: this.pageUid() };
+        else this.accent = { id: ctl.id, latch: false, uid: this.pageUid() };
         this.renderWhere((x) => x.type === 'accent');
         return;
       case 'snapshot':
@@ -522,9 +529,17 @@ class Engine {
         return;
       case 'repeat': {
         const ticks = REPEAT_RATES[m.rate] || 6;
-        if (m.behavior === 'toggle') this.repeat = this.repeat && this.repeat.id === ctl.id ? null : { id: ctl.id, ticks, latch: true };
-        else this.repeat = { id: ctl.id, ticks, latch: false };
+        if (m.behavior === 'toggle') this.repeat = this.repeatOn() ? null : { id: ctl.id, ticks, latch: true, uid: this.pageUid() };
+        else this.repeat = { id: ctl.id, ticks, latch: false, uid: this.pageUid() };
+        // Pads already held start repeating too (like Push).
+        if (this.repeat) {
+          for (const [id, held] of this.heldOutputs) {
+            const c = push3.byId.get(id);
+            if (c && c.kind === 'pad' && held.m.type === 'note') this.repeating.set(id, { note: held.m.number, chan: held.chan, vel: held.vel || 100 });
+          }
+        }
         this.emit('notice', { text: this.repeat ? `Repeat ${m.rate}` : 'Repeat off' });
+        if (!this.repeat) this.repeating.clear();
         this.renderWhere((x) => x.type === 'repeat');
         return;
       }
@@ -556,7 +571,7 @@ class Engine {
       m = { ...m, number: n };
     }
     let value = m.velocity === 'dynamic' ? scaleVelocity(applyCurve(velocity, m.curve), m) : m.onValue;
-    if (this.accent && ctl.kind === 'pad' && m.type === 'note' && m.velocity === 'dynamic') value = 127;
+    if (this.accentOn() && ctl.kind === 'pad' && m.type === 'note' && m.velocity === 'dynamic') value = 127;
     const chan = this.channelFor(m);
 
     if (m.behavior === 'toggle') {
@@ -572,8 +587,8 @@ class Engine {
       if (m.group) this.releaseGroup(ctl.id, m.group);
       st.on = true;
       this.sendValue(m, chan, value, true);
-      if (m.type !== 'pc') this.heldOutputs.set(ctl.id, { m, chan, layer });
-      if (this.repeat && ctl.kind === 'pad' && m.type === 'note') this.repeating.set(ctl.id, { note: m.number, chan, vel: value });
+      if (m.type !== 'pc') this.heldOutputs.set(ctl.id, { m, chan, layer, vel: value });
+      if (this.repeatOn() && ctl.kind === 'pad' && m.type === 'note') this.repeating.set(ctl.id, { note: m.number, chan, vel: value });
     }
     this.renderControl(ctl);
   }
@@ -596,7 +611,8 @@ class Engine {
     }
     this.lastPressure.delete(ctl.id);
     if (this.pageHold && this.pageHold.id === ctl.id) {
-      const ret = this.pageHold.ret;
+      const byUid = this.config.pages.findIndex((p) => p.uid === this.pageHold.retUid);
+      const ret = byUid >= 0 ? byUid : this.pageHold.ret;
       this.pageHold = null;
       this.setPage(ret);
       return;
@@ -636,6 +652,7 @@ class Engine {
     this.heldOutputs.clear();
     this.repeating.clear();
     if (this.repeat && !this.repeat.latch) this.repeat = null;
+    if (this.accent && !this.accent.latch) this.accent = null;
     for (const lh of this.liveHeld.values()) this.io.toLive({ cmd: 'liveSet', key: lh.key, spec: lh.spec, value: 0 });
     this.liveHeld.clear();
     const addonHeld = [...this.addonHeld];
@@ -700,14 +717,15 @@ class Engine {
 
   pressure(ctl, value) {
     const rep = this.repeating.get(ctl.id);
-    if (rep && value > 0) rep.vel = value; // note repeat: pressing harder = louder repeats
+    if (rep && value > 0 && !this.accentOn()) rep.vel = value; // note repeat: pressing harder = louder repeats
     const m = this.mapping(ctl.id);
     if (!m || m.type === 'none' || !m.pressure || m.pressure === 'off') return;
     if (this.lastPressure.get(ctl.id) === value) return;
     this.lastPressure.set(ctl.id, value);
     if (m.pressure === 'live') return this.liveAbsolute(m.pressureLive, value / 127);
     const chan = this.channelFor(m);
-    if (m.pressure === 'polyAT' && m.type === 'note') this.io.toHost([POLY_AT | chan, m.number, value]);
+    const held = this.heldOutputs.get(ctl.id); // the note actually sounding (transpose)
+    if (m.pressure === 'polyAT' && m.type === 'note') this.io.toHost([POLY_AT | chan, held && held.m.type === 'note' ? held.m.number : m.number, value]);
     else if (m.pressure === 'channelAT') this.io.toHost([CHAN_AT | chan, value]);
     else if (m.pressure === 'cc') this.io.toHost([CC | chan, m.pressureCc, value]);
   }
@@ -800,7 +818,8 @@ class Engine {
     const m = this.mapping(ctl.id);
     if (!m || m.type === 'none') return;
     if (m.type === 'live') return this.liveAbsolute(m.live, value14 / 16383);
-    if (m.type === 'morph') return this.snapshotMorph(m.slotA, m.slotB, value14 / 16383);
+    // In Fader mode the strip only gives 7 bits (top = 16256): that top must be snapshot B.
+    if (m.type === 'morph') return this.snapshotMorph(m.slotA, m.slotB, Math.min(1, value14 / (this.config.settings.stripFader ? 16256 : 16383)));
     const chan = this.channelFor(m);
     if (m.type === 'pitchbend') this.io.toHost([PITCHBEND | chan, value14 & 0x7f, value14 >> 7]);
     else this.io.toHost([CC | chan, m.number, value14 >> 7]);
@@ -831,6 +850,10 @@ class Engine {
     if (!bytes || !bytes.length) return;
     const status = bytes[0];
     if (status >= 0xf8) return this.handleHostRealtime(status);
+    if (status === 0xf2 && bytes.length >= 3) {
+      this.repeatTick = ((bytes[1] & 0x7f) | ((bytes[2] & 0x7f) << 7)) * 6; // song position (16ths) keeps repeat on the grid
+      return;
+    }
     this.health.hostFeedbackAt = this.io.now();
     const type = status & 0xf0;
     const chan = status & 0x0f;
@@ -888,6 +911,19 @@ class Engine {
     }
   }
 
+  pageUid() {
+    const p = this.config.pages[this.page];
+    return p ? p.uid : null;
+  }
+
+  accentOn() {
+    return !!this.accent && this.accent.uid === this.pageUid();
+  }
+
+  repeatOn() {
+    return !!this.repeat && this.repeat.uid === this.pageUid();
+  }
+
   // Snapshots: the values of this page's encoders (CC, 14-bit and Live parameters), per slot.
   snapshotStore() {
     if (!this.snapshots) {
@@ -909,27 +945,35 @@ class Engine {
         if (!m) continue;
         if (m.type === 'cc' && (m.mode === 'absolute' || m.mode === 'absolute14')) {
           const st = this.ctlState(this.page, ctl.id, '');
-          if (st.value !== null) snap[ctl.id] = st.value;
+          if (st.value !== null) snap[ctl.id] = { k: snapshotKind(m), v: st.value };
         } else if (m.type === 'live') {
           const v = this.liveValue(m);
-          if (v && v.ok && typeof v.value === 'number') snap[ctl.id] = v.value;
+          if (v && v.ok && typeof v.value === 'number') snap[ctl.id] = { k: snapshotKind(m), v: v.value };
         }
+      }
+      if (!Object.keys(snap).length) {
+        this.emit('notice', { text: 'Snapshot: enkoderi još nemaju vrijednosti (okreni ih ili pričekaj Live)' });
+        return;
       }
       mine[slot] = snap;
       if (this.io.saveAddonState) this.io.saveAddonState('core-snapshots', all);
       this.emit('notice', { text: `Snapshot ${slot} spremljen (${Object.keys(snap).length})` });
     } else {
-      for (const [id, v] of Object.entries(mine[slot])) this.setEncoderValue(id, v);
+      for (const [id, e] of Object.entries(mine[slot])) this.setEncoderValue(id, e);
       this.lastSnapshot.set(page.uid, slot);
       this.emit('notice', { text: `Snapshot ${slot}` });
     }
     this.renderWhere((x) => x.type === 'snapshot');
   }
 
-  // Set an encoder of the current page to a value (CC sent only when it changes).
-  setEncoderValue(id, v) {
+  // Set an encoder of the current page to a snapshot value { k, v } (CC sent only when it changes).
+  // A value stored for another type/mode of the encoder is skipped (it would mean something else now).
+  setEncoderValue(id, entry) {
     const m = this.config.pages[this.page].controls[id];
-    if (!m) return;
+    if (!m || !entry) return;
+    const v = typeof entry === 'number' ? entry : entry.v;
+    if (typeof entry === 'object' && entry.k !== snapshotKind(m)) return;
+    if (typeof v !== 'number') return;
     if (m.type === 'live') return this.liveAbsolute(m.live, v);
     if (m.type !== 'cc' || (m.mode !== 'absolute' && m.mode !== 'absolute14')) return;
     const st = this.ctlState(this.page, id, '');
@@ -955,17 +999,22 @@ class Engine {
     const a = mine[slotA];
     const b = mine[slotB];
     if (!a || !b) return;
+    const m0 = this.config.pages[this.page].controls;
     for (const id of new Set([...Object.keys(a), ...Object.keys(b)])) {
-      const va = id in a ? a[id] : b[id];
-      const vb = id in b ? b[id] : a[id];
-      this.setEncoderValue(id, va + (vb - va) * f);
+      const ea = a[id] || b[id];
+      const eb = b[id] || a[id];
+      const k = snapshotKind(m0[id] || {});
+      if ((typeof ea === 'object' && ea.k !== k) || (typeof eb === 'object' && eb.k !== k)) continue;
+      const va = typeof ea === 'number' ? ea : ea.v;
+      const vb = typeof eb === 'number' ? eb : eb.v;
+      this.setEncoderValue(id, { k, v: va + (vb - va) * f });
     }
   }
 
   // Note repeat: every `ticks` clock ticks (from Live's start, so on the grid) each held pad retriggers.
   noteRepeatTick() {
     this.repeatTick++;
-    if (!this.repeat || !this.repeating.size || this.mode !== 'user') return;
+    if (!this.repeatOn() || !this.repeating.size || this.mode !== 'user') return;
     if (this.repeatTick % this.repeat.ticks !== 0) return;
     for (const r of this.repeating.values()) {
       this.io.toHost([NOTE_ON | r.chan, r.note, 0]);
@@ -1288,13 +1337,13 @@ class Engine {
       if (m.index >= v.count) return { color: 0, anim: 0 };
       return m.index === v.selected ? { color: m.colorOn, anim: push3.ANIMATIONS[m.anim] || 0 } : { color: m.colorOff, anim: 0 };
     }
-    if (m.type === 'accent') return { color: held || (this.accent && this.accent.id === ctl.id) ? m.colorOn : m.colorOff, anim: 0 };
+    if (m.type === 'accent') return { color: held || this.accentOn() ? m.colorOn : m.colorOff, anim: 0 };
     if (m.type === 'snapshot') {
       const uid = this.config.pages[this.page].uid;
       const has = !!(this.snapshotStore()[uid] && this.snapshotStore()[uid][m.slot]);
       return { color: held || (has && this.lastSnapshot.get(uid) === m.slot) ? m.colorOn : has ? m.colorOff : 0, anim: 0 };
     }
-    if (m.type === 'repeat') return { color: held || (this.repeat && this.repeat.id === ctl.id) ? m.colorOn : m.colorOff, anim: 0 };
+    if (m.type === 'repeat') return { color: held || this.repeatOn() ? m.colorOn : m.colorOff, anim: 0 };
     if (m.type === 'transpose') {
       const t = this.transpose.get(this.config.pages[this.page].uid) || 0;
       const active = held || (m.amount > 0 ? t > 0 : m.amount < 0 ? t < 0 : t !== 0);
