@@ -1107,6 +1107,35 @@ const TEMPLATES = {
       return r;
     },
   },
+  seqDrum: {
+    name: 'Drum sekvencer 16 padova + 32 koraka (+ Sampler)',
+    help: 'Donji lijevi 4×4 = drum padovi (note 36–51): udarac svira i odabire traku. Gornja 4 reda = 32 koraka odabrane trake (Shift + korak briše traku). Scene 1 = Play/Stop, Scene 2 = snimanje udaraca (svira dok Live svira, upisuje u najbliži korak), Scene 8 = obriši. Shift + drum pad = ciljni pad za Sampler, Capture = snimi u njega.',
+    ask: [
+      { key: 'source', label: 'Track koji snima (npr. mic in - sampling)', default: 'selected' },
+      { key: 'target', label: 'Track s Drum Rackom', default: 'selected' },
+      { key: 'swing', label: 'Swing % (50 = ravno, 66 = shuffle)', default: '50' },
+    ],
+    apply(a) {
+      const r = {};
+      const Q = (action, params) => ({ type: 'addon', addon: { id: 'stepseq', action, params: { seq: 'D', ...params } } });
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 4; col++) {
+          const lane = row * 4 + col + 1;
+          r[`pad.${row}.${col}`] = Object.assign(Q('hit', { lane: String(lane), note: String(35 + lane) }), {
+            shift: { type: 'addon', addon: { id: 'sampler', action: 'targetPad', params: { target: a.target, rack: 'first', note: String(35 + lane) } } },
+          });
+        }
+      }
+      for (let row = 4; row < 8; row++) {
+        for (let col = 0; col < 8; col++) r[`pad.${row}.${col}`] = Q('step', { lane: 'selected', step: String((7 - row) * 8 + col + 1) });
+      }
+      r['scene.1'] = Q('play', { swing: a.swing });
+      r['scene.2'] = Q('rec', {});
+      r['scene.8'] = Q('clear', {});
+      r.capture = { type: 'addon', addon: { id: 'sampler', action: 'sampleToSelected', params: { source: a.source, target: a.target, rack: 'first', autoArm: 'yes' } } };
+      return r;
+    },
+  },
   samplerPads: {
     name: 'Sampler + Drum Rack 4×4',
     help: 'Donji lijevi 4×4 padovi sviraju Drum Rack (note 36–51); Shift + pad = odaberi taj pad kao cilj; Capture = snimi u odabrani pad; New = zadnji clip u odabrani pad.',

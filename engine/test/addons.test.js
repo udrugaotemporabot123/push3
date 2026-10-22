@@ -173,3 +173,60 @@ test('looper: fixed-length recording passes the bar count to the bridge', () => 
   e.handlePushMessage([0xb0, 86, 127]);
   assert.deepEqual(out.live, [{ cmd: 'liveCall', spec: { t: 'slot', track: 'VIO', scene: 1 }, fn: 'fireSlot', recordBars: 4 }]);
 });
+
+test('step sequencer: drum pads play, select the lane and record hits into the nearest step', () => {
+  const stepseq = require('../../addons/stepseq');
+  const { e, out, clear } = setup((c) => {
+    const ctl = c.pages[0].controls;
+    Object.assign(ctl['pad.0.0'], { type: 'addon', addon: { id: 'stepseq', action: 'hit', params: { seq: 'D', lane: '1', note: '36' } } });
+    Object.assign(ctl['pad.0.1'], { type: 'addon', addon: { id: 'stepseq', action: 'hit', params: { seq: 'D', lane: '2', note: '37' } } });
+    for (let step = 1; step <= 4; step++) Object.assign(ctl[`pad.7.${step - 1}`], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'D', lane: 'selected', step: String(step) } } });
+    Object.assign(ctl['scene.2'], { type: 'addon', addon: { id: 'stepseq', action: 'rec', params: { seq: 'D' } } });
+  }, [stepseq]);
+  // A hit plays immediately (page channel 5) and its release sends the note off.
+  e.handlePushMessage([0x90, 37, 80]);
+  e.handlePushMessage([0x80, 37, 0]);
+  assert.deepEqual(out.host, [[0x94, 37, 80], [0x94, 37, 0]]);
+  // Lane 2 is now selected: the step pads edit lane 2.
+  e.handlePushMessage([0x90, 92, 100]); // pad.7.0 = step 1
+  e.handlePushMessage([0x80, 92, 0]);
+  // Record lane 1 live: one hit just after step 2 starts, one late in step 3 (goes to step 4).
+  e.handlePushMessage([0xb0, 37, 127]); // scene.2 = rec
+  e.handlePushMessage([0xb0, 37, 0]);
+  clear();
+  e.handleHostMessage([0xfa]);
+  for (let i = 0; i < 7; i++) e.handleHostMessage([0xf8]); // ticks 0..6: steps 1, 2
+  e.handlePushMessage([0x90, 36, 90]);
+  e.handlePushMessage([0x80, 36, 0]);
+  for (let i = 0; i < 4; i++) e.handleHostMessage([0xf8]); // ticks 7..10 (tick 9 not a step)
+  for (let i = 0; i < 5; i++) e.handleHostMessage([0xf8]); // ticks 11..15: step 3 at 12
+  e.handlePushMessage([0x90, 36, 70]); // tick 16: late in step 3 -> step 4
+  e.handlePushMessage([0x80, 36, 0]);
+  for (let i = 0; i < 8; i++) e.handleHostMessage([0xf8]); // ticks 16..23: step 4 at 18 is skipped once
+  e.handleHostMessage([0xfc]);
+  clear();
+  // Second pass: step 1 lane 2 (37), step 2 lane 1 (36@90), step 4 lane 1 (36@70).
+  e.handleHostMessage([0xfa]);
+  for (let i = 0; i < 24; i++) e.handleHostMessage([0xf8]);
+  assert.deepEqual(out.host.filter((m) => m[2] > 0), [[0x94, 37, 100], [0x94, 36, 90], [0x94, 36, 70]]);
+});
+
+test('step sequencer: swing delays every second 16th', () => {
+  const stepseq = require('../../addons/stepseq');
+  const { e, out, clear } = setup((c) => {
+    const ctl = c.pages[0].controls;
+    for (let step = 1; step <= 2; step++) Object.assign(ctl[`pad.0.${step - 1}`], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'S', lane: '1', step: String(step), note: '36' } } });
+    Object.assign(ctl['scene.1'], { type: 'addon', addon: { id: 'stepseq', action: 'play', params: { seq: 'S', swing: '66' } } });
+  }, [stepseq]);
+  e.handlePushMessage([0x90, 36, 100]);
+  e.handlePushMessage([0x90, 37, 100]);
+  clear();
+  e.handleHostMessage([0xfa]);
+  const at = [];
+  for (let i = 0; i < 12; i++) {
+    const n = out.host.length;
+    e.handleHostMessage([0xf8]);
+    if (out.host.slice(n).some((m) => m[2] > 0)) at.push(i);
+  }
+  assert.deepEqual(at, [0, 8]); // step 2 at tick 6 + 2 swing ticks
+});

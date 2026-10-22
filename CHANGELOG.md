@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.23.0 – 2026-10-22
+Sekvencer: drum padovi (sviraju, biraju traku, snimanje udaraca uživo), koraci odabrane trake, swing; predložak Drum sekvencer 16 + 32 (+ Sampler).
+
 ## v0.22.0 – 2026-10-22
 Sampler: Shift + pad bira ciljni pad, Capture snima u odabrani pad; predložak Sampler + Drum Rack 4×4.
 
