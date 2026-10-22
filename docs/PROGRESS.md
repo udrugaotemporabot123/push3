@@ -78,10 +78,11 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.33.0 Editor search (name/label/number, all pages, Enter selects matches), page move/delete freezes automatic channels so Live mappings keep working
 - [x] v0.34.0 XY FX add-on: pad grid as XY surface for two named Live parameters (crosshair LEDs from Live, multi-pad hold, spring return), template XY FX 8x8
 - [x] v0.35.0 QR code for the tablet link (vendored qrcode-generator, MIT; verified by decoding), ES5 guard test for the bridge, resampling note
+- [x] v0.36.0 Sequencer pattern chains (hold a pattern + press another; advances at each loop end, persisted)
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
-- [ ] Sequencer: pattern chain (A→B→C auto), copy lane, step input while stopped, nudge.
+- [ ] Sequencer: copy lane, step input while stopped, nudge.
 - [ ] Sampler: "resample master" source (route from Main), verify Simpler parameter names on hardware (S Start, S Length, Ve Attack…).
 - [ ] Looper: overdub (MIDI only in Live session; audio needs a new layer on the next slot), stop-all with fade.
 - [ ] Display: full-screen add-on views (sequencer lanes grid), track colour bars, encoder touch = big value.

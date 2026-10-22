@@ -417,3 +417,32 @@ test('xy fx: pads set two Live parameters, crosshair follows Live, spring return
   e.handlePushMessage([0x80, 36 + 2 * 8 + 7, 0]); // spring: back to 0 / 0
   assert.deepEqual(out.live.filter((c) => c.cmd === 'liveSet').map((c) => c.value), [0, 0]);
 });
+
+test('step sequencer: hold a pattern and press another = chain played in turn', () => {
+  const stepseq = require('../../addons/stepseq');
+  const { e, out, clear } = setup((c) => {
+    const ctl = c.pages[0].controls;
+    Object.assign(ctl['pad.0.0'], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'C', lane: '1', step: '1', note: '36' } } });
+    ['A', 'B', 'C'].forEach((slot, i) => Object.assign(ctl[`pad.1.${i}`], { type: 'addon', addon: { id: 'stepseq', action: 'pattern', params: { seq: 'C', slot } } }));
+  }, [stepseq]);
+  const tap = (note) => (e.handlePushMessage([0x90, note, 100]), e.handlePushMessage([0x80, note, 0]));
+  // A: step on; B: empty; C: step on.
+  tap(36);
+  tap(46); // C
+  tap(36);
+  tap(44); // A
+  e.handlePushMessage([0x90, 44, 100]); // hold A
+  tap(46); // + C = chain A B C
+  e.handlePushMessage([0x80, 44, 0]);
+  assert.match(e.addonStatus()[0], /pat A \(ABC\)/);
+  clear();
+  e.handleHostMessage([0xfa]);
+  const played = [];
+  for (let i = 0; i < 24; i++) {
+    const n = out.host.length;
+    e.handleHostMessage([0xf8]);
+    if (i % 6 === 0) played.push(out.host.slice(n).filter((m) => m[2] > 0).length);
+  }
+  // Loop length 1: A (hit), B (empty), C (hit), A (hit).
+  assert.deepEqual(played, [1, 0, 1, 1]);
+});
