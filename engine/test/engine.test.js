@@ -338,3 +338,21 @@ test('normalizeConfig survives garbage', () => {
   assert.equal(c.pages[1].controls['pad.0.0'].type, 'note');
   assert.equal(c.pages[1].controls['pad.0.0'].number, 127);
 });
+
+test('touch surfaces (D-pad note 13) are mappable; jog touch is note 11', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['dpad.touch'], { type: 'cc', number: 100, behavior: 'momentary' });
+    Object.assign(c.pages[0].controls.jog, { touch: 'note', touchNumber: 5 });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  clear();
+  e.handlePushMessage([0x90, 13, 127]);
+  e.handlePushMessage([0x90, 13, 0]);
+  e.handlePushMessage([0x90, 11, 127]);
+  assert.deepEqual(out.host, [
+    [0xb4, 100, 127],
+    [0xb4, 100, 0],
+    [0x94, 5, 127],
+  ]);
+  assert.equal(e.snapshot().discovered.length, 0);
+});

@@ -281,7 +281,8 @@ class Engine {
 
     if (type === NOTE_ON || type === NOTE_OFF) {
       const velocity = type === NOTE_OFF ? 0 : d2;
-      if (chan === 0 && d1 === push3.STRIP_TOUCH_NOTE) return; // strip touch: ignored for now
+      const touch = chan === 0 ? push3.touchByNote.get(d1) : undefined;
+      if (touch) return velocity > 0 ? this.press(touch, 127) : this.release(touch);
       const pad = push3.padByNote.get(d1);
       if (pad) {
         // MPE member channels (1-15) carry the same pad notes; remember them for pressure.

@@ -76,8 +76,8 @@ for (let i = 0; i < 8; i++) {
 }
 // Layout follows the Push 3 photo/template: Volume top-left, Swing/Tempo lower left, jog right of the display.
 add({ id: 'enc.volume', label: 'Volume', short: 'Vol', kind: 'encoder', cc: 79, touchNote: 8, verify: true, x: 30, y: 64, w: 62, h: 62 });
-add({ id: 'enc.tempo', label: 'Swing/Tempo', short: 'Tempo', kind: 'encoder', cc: 14, touchNote: 10, verify: true, x: 34, y: 304, w: 50, h: 50 });
-add({ id: 'jog', label: 'Jog wheel', short: 'Jog', kind: 'encoder', cc: 70, touchNote: 9, verify: true, x: 846, y: 140, w: 96, h: 96 });
+add({ id: 'enc.tempo', label: 'Swing/Tempo', short: 'Tempo', kind: 'encoder', cc: 14, touchNote: 10, x: 34, y: 304, w: 50, h: 50 });
+add({ id: 'jog', label: 'Jog wheel', short: 'Jog', kind: 'encoder', cc: 70, touchNote: 11, x: 846, y: 140, w: 96, h: 96 });
 
 // ---- Touch strip ---------------------------------------------------------------------
 add({ id: 'strip', label: 'Touch strip', short: 'Strip', kind: 'touchstrip', touchNote: 12, x: 186, y: 300, w: 26, h: 474 });
@@ -103,14 +103,14 @@ button('learn', 'Learn', 81, 102, 22, { w: 40, verify: true });
 add({ id: 'user', label: 'User', kind: 'button', cc: 59, led: 'none', reserved: true, x: 146, y: 22, w: 40, h: 26 });
 button('volume.press', 'Volume press', 111, 104, 74, { short: 'Vol push', w: 66, h: 20, verify: true });
 button('undo', 'Undo', 119, 104, 100, { w: 66, h: 22, verify: true });
-button('delete', 'Delete', 118, 104, 126, { w: 66, h: 22, verify: true });
+button('delete', 'Delete', 118, 104, 126, { w: 66, h: 22 });
 
 // Lock / Stop Clip / Mute / Solo row (level with the lower display buttons).
-button('lock', 'Lock', 83, 14, 266, { w: 40, verify: true });
+button('lock', 'Lock', 83, 14, 266, { w: 40 });
 button('stop', 'Stop Clip', 29, 58, 266, { short: 'Stop', w: 40, led: 'rgb' });
 button('mute', 'Mute', 60, 102, 266, { w: 40, led: 'rgb' });
 button('solo', 'Solo', 61, 146, 266, { w: 40, led: 'rgb' });
-button('tempo.press', 'Tempo press', 15, 92, 318, { short: 'Tempo push', w: 76, h: 22, verify: true });
+button('tempo.press', 'Tempo press', 15, 92, 318, { short: 'Tempo push', w: 76, h: 22 });
 
 // Left column under the tempo encoder.
 const L = 14;
@@ -123,8 +123,8 @@ button('quantize', 'Quantize', 116, L + 82, 438, { w: 76 });
 button('duplicate', 'Duplicate', 88, L, 472, { w: 76 });
 button('fixed', 'Fixed Length', 90, L + 82, 472, { short: 'Fixed Len', w: 76 });
 button('automate', 'Automate', 89, L, 506, { w: 76, led: 'rgb' });
-button('new', 'New', 92, L, 580, { w: 76, verify: true });
-button('capture', 'Capture', 65, L, 614, { w: 76, verify: true });
+button('new', 'New', 92, L, 580, { w: 76 });
+button('capture', 'Capture', 65, L, 614, { w: 76 });
 button('record', 'Record', 86, L, 660, { w: 76, h: 40, led: 'rgb' });
 button('play', 'Play', 85, L, 720, { w: 76, h: 40, led: 'rgb' });
 
@@ -140,7 +140,7 @@ button('sessionScreen', 'Session Screen', 34, 1120, 22, { short: 'Sess.Scr', ver
 // Jog wheel nudges and press.
 button('jog.left', 'Jog nudge left', 93, 770, 176, { short: 'Jog ◀', w: 66, verify: true });
 button('jog.right', 'Jog nudge right', 95, 952, 176, { short: 'Jog ▶', w: 66, verify: true });
-button('jog.press', 'Jog press', 94, 860, 244, { short: 'Jog push', w: 66, verify: true });
+button('jog.press', 'Jog press', 94, 860, 244, { short: 'Jog push', w: 66 });
 
 // Right block.
 const R = 800;
@@ -160,9 +160,13 @@ button('select', 'Select', 48, R + 72, 506);
 // D-pad.
 button('up', 'Up', 46, 1010, 360, { short: '▲', w: 50 });
 button('left', 'Left', 44, 952, 394, { short: '◀', w: 50 });
-button('center', 'Center', 91, 1010, 394, { short: '●', w: 50, verify: true });
+button('center', 'Center', 91, 1010, 394, { short: '●', w: 50 });
 button('right', 'Right', 45, 1068, 394, { short: '▶', w: 50 });
 button('down', 'Down', 47, 1010, 428, { short: '▼', w: 50 });
+
+// Touch surfaces that only send a note (no LED): D-pad area and touch strip.
+add({ id: 'dpad.touch', label: 'D-pad touch', short: 'D-pad touch', kind: 'touch', note: 13, led: 'none', x: 952, y: 462, w: 166, h: 18 });
+add({ id: 'strip.touch', label: 'Touch strip touch', short: 'Strip touch', kind: 'touch', note: 12, led: 'none', x: 150, y: 778, w: 70, h: 16 });
 
 // Pedals (no LED).
 button('foot1', 'Footswitch 1', 64, 960, 732, { short: 'Pedal 1', led: 'none' });
@@ -175,8 +179,10 @@ const padByNote = new Map();
 const buttonByCc = new Map();
 const encoderByCc = new Map();
 const encoderByTouchNote = new Map();
+const touchByNote = new Map();
 for (const c of controls) {
   if (c.kind === 'pad') padByNote.set(c.note, c);
+  else if (c.kind === 'touch') touchByNote.set(c.note, c);
   else if (c.kind === 'button') buttonByCc.set(c.cc, c);
   else if (c.kind === 'encoder') {
     encoderByCc.set(c.cc, c);
@@ -197,6 +203,7 @@ module.exports = {
   buttonByCc,
   encoderByCc,
   encoderByTouchNote,
+  touchByNote,
   STRIP_TOUCH_NOTE: strip.touchNote,
   USER_BUTTON_CC: 59,
 };

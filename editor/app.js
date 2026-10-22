@@ -202,7 +202,7 @@ function buildSurface() {
 }
 
 function tooltip(c) {
-  const src = c.kind === 'pad' ? `nota ${c.note}` : c.kind === 'encoder' ? `CC ${c.cc}, touch nota ${c.touchNote}` : c.kind === 'touchstrip' ? 'pitch bend' : `CC ${c.cc}`;
+  const src = c.kind === 'pad' || c.kind === 'touch' ? `nota ${c.note}` : c.kind === 'encoder' ? `CC ${c.cc}, touch nota ${c.touchNote}` : c.kind === 'touchstrip' ? 'pitch bend' : `CC ${c.cc}`;
   return `${c.label} (Push šalje ${src})${c.verify ? ' – broj još nije potvrđen na hardveru' : ''}${c.reserved ? ' – rezervirano za ulaz/izlaz iz User moda' : ''}`;
 }
 
@@ -211,7 +211,7 @@ function fitSurface() {
   const surf = $('#surface');
   const scale = Math.min(1.25, Math.max(0.45, (wrap.clientWidth - 28) / 1200));
   surf.style.transform = `scale(${scale})`;
-  surf.style.marginBottom = `${790 * (scale - 1)}px`;
+  surf.style.marginBottom = `${800 * (scale - 1)}px`;
   surf.style.marginRight = `${1200 * (scale - 1)}px`;
 }
 window.addEventListener('resize', fitSurface);
@@ -467,7 +467,7 @@ function renderInspector() {
   if (!S.config) return;
   const ctls = selectedControls();
   if (!ctls.length) return renderPageInspector(box);
-  const kinds = new Set(ctls.map((c) => (c.kind === 'pad' || c.kind === 'button' ? 'btn' : c.kind)));
+  const kinds = new Set(ctls.map((c) => (c.kind === 'pad' || c.kind === 'button' || c.kind === 'touch' ? 'btn' : c.kind)));
   const title = ctls.length === 1 ? ctls[0].label : `${ctls.length} kontrola`;
   const srcInfo = ctls.length === 1 ? tooltip(ctls[0]).replace(/^[^(]*\(/, '(') : '';
   box.append(el('h3', {}, title), el('div', { class: 'sub' }, srcInfo || `stranica ${curPage().name}`));

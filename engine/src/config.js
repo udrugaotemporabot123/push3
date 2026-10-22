@@ -104,6 +104,8 @@ function defaultMapping(page, ctl) {
       return defaultPadMapping(page, ctl);
     case 'button':
       return defaultButtonMapping(page, ctl);
+    case 'touch':
+      return { ...defaultButtonMapping(page, { ...ctl, cc: ctl.note }), type: 'none' };
     case 'encoder':
       return defaultEncoderMapping(page, ctl);
     case 'touchstrip':
@@ -129,7 +131,7 @@ function defaultConfig(pageCount = 4) {
 }
 
 function normalizeButton(m, page, ctl) {
-  const d = ctl.kind === 'pad' ? defaultPadMapping(page, ctl) : defaultButtonMapping(page, ctl);
+  const d = defaultMapping(page, ctl);
   if (!m || typeof m !== 'object') return d;
   const out = {
     type: oneOf(m.type, BUTTON_TYPES, d.type),
@@ -192,7 +194,7 @@ function normalizeStrip(m) {
 }
 
 function normalizeMapping(m, page, ctl) {
-  if (ctl.kind === 'pad' || ctl.kind === 'button') return normalizeButton(m, page, ctl);
+  if (ctl.kind === 'pad' || ctl.kind === 'button' || ctl.kind === 'touch') return normalizeButton(m, page, ctl);
   if (ctl.kind === 'encoder') return normalizeEncoder(m, page, ctl);
   if (ctl.kind === 'touchstrip') return normalizeStrip(m);
   return { type: 'none' };

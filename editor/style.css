@@ -47,7 +47,7 @@ input[type=number] { width: 72px; }
 
 .main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 0; border-top: 1px solid var(--line); min-height: calc(100vh - 92px); }
 .surface-wrap { padding: 14px; overflow: auto; }
-.surface { position: relative; width: 1200px; height: 790px; background: #050506; border-radius: 14px; border: 1px solid #222; transform-origin: 0 0; user-select: none; }
+.surface { position: relative; width: 1200px; height: 800px; background: #050506; border-radius: 14px; border: 1px solid #222; transform-origin: 0 0; user-select: none; }
 .hint { color: var(--muted); font-size: 12px; margin: 8px 2px; }
 
 .ctl { position: absolute; border-radius: 5px; background: #1a1c1f; border: 1px solid #2a2d31; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10px; line-height: 1.1; color: #c9ccd0; cursor: pointer; overflow: hidden; padding: 2px; transition: box-shadow .08s; }
@@ -55,6 +55,7 @@ input[type=number] { width: 72px; }
 .ctl .sub { display: block; font-size: 9px; opacity: .8; }
 .ctl.pad { border-radius: 4px; }
 .ctl.encoder { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #3a3e44, #15171a 70%); }
+.ctl.touch { border-style: dashed; background: #111316; font-size: 9px; }
 .ctl.touchstrip { border-radius: 6px; background: linear-gradient(#202328, #121417); }
 .ctl.none { opacity: .55; }
 .ctl.reserved { opacity: .4; cursor: not-allowed; }
