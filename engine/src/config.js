@@ -285,6 +285,10 @@ function normalizeMapping(m, page, ctl) {
   return { type: 'none' };
 }
 
+function newUid() {
+  return Math.random().toString(36).slice(2, 10).padEnd(8, '0');
+}
+
 function normalizePage(p, index) {
   const src = p && typeof p === 'object' ? p : {};
   const srcControls = src.controls && typeof src.controls === 'object' ? src.controls : null;
@@ -295,6 +299,8 @@ function normalizePage(p, index) {
     controls[ctl.id] = srcControls && ctl.id in srcControls ? normalizeMapping(srcControls[ctl.id], index, ctl) : defaultMapping(index, ctl);
   }
   return {
+    // Stable identity, so per-page state follows a page when pages are moved or deleted.
+    uid: typeof src.uid === 'string' && /^[a-z0-9]{6,16}$/.test(src.uid) ? src.uid : newUid(),
     name: str(src.name, `Page ${index + 1}`, 24) || `Page ${index + 1}`,
     channel: clampInt(src.channel, 0, 16, 0),
     color: clampInt(src.color, 0, 127, PAGE_COLORS[index % PAGE_COLORS.length]),
@@ -321,6 +327,11 @@ function normalizeConfig(cfg) {
   };
   const srcPages = Array.isArray(src.pages) && src.pages.length ? src.pages.slice(0, MAX_PAGES) : defaultConfig().pages;
   const pages = srcPages.map((p, i) => normalizePage(p, i));
+  const seen = new Set();
+  for (const p of pages) {
+    while (seen.has(p.uid)) p.uid = newUid(); // a duplicated page gets its own identity
+    seen.add(p.uid);
+  }
   return { version: CONFIG_VERSION, settings, pages };
 }
 

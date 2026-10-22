@@ -634,3 +634,27 @@ test('switching an encoder between 7-bit and 14-bit starts from a fresh value (n
   e.handleHostMessage([0xb4, 20, 64]);
   assert.equal(e.ctlState(0, 'enc.1').value, 64 * 128);
 });
+
+test('page state follows its page when pages are moved or deleted (stable uid)', () => {
+  const { e } = setup((c) => {
+    c.pages.push(JSON.parse(JSON.stringify(c.pages[0])));
+    c.pages[1].name = 'Two';
+    Object.assign(c.pages[1].controls['pad.0.0'], { type: 'cc', number: 20, behavior: 'toggle' });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  const last = e.config.pages.length - 1;
+  assert.notEqual(e.config.pages[0].uid, e.config.pages[last].uid); // the copied page got its own uid
+  e.setPage(1);
+  e.handlePushMessage([0x90, 36, 100]); // toggle on, page "Two"
+  e.handlePushMessage([0x80, 36, 0]);
+  const cfg = JSON.parse(JSON.stringify(e.config));
+  [cfg.pages[0], cfg.pages[1]] = [cfg.pages[1], cfg.pages[0]]; // move "Two" to the front
+  e.setConfig(cfg);
+  assert.equal(e.config.pages[0].name, 'Two');
+  assert.equal(e.page, 0); // still showing "Two"
+  assert.equal(e.ctlState(0, 'pad.0.0').on, true);
+  assert.equal(e.ctlState(1, 'pad.0.0').on, false);
+  cfg.pages.splice(1, 1); // delete a page after it
+  e.setConfig(cfg);
+  assert.equal(e.ctlState(0, 'pad.0.0').on, true);
+});

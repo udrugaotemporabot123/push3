@@ -75,19 +75,27 @@ class Engine {
   setConfig(config) {
     const toggled = this.config ? this.toggledNotes() : [];
     const old = this.config;
+    const curUid = old && old.pages[this.page] ? old.pages[this.page].uid : null;
     this.config = normalizeConfig(config);
+    // State follows each page by its uid (moved/deleted pages keep their toggles and values).
+    const oldState = this.state;
+    const byUid = new Map();
+    if (old && oldState) old.pages.forEach((p, i) => byUid.set(p.uid, oldState[i]));
+    this.state = this.config.pages.map((p, i) => (old ? byUid.get(p.uid) : oldState && oldState[i]) || {});
+    const moved = curUid ? this.config.pages.findIndex((p) => p.uid === curUid) : -1;
+    if (moved >= 0) this.page = moved;
+    if (this.page >= this.config.pages.length) this.page = 0;
     if (old) {
       this.stopDisabledAddons(old);
       this.resetEncoderScales(old);
     }
-    if (this.page >= this.config.pages.length) this.page = 0;
-    this.state = this.config.pages.map((p, i) => (this.state && this.state[i]) || {});
     // A toggled-on note whose mapping was edited would sound forever in Live: send its note off.
     for (const t of toggled) {
-      const now = this.config.pages[t.page] ? this.mapping(t.id, t.page, t.layer) : null;
-      if (now && noteSignature(now, this.channelFor(now, t.page)) === t.sig) continue;
+      const pi = this.config.pages.findIndex((p) => p.uid === t.uid);
+      const now = pi >= 0 ? this.mapping(t.id, pi, t.layer) : null;
+      if (now && noteSignature(now, this.channelFor(now, pi)) === t.sig) continue;
       for (const [ch, n] of t.notes) this.io.toHost([NOTE_ON | ch, n, 0]);
-      const st = this.state[t.page] && this.state[t.page][t.layer ? `${t.id}#${t.layer}` : t.id];
+      const st = pi >= 0 && this.state[pi] && this.state[pi][t.layer ? `${t.id}#${t.layer}` : t.id];
       if (st) st.on = false;
     }
     this.buildFeedbackIndex();
@@ -128,7 +136,7 @@ class Engine {
   resetEncoderScales(old) {
     const is14 = (m) => !!m && m.type === 'cc' && m.mode === 'absolute14';
     this.config.pages.forEach((page, pi) => {
-      const before = old.pages[pi];
+      const before = old.pages.find((p) => p.uid === page.uid);
       if (!before) return;
       for (const [id, base] of Object.entries(page.controls)) {
         const prev = before.controls[id];
@@ -155,7 +163,7 @@ class Engine {
           const notes = [];
           if (m.type === 'note') notes.push([chan, m.number]);
           for (const x of m.extra || []) if (x.type === 'note') notes.push([x.channel ? x.channel - 1 : chan, x.number]);
-          if (notes.length) out.push({ page: pi, id, layer, notes, sig: noteSignature(m, chan) });
+          if (notes.length) out.push({ page: pi, uid: page.uid, id, layer, notes, sig: noteSignature(m, chan) });
         }
       }
     });

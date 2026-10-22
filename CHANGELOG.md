@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.40.0 – 2026-10-22
+Stanje stranica (toggle, enkoderi) prati stranicu kad je pomakneš ili obrišeš.
+
 ## v0.39.0 – 2026-10-22
 Sekvencer: Copy traka, drum pad + enkoderi (pomak ritma, jačina); popravci iz pregleda koda (zaglavljene note kod gašenja add-ona, 14-bit prebacivanje, fini okret, sigurnost URL-ova).
 
