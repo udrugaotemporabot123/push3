@@ -67,6 +67,7 @@ Dodatne funkcije koje nisu dio jezgre i mogu se isključiti (Postavke → Add-on
 
 - **Live Looper**: po tracku jednim gumbom *Snimi sljedeći loop* (snima u sljedeći prazni slot; drugi pritisak zatvara loop i on svira), *Play/Stop tracka*, *Poništi zadnji loop*, *Arm*. LED blinka crveno dok snima, pulsira zeleno dok svira. Predložak **Looper (8 trackova)**.
 - **Sampler**: *Snimi → sljedeći pad*: prvi pritisak snima s tvog mic/violin tracka u prazan slot, drugi zaustavi, a snimka se **automatski učita u sljedeći prazni Simpler u Drum Racku** (i taj pad se odabere). Npr. publika pljesne → dva pritiska → pljesak je snare na padu. Još: *Zadnji clip → sljedeći / odabrani pad*. Priprema: Drum Rack s praznim Simplerima na padovima koje želiš puniti. Predložak **Sampler**.
+- **Step sekvencer**: padovi kao mreža koraka (8 traka × 8 ili 4 × 16), svira note u tempu Livea (MIDI clock), velocity = jačina udarca, Shift + pad briše traku, uzorak se pamti i nakon restarta. Spoji ga sa Samplerom: snimljeni zvukovi su na padovima Drum Racka, sekvencer ih svira. Postavi u Liveu: izlaz **Push3 UM → Sync ON**, MIDI track s **MIDI From = Push3 UM** i Drum Rackom. Predlošci **Step sekvencer**.
 - Novi add-on = nova mapa u `addons/` (vidi `addons/index.js` i `addons/looper/`).
 
 ## Ekran (v0.3, eksperimentalno)

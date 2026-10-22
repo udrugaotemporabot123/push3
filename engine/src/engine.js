@@ -408,7 +408,7 @@ class Engine {
         this.renderControl(ctl);
         return;
       case 'addon':
-        this.addonCall(m, 'press', { id: ctl.id });
+        this.addonCall(m, 'press', { id: ctl.id, velocity, shift: this.pressed.has('shift') });
         this.renderControl(ctl);
         return;
       case 'none':
@@ -651,6 +651,16 @@ class Engine {
     if (status === CLOCK || status === START || status === CONTINUE || status === STOP) {
       this.hostClockSeenAt = this.io.now();
       if (this.mode === 'user') this.io.toPush([status]);
+      // Add-ons that follow Live's clock (sequencers) get every tick, also outside User Mode.
+      const type = status === CLOCK ? 'clock' : status === START ? 'start' : status === STOP ? 'stop' : 'continue';
+      for (const [id, a] of this.addons) {
+        if (typeof a.inst.clock !== 'function' || (this.config.settings.addons && this.config.settings.addons[id] === false)) continue;
+        try {
+          a.inst.clock(type);
+        } catch (e) {
+          this.io.log('error', `Add-on ${id}.clock failed: ${e.message}`);
+        }
+      }
     }
   }
 
@@ -686,8 +696,8 @@ class Engine {
   syncVariationTargets() {
     const targets = {};
     const liveTargets = {};
-    for (const page of this.config.pages) {
-      for (const base of Object.values(page.controls)) {
+    for (const [pageIndex, page] of this.config.pages.entries()) {
+      for (const [ctlId, base] of Object.entries(page.controls)) {
         for (const m of [base, base.shift]) {
           if (!m) continue;
           if (m.type === 'variation') targets[variationKey(m.target)] = m.target;
@@ -701,7 +711,7 @@ class Engine {
             const a = this.addonFor(m);
             let specs = [];
             try {
-              specs = a && a.inst.watch ? a.inst.watch(m.addon.params || {}, m.addon.action) || [] : [];
+              specs = a && a.inst.watch ? a.inst.watch(m.addon.params || {}, m.addon.action, { page: pageIndex, id: ctlId, channel: m.channel ? m.channel - 1 : pageChannel(this.config, pageIndex) }) || [] : [];
             } catch (e) {
               this.io.log('error', `Add-on ${m.addon.id}.watch failed: ${e.message}`);
             }
@@ -726,6 +736,11 @@ class Engine {
   setAddons(mods) {
     const api = {
       toLive: (o) => this.io.toLive(o),
+      sendHost: (bytes) => this.io.toHost(bytes),
+      pageChannel: (page = this.page) => pageChannel(this.config, page),
+      renderAddons: () => this.renderWhere((m) => m.type === 'addon'),
+      loadState: (id) => (this.io.loadAddonState ? this.io.loadAddonState(id) : null),
+      saveState: (id, data) => this.io.saveAddonState && this.io.saveAddonState(id, data),
       liveValue: (spec) => this.liveState.values[live.liveKey(spec)],
       liveKey: live.liveKey,
       log: (level, msg) => this.io.log(level, msg),

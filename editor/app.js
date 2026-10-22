@@ -1034,6 +1034,35 @@ const TEMPLATES = {
       return { capture: S2('sampleToPad'), new: S2('lastToSelected'), duplicate: S2('lastToPad') };
     },
   },
+  seq8: {
+    name: 'Step sekvencer (8 traka × 8 koraka)',
+    help: 'Red = traka (donji red = nota 36/C1, iznad 37…), stupac = korak 1–8. Udarac u pad uključi korak (jačina = velocity), Shift + pad briše traku. Scene 1 = Play/Stop, Scene 8 = obriši. Treba Sync na izlazu Push3 UM i MIDI track s Drum Rackom.',
+    apply() {
+      const r = {};
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) r[`pad.${row}.${col}`] = { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'A', lane: String(row + 1), step: String(col + 1), note: String(36 + row) } } };
+      }
+      r['scene.1'] = { type: 'addon', addon: { id: 'stepseq', action: 'play', params: { seq: 'A' } } };
+      r['scene.8'] = { type: 'addon', addon: { id: 'stepseq', action: 'clear', params: { seq: 'A' } } };
+      return r;
+    },
+  },
+  seq16: {
+    name: 'Step sekvencer (4 trake × 16 koraka)',
+    help: 'Svaka traka zauzima dva reda (gore koraci 1–8, dolje 9–16); trake od dna: note 36, 37, 38, 39. Scene 1 = Play/Stop, Scene 8 = obriši.',
+    apply() {
+      const r = {};
+      for (let lane = 0; lane < 4; lane++) {
+        for (let half = 0; half < 2; half++) {
+          const row = lane * 2 + (1 - half);
+          for (let col = 0; col < 8; col++) r[`pad.${row}.${col}`] = { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'B', lane: String(lane + 1), step: String(half * 8 + col + 1), note: String(36 + lane) } } };
+        }
+      }
+      r['scene.1'] = { type: 'addon', addon: { id: 'stepseq', action: 'play', params: { seq: 'B' } } };
+      r['scene.8'] = { type: 'addon', addon: { id: 'stepseq', action: 'clear', params: { seq: 'B' } } };
+      return r;
+    },
+  },
   looper: {
     name: 'Looper (8 trackova)',
     help: 'Stupac = track 1–8: gornji pad snima sljedeći loop (drugi pritisak zatvara loop), ispod Play/Stop, Poništi zadnji, Arm. Brojeve trackova možeš zamijeniti imenima.',

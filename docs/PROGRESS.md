@@ -54,6 +54,9 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.16.0 stability: whole-app smoke test (child process, HTTP, WS, save), rotating config backups,
       engine benchmark (~1 µs per event, full LED repaint 0.12 ms)
 
+- [x] v0.17.0 step sequencer add-on (lanes x steps, Live MIDI clock, velocity, persistence via addon state files);
+      add-on API: clock, sendHost, pageChannel, renderAddons, load/saveState, watch ctx (page, channel)
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white

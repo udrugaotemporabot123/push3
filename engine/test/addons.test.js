@@ -130,3 +130,36 @@ test('sampler: first press records on the source, second stops and loads it into
   e.handleLiveState({ type: 'notice', text: 'Uzorak → D1' });
   assert.ok(out.logs.includes('info: Uzorak → D1'));
 });
+
+test('step sequencer: steps toggle with velocity and play on Live clock', () => {
+  const stepseq = require('../../addons/stepseq');
+  const { e, out, clear } = setup((c) => {
+    for (let lane = 1; lane <= 2; lane++) {
+      for (let step = 1; step <= 4; step++) {
+        Object.assign(c.pages[0].controls[`pad.${lane - 1}.${step - 1}`], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'A', lane: String(lane), step: String(step), note: String(35 + lane) } } });
+      }
+    }
+  }, [stepseq]);
+  // Lane 1: steps 1 and 3; lane 2: step 2 (velocity from the hit).
+  e.handlePushMessage([0x90, 36, 90]);
+  e.handlePushMessage([0x80, 36, 0]);
+  e.handlePushMessage([0x90, 38, 70]);
+  e.handlePushMessage([0x80, 38, 0]);
+  e.handlePushMessage([0x90, 45, 110]);
+  e.handlePushMessage([0x80, 45, 0]);
+  assert.equal(out.host.length, 0); // step pads do not send MIDI themselves
+  clear();
+  e.handleHostMessage([0xfa]);
+  for (let i = 0; i < 24; i++) e.handleHostMessage([0xf8]);
+  const notes = out.host.filter((m) => m[2] > 0);
+  // Page channel 5 (0x94): step 1 -> 36@90, step 2 -> 37@110, step 3 -> 36@70, step 4 -> nothing.
+  assert.deepEqual(notes, [
+    [0x94, 36, 90],
+    [0x94, 37, 110],
+    [0x94, 36, 70],
+  ]);
+  // Every note gets its note off; stop flushes anything still sounding.
+  e.handleHostMessage([0xfc]);
+  const offs = out.host.filter((m) => m[2] === 0);
+  assert.equal(offs.length, 3);
+});

@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.17.0 – 2026-10-22
+Step sekvencer add-on: padovi kao mreža koraka (8×8 ili 4×16), svira u tempu Livea, velocity po koraku, pamti uzorke; predlošci. Add-on API: clock, slanje nota, trajno stanje.
+
 ## v0.16.0 – 2026-10-22
 Stabilnost: test cijele aplikacije, automatske sigurnosne kopije konfiguracije (zadnjih 20), mjerenje brzine (≈1 µs po događaju).
 

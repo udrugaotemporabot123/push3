@@ -11,7 +11,7 @@ const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 const { loadAddons } = require('../../addons');
 
-const VERSION = '0.16.0';
+const VERSION = '0.17.0';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -64,6 +64,8 @@ function start() {
     clearTimer: (id) => clearTimeout(id),
     setInterval: (fn, ms) => setInterval(fn, ms),
     clearInterval: (id) => clearInterval(id),
+    loadAddonState: (id) => store.loadAddonState(id),
+    saveAddonState: (id, data) => store.saveAddonState(id, data),
   };
 
   const engine = new Engine(io, store.load(log));

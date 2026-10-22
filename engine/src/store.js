@@ -106,4 +106,22 @@ function deletePreset(name) {
   fs.rmSync(path.join(PRESETS, `${n}.json`), { force: true });
 }
 
-module.exports = { DIR, FILE, load, save, listPresets, savePreset, loadPreset, deletePreset };
+// Small per-add-on state files (e.g. sequencer patterns).
+function loadAddonState(id) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(DIR, `addon-${safeName(id)}.json`), 'utf8'));
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveAddonState(id, data) {
+  try {
+    ensureDirs();
+    writeAtomic(path.join(DIR, `addon-${safeName(id)}.json`), JSON.stringify(data));
+  } catch (e) {
+    /* best effort */
+  }
+}
+
+module.exports = { DIR, FILE, load, save, listPresets, savePreset, loadPreset, deletePreset, loadAddonState, saveAddonState };
