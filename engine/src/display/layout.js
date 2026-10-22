@@ -50,6 +50,10 @@ function summary(ctl, m) {
       return '← Page';
     case 'repeat':
       return `Repeat ${m.rate}`;
+    case 'accent':
+      return 'Accent';
+    case 'snapshot':
+      return `Snap ${m.slot}`;
     case 'transpose':
       return m.amount ? `Tr ${m.amount > 0 ? '+' : ''}${m.amount}` : 'Tr 0';
     default:

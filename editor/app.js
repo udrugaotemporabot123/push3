@@ -15,7 +15,7 @@ const el = (tag, attrs = {}, ...kids) => {
 };
 
 const T = {
-  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)', transpose: 'Transpozicija padova (Oct −/+)', repeat: 'Note repeat' },
+  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)', transpose: 'Transpozicija padova (Oct −/+)', repeat: 'Note repeat', accent: 'Accent (puna jačina)', snapshot: 'Snapshot enkodera' },
   liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka', trackPrev: '◀ Prethodni track', trackNext: 'Sljedeći track ▶', scenePrev: '▲ Prethodna scena', sceneNext: 'Sljedeća scena ▼', devicePrev: '◀ Prethodni device', deviceNext: 'Sljedeći device ▶' },
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
   liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', padParam: 'Parametar odabranog drum pada (Simpler)', tempo: 'Tempo' },
@@ -336,6 +336,10 @@ function mappingSummary(c, m) {
       return 'PANIC';
     case 'repeat':
       return `Repeat ${m.rate}`;
+    case 'accent':
+      return 'Accent';
+    case 'snapshot':
+      return `Snap ${m.slot}`;
     case 'transpose':
       return m.amount ? `Tr ${m.amount > 0 ? '+' : ''}${m.amount}` : 'Tr 0';
     case 'pageHold':
@@ -640,6 +644,12 @@ function renderButtonInspector(box, ctls, maps) {
         box.append(el('p', { class: 'muted small' }, 'Kad pustiš pad, parametar se vraća na minimum.'));
       }
     }
+  } else if (type === 'accent') {
+    box.append(field('Ponašanje', selectEl({ momentary: 'Dok držiš', toggle: 'Uključi/isključi (latch)' }, common(maps, 'behavior'), (v) => setAll('behavior', v))));
+    box.append(el('p', { class: 'muted small' }, 'Padovi s dinamičkom jačinom sviraju punom jačinom (127).'));
+  } else if (type === 'snapshot') {
+    box.append(field('Mjesto', numEl(common(maps, 'slot'), 1, 16, (v) => setAll('slot', v))));
+    box.append(el('p', { class: 'muted small' }, 'Prazno mjesto: pritisak sprema vrijednosti svih enkodera ove stranice (CC, 14-bit, Live parametri). Puno: pritisak ih vraća. Shift + pritisak = spremi ponovno.'));
   } else if (type === 'repeat') {
     box.append(field('Brzina', selectEl({ '1/4': '1/4', '1/8': '1/8', '1/8T': '1/8 triola', '1/16': '1/16', '1/16T': '1/16 triola', '1/32': '1/32' }, common(maps, 'rate'), (v) => setAll('rate', v)), 'Držani padovi (note) ponavljaju se u tempu Livea'));
     box.append(field('Ponašanje', selectEl({ momentary: 'Dok držiš', toggle: 'Uključi/isključi (latch)' }, common(maps, 'behavior'), (v) => setAll('behavior', v))));

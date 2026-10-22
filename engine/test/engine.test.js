@@ -705,3 +705,32 @@ test('note repeat: held pads retrigger on the clock grid, pressure sets the velo
   for (let i = 0; i < 24; i++) e.handleHostMessage([0xf8]);
   assert.equal(out.host.filter((m) => (m[0] & 0xf0) === 0x90).length, 1);
 });
+
+test('accent plays pads at full velocity; snapshots store and recall encoder values', () => {
+  let saved = null;
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['pad.0.0'], { type: 'note', number: 36, behavior: 'momentary', velocity: 'dynamic' });
+    Object.assign(c.pages[0].controls.accent, { type: 'accent', behavior: 'momentary' });
+    Object.assign(c.pages[0].controls['scene.1'], { type: 'snapshot', slot: 1 });
+  });
+  e.io.saveAddonState = (id, data) => (saved = [id, JSON.parse(JSON.stringify(data))]);
+  e.handlePushMessage(SYSEX_USER);
+  clear();
+  e.handlePushMessage([0xb0, 57, 127]); // hold Accent
+  e.handlePushMessage([0x90, 36, 30]);
+  e.handlePushMessage([0x80, 36, 0]);
+  e.handlePushMessage([0xb0, 57, 0]);
+  e.handlePushMessage([0x90, 36, 30]);
+  assert.deepEqual(out.host.filter((m) => m[2] > 0).map((m) => m[2]), [127, out.host.filter((m) => m[2] > 0)[1][2]]);
+  assert.ok(out.host.filter((m) => m[2] > 0)[1][2] < 127);
+  // Encoder 1 at 40, store in slot 1, move to 90, recall: 40 is sent again.
+  e.handleHostMessage([0xb4, 71, 40]);
+  e.handlePushMessage([0xb0, 36, 127]); // scene.1: empty slot -> store
+  e.handlePushMessage([0xb0, 36, 0]);
+  assert.equal(saved[0], 'core-snapshots');
+  e.handleHostMessage([0xb4, 71, 90]);
+  clear();
+  e.handlePushMessage([0xb0, 36, 127]); // recall
+  assert.deepEqual(out.host, [[0xb4, 71, 40]]);
+  assert.equal(e.ctlState(0, 'enc.1').value, 40);
+});

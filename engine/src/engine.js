@@ -52,6 +52,9 @@ class Engine {
     this.pressed = new Set(); // control ids physically held
     this.heldOutputs = new Map(); // control id -> bytes to send on release (note offs etc.)
     this.liveHeld = new Map(); // control id -> Live parameter to reset on release (momentary)
+    this.accent = null; // { id, latch } while pads play at full velocity
+    this.snapshots = null; // page uid -> slot -> { encoder id: value }, loaded lazily
+    this.lastSnapshot = new Map(); // page uid -> slot recalled last
     this.repeat = null; // active note repeat: { id, ticks, latch }
     this.repeating = new Map(); // pad id -> { note, chan, vel } retriggered on Live's clock
     this.repeatTick = 0;
@@ -509,6 +512,14 @@ class Engine {
         this.panic();
         this.renderControl(ctl);
         return;
+      case 'accent':
+        if (m.behavior === 'toggle') this.accent = this.accent && this.accent.id === ctl.id ? null : { id: ctl.id, latch: true };
+        else this.accent = { id: ctl.id, latch: false };
+        this.renderWhere((x) => x.type === 'accent');
+        return;
+      case 'snapshot':
+        this.snapshotPress(m.slot, this.pressed.has('shift'));
+        return;
       case 'repeat': {
         const ticks = REPEAT_RATES[m.rate] || 6;
         if (m.behavior === 'toggle') this.repeat = this.repeat && this.repeat.id === ctl.id ? null : { id: ctl.id, ticks, latch: true };
@@ -544,7 +555,8 @@ class Engine {
       if (n < 0 || n > 127) return this.renderControl(ctl);
       m = { ...m, number: n };
     }
-    const value = m.velocity === 'dynamic' ? scaleVelocity(applyCurve(velocity, m.curve), m) : m.onValue;
+    let value = m.velocity === 'dynamic' ? scaleVelocity(applyCurve(velocity, m.curve), m) : m.onValue;
+    if (this.accent && ctl.kind === 'pad' && m.type === 'note' && m.velocity === 'dynamic') value = 127;
     const chan = this.channelFor(m);
 
     if (m.behavior === 'toggle') {
@@ -569,6 +581,10 @@ class Engine {
   release(ctl) {
     this.pressed.delete(ctl.id);
     this.repeating.delete(ctl.id);
+    if (this.accent && this.accent.id === ctl.id && !this.accent.latch) {
+      this.accent = null;
+      this.renderWhere((x) => x.type === 'accent');
+    }
     if (this.repeat && this.repeat.id === ctl.id && !this.repeat.latch) {
       this.repeat = null;
       this.renderWhere((x) => x.type === 'repeat');
@@ -869,6 +885,62 @@ class Engine {
         }
       }
     }
+  }
+
+  // Snapshots: the values of this page's encoders (CC, 14-bit and Live parameters), per slot.
+  snapshotStore() {
+    if (!this.snapshots) {
+      const saved = this.io.loadAddonState ? this.io.loadAddonState('core-snapshots') : null;
+      this.snapshots = saved && typeof saved === 'object' ? saved : {};
+    }
+    return this.snapshots;
+  }
+
+  snapshotPress(slot, store) {
+    const page = this.config.pages[this.page];
+    const all = this.snapshotStore();
+    const mine = all[page.uid] || (all[page.uid] = {});
+    if (store || !mine[slot]) {
+      const snap = {};
+      for (const ctl of push3.controls) {
+        if (ctl.kind !== 'encoder') continue;
+        const m = page.controls[ctl.id];
+        if (!m) continue;
+        if (m.type === 'cc' && (m.mode === 'absolute' || m.mode === 'absolute14')) {
+          const st = this.ctlState(this.page, ctl.id, '');
+          if (st.value !== null) snap[ctl.id] = st.value;
+        } else if (m.type === 'live') {
+          const v = this.liveValue(m);
+          if (v && v.ok && typeof v.value === 'number') snap[ctl.id] = v.value;
+        }
+      }
+      mine[slot] = snap;
+      if (this.io.saveAddonState) this.io.saveAddonState('core-snapshots', all);
+      this.emit('notice', { text: `Snapshot ${slot} spremljen (${Object.keys(snap).length})` });
+    } else {
+      for (const [id, v] of Object.entries(mine[slot])) {
+        const m = page.controls[id];
+        if (!m) continue;
+        if (m.type === 'live') this.liveAbsolute(m.live, v);
+        else if (m.type === 'cc' && (m.mode === 'absolute' || m.mode === 'absolute14')) {
+          const st = this.ctlState(this.page, id, '');
+          const chan = this.channelFor(m);
+          if (m.mode === 'absolute14') {
+            const [lo, hi] = range14(m);
+            st.value = Math.min(hi, Math.max(lo, Math.round(v)));
+            this.io.toHost([CC | chan, m.number, st.value >> 7]);
+            this.io.toHost([CC | chan, m.number + 32, st.value & 0x7f]);
+          } else {
+            st.value = Math.min(m.max, Math.max(m.min, Math.round(v)));
+            this.io.toHost([CC | chan, m.number, st.value]);
+          }
+          this.emit('value', { page: this.page, id, value: m.mode === 'absolute14' ? st.value / 128 : st.value });
+        }
+      }
+      this.lastSnapshot.set(page.uid, slot);
+      this.emit('notice', { text: `Snapshot ${slot}` });
+    }
+    this.renderWhere((x) => x.type === 'snapshot');
   }
 
   // Note repeat: every `ticks` clock ticks (from Live's start, so on the grid) each held pad retriggers.
@@ -1196,6 +1268,12 @@ class Engine {
       if (m.action !== 'recall') return { color: m.colorOff, anim: 0 };
       if (m.index >= v.count) return { color: 0, anim: 0 };
       return m.index === v.selected ? { color: m.colorOn, anim: push3.ANIMATIONS[m.anim] || 0 } : { color: m.colorOff, anim: 0 };
+    }
+    if (m.type === 'accent') return { color: held || (this.accent && this.accent.id === ctl.id) ? m.colorOn : m.colorOff, anim: 0 };
+    if (m.type === 'snapshot') {
+      const uid = this.config.pages[this.page].uid;
+      const has = !!(this.snapshotStore()[uid] && this.snapshotStore()[uid][m.slot]);
+      return { color: held || (has && this.lastSnapshot.get(uid) === m.slot) ? m.colorOn : has ? m.colorOff : 0, anim: 0 };
     }
     if (m.type === 'repeat') return { color: held || (this.repeat && this.repeat.id === ctl.id) ? m.colorOn : m.colorOff, anim: 0 };
     if (m.type === 'transpose') {

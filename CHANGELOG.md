@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.44.0 – 2026-10-22
+Accent (puna jačina) i snapshoti enkodera (spremi/vrati sve vrijednosti stranice jednim gumbom).
+
 ## v0.43.0 – 2026-10-22
 Note repeat (1/4–1/32, triole, jačina iz pritiska) u tempu Livea.
 
