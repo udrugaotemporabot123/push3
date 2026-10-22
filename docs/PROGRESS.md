@@ -63,15 +63,18 @@ Update this file after every step so work can resume after an interruption.
 
 - [x] v0.20.0 docs for the community: README.en.md, docs/ADDONS.md (add-on API reference)
 
-## Next
-- [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
-- [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white
-- [ ] Phase 2 ideas: Push display (USB, Live holds it), shift layers, momentary page hold,
-      LED feedback for variation pads across racks, MIDI-learn of target in editor, 14-bit encoders
+## Next (roadmap, highest value first)
+- [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
+- [ ] Sequencer: per-step note length / probability, swing, pattern pages (bars 1–4), copy lane, record live hits into steps.
+- [ ] Sampler: choose pad by hitting it (Shift + pad = target), crop/normalise via Simpler API (crop, warp), "resample master" source.
+- [ ] Looper: fixed loop length (bars) using Live's clip length + launch quantisation, overdub on the same slot, per-track "clear all".
+- [ ] Display: add-on pages (sequencer shows lanes/position, sampler shows target pad), track colour bars, encoder touch = big value.
+- [ ] Editor: LAN access opt-in (edit from the tablet), search by label, drag-to-reorder pages, per-page templates preview.
+- [ ] TouchOSC/OSC mirror of the display state (optional add-on).
+- [ ] 14-bit encoders (CC pairs) for fine absolute control.
 
 ## Open questions to verify on hardware
-- Sampler: replace_sample with the freshly recorded clip file (Live 12.1+ API) – test on the real set
 - Display takeover: does Live release the USB display in User Mode? (status shown under the preview in the editor)
-- Does Live 12 send the `0A` MIDI-mode sysex reply on Push 3 when User is pressed? (fallback: activity detection)
-- Exact CCs marked `verify: true` in push3.js (Sets, Learn, Lock, Save, New, Capture, jog, volume press).
-- Which buttons are RGB vs white on Push 3.
+- Sampler: replace_sample with the freshly recorded clip file (Live 12.1+ API) – test on the real set
+- Unconfirmed CCs marked `verify: true` in push3.js (Sets 80, Learn 81, Save 82, Volume 79/111, Undo 119, Session Screen 34, jog nudge 93/95).
+- Which buttons are RGB vs white on Push 3 (the LED colour picker assumes the Push 2 split).
