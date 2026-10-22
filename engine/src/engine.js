@@ -15,7 +15,8 @@
 
 const push3 = require('./push3');
 const { normalizeConfig, pageChannel } = require('./config');
-const { dimOf } = require('./palette');
+const { dimOf, DEFAULT_PALETTE } = require('./palette');
+const live = require('./live');
 
 const NOTE_OFF = 0x80;
 const NOTE_ON = 0x90;
@@ -52,7 +53,8 @@ class Engine {
     this.savedStrip = null;
     this.hostClockSeenAt = -Infinity;
     this.clockTimer = null;
-    this.liveState = { variations: {} }; // key -> { count, selected, name, ok }
+    this.liveState = { variations: {}, values: {} }; // variations: key -> {count, selected, name, ok}; values: liveKey -> {ok, value, name, display, color}
+    this.palette = DEFAULT_PALETTE;
     this.discovered = new Map(); // unknown input key -> { bytes, count }
     this.setConfig(config);
   }
@@ -396,6 +398,9 @@ class Engine {
       case 'variation':
         this.variationPress(ctl, m);
         return;
+      case 'live':
+        this.livePress(ctl, m);
+        return;
       case 'none':
         this.renderControl(ctl);
         return;
@@ -510,6 +515,7 @@ class Engine {
     const delta = raw < 64 ? raw : raw - 128; // two's complement
     this.emit('input', { id: ctl.id, kind: 'turn', delta });
     const m = this.mapping(ctl.id);
+    if (m && m.type === 'live' && delta !== 0) return this.liveTurn(ctl, m, delta);
     if (!m || m.type !== 'cc' || delta === 0) return;
     const chan = this.channelFor(m);
     if (m.mode === 'relative2c') {
@@ -639,17 +645,68 @@ class Engine {
   // ---------------------------------------------------------------------------------------
   // Live API bridge (rack variations)
 
+  // Tell the Live API bridge what to observe: rack variations and Live-aware controls.
   syncVariationTargets() {
     const targets = {};
+    const liveTargets = {};
     for (const page of this.config.pages) {
-      for (const m of Object.values(page.controls)) {
-        if (m.type !== 'variation') continue;
-        const key = variationKey(m.target);
-        targets[key] = m.target;
+      for (const base of Object.values(page.controls)) {
+        for (const m of [base, base.shift]) {
+          if (!m) continue;
+          if (m.type === 'variation') targets[variationKey(m.target)] = m.target;
+          const spec = this.liveSpec(m);
+          if (spec) liveTargets[live.liveKey(spec)] = spec;
+        }
       }
     }
     this.variationTargets = targets;
+    this.liveTargets = liveTargets;
     this.io.toLive({ cmd: 'watch', targets });
+    this.io.toLive({ cmd: 'watchLive', targets: liveTargets });
+  }
+
+  setPalette(palette) {
+    this.palette = palette;
+  }
+
+  liveSpec(m) {
+    if (!m || m.type !== 'live' || !m.live) return null;
+    return m.live.target ? live.specForEncoder(m.live) : live.specForButton(m.live);
+  }
+
+  liveValue(m) {
+    const spec = this.liveSpec(m);
+    return spec ? this.liveState.values[live.liveKey(spec)] : undefined;
+  }
+
+  livePress(ctl, m) {
+    const a = m.live.action;
+    const spec = live.specForButton(m.live);
+    const cur = this.liveValue(m);
+    if (spec && (spec.t === 'trackProp' || spec.t === 'song')) {
+      // Toggle whatever Live currently reports (true if unknown).
+      const next = !(cur && cur.value);
+      this.io.toLive({ cmd: 'liveSet', key: live.liveKey(spec), spec, value: next ? 1 : 0 });
+      if (cur) cur.value = next ? 1 : 0; // optimistic, corrected by the observer
+    } else if (a === 'select') {
+      this.io.toLive({ cmd: 'liveCall', spec: { t: 'trackSelect', track: m.live.track }, fn: 'select' });
+    } else if (a === 'scene') {
+      this.io.toLive({ cmd: 'liveCall', spec: { t: 'scene', index: m.live.scene }, fn: 'fire' });
+    } else {
+      this.io.toLive({ cmd: 'liveCall', spec: { t: 'song' }, fn: a });
+    }
+    this.renderControl(ctl);
+  }
+
+  liveTurn(ctl, m, delta) {
+    const spec = live.specForEncoder(m.live);
+    const key = live.liveKey(spec);
+    const cur = this.liveState.values[key] || (this.liveState.values[key] = { ok: false, value: 0 });
+    const next = Math.min(1, Math.max(0, (Number(cur.value) || 0) + (delta * m.sensitivity) / 127));
+    if (next === cur.value) return;
+    cur.value = next; // optimistic so fast turns accumulate
+    this.io.toLive({ cmd: 'liveSet', key, spec, value: next });
+    this.emit('value', { page: this.page, id: ctl.id, value: next });
   }
 
   variationPress(ctl, m) {
@@ -669,6 +726,19 @@ class Engine {
         name: typeof msg.name === 'string' ? msg.name : '',
       };
       this.renderWhere((m) => m.type === 'variation' && variationKey(m.target) === msg.key);
+      this.emit('live', msg);
+    } else if (msg.type === 'live' && msg.key) {
+      this.liveState.values[msg.key] = {
+        ok: !!msg.ok,
+        value: Number(msg.value) || 0,
+        name: typeof msg.name === 'string' ? msg.name : '',
+        display: typeof msg.display === 'string' ? msg.display : '',
+        color: Array.isArray(msg.color) ? msg.color : null,
+      };
+      this.renderWhere((m) => {
+        const spec = this.liveSpec(m);
+        return !!spec && live.liveKey(spec) === msg.key;
+      });
       this.emit('live', msg);
     }
   }
@@ -691,6 +761,13 @@ class Engine {
     if (m.type === 'none') {
       if (held) return { color: ctl.led === 'rgb' ? 3 : 127, anim: 0 };
       return { color: this.config.settings.unmappedLeds === 'dim' ? (ctl.led === 'rgb' ? 1 : 8) : 0, anim: 0 };
+    }
+    if (m.type === 'live') {
+      const v = this.liveValue(m);
+      const on = held || !!(v && v.ok && v.value);
+      if (!on) return { color: v && v.ok ? m.colorOff : 0, anim: 0 };
+      const color = m.live.trackColor && v && v.color ? live.nearestPaletteIndex(v.color, this.palette) : m.colorOn;
+      return { color, anim: v && v.value ? push3.ANIMATIONS[m.anim] || 0 : 0 };
     }
     if (m.type === 'variation') {
       const v = this.liveState.variations[variationKey(m.target)];

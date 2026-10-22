@@ -5,15 +5,16 @@
 
 const push3 = require('./push3');
 const { COLORS, dimOf } = require('./palette');
+const live = require('./live');
 
 const CONFIG_VERSION = 1;
 const MAX_PAGES = 16;
 
 const PAGE_COLORS = [COLORS.mint, COLORS.blue, COLORS.orange, COLORS.pink, COLORS.yellow, COLORS.purple, COLORS.cyan, COLORS.red];
 
-const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation'];
+const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live'];
 const BEHAVIORS = ['momentary', 'toggle', 'trigger'];
-const ENCODER_TYPES = ['none', 'cc'];
+const ENCODER_TYPES = ['none', 'cc', 'live'];
 const ENCODER_MODES = ['absolute', 'relative2c', 'relativeOffset'];
 const STRIP_TYPES = ['none', 'pitchbend', 'cc'];
 const PRESSURE_TYPES = ['off', 'polyAT', 'channelAT', 'cc'];
@@ -162,6 +163,15 @@ function normalizeButton(m, page, ctl, isShift = false) {
     out.index = clampInt(m.index, 0, 127, 0);
     out.action = oneOf(m.action, VARIATION_ACTIONS, 'recall');
   }
+  if (out.type === 'live') {
+    const l = m.live && typeof m.live === 'object' ? m.live : {};
+    out.live = {
+      action: oneOf(l.action, live.BUTTON_ACTIONS, 'mute'),
+      track: str(l.track, 'selected', 64) || 'selected',
+      scene: clampInt(l.scene, 0, 999, 0), // 0 = selected scene
+      trackColor: l.trackColor !== false, // light in the track's colour when on
+    };
+  }
   if (!isShift) attachShift(out, m, (x) => normalizeButton(x, page, ctl, true));
   return out;
 }
@@ -191,6 +201,15 @@ function normalizeEncoder(m, page, ctl, isShift = false) {
     touchNumber: clampInt(m.touchNumber, 0, 127, d.touchNumber),
     label: str(m.label, '', 24),
   };
+  if (out.type === 'live') {
+    const l = m.live && typeof m.live === 'object' ? m.live : {};
+    out.live = {
+      target: oneOf(l.target, live.ENCODER_TARGETS, 'volume'),
+      track: str(l.track, 'selected', 64) || 'selected',
+      device: str(l.device, 'first', 64) || 'first',
+      index: clampInt(l.index, 1, 128, 1),
+    };
+  }
   if (!isShift) attachShift(out, m, (x) => normalizeEncoder(x, page, ctl, true));
   return out;
 }

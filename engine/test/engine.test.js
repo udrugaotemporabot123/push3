@@ -301,7 +301,7 @@ test('variation pads talk to the Live bridge and light from its state', () => {
   const { e, out, clear } = setup((c) => {
     Object.assign(c.pages[0].controls['pad.7.0'], { type: 'variation', target: { track: 'selected', device: 'first' }, index: 1, colorOn: 21, colorOff: 23 });
   });
-  assert.deepEqual(out.live.at(-1), { cmd: 'watch', targets: { 'selected|first': { track: 'selected', device: 'first' } } });
+  assert.deepEqual(out.live.find((x) => x.cmd === 'watch'), { cmd: 'watch', targets: { 'selected|first': { track: 'selected', device: 'first' } } });
   e.handlePushMessage(SYSEX_USER);
   e.handleLiveState({ type: 'variations', key: 'selected|first', ok: true, count: 3, selected: 1 });
   assert.deepEqual(out.push.filter((m) => m[1] === 92).at(-1), [0x90, 92, 21]);
@@ -413,4 +413,53 @@ test('config keeps shift mappings and drops empty ones', () => {
   const c = normalizeConfig({ pages: [{ controls: { mute: { type: 'cc', number: 60, shift: { type: 'cc', number: 300 } }, solo: { type: 'cc', number: 61, shift: { type: 'none' } } } }] });
   assert.equal(c.pages[0].controls.mute.shift.number, 127);
   assert.equal(c.pages[0].controls.solo.shift, undefined);
+});
+
+test('live controls: mute toggles via the Live API and lights in the track colour', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['lower.1'], { type: 'live', live: { action: 'mute', track: 'Bass' }, colorOff: 1 });
+  });
+  const watch = out.live.find((x) => x.cmd === 'watchLive');
+  const key = Object.keys(watch.targets)[0];
+  assert.deepEqual(watch.targets[key], { t: 'trackProp', track: 'Bass', prop: 'mute' });
+  e.handlePushMessage(SYSEX_USER);
+  e.handleLiveState({ type: 'live', key, ok: true, value: 0, name: 'Bass', color: [255, 0, 0] });
+  assert.deepEqual(out.push.filter((m) => m[1] === 20).at(-1), [0xb0, 20, 1]);
+  clear();
+  e.handlePushMessage([0xb0, 20, 127]);
+  assert.deepEqual(out.live, [{ cmd: 'liveSet', key, spec: { t: 'trackProp', track: 'Bass', prop: 'mute' }, value: 1 }]);
+  assert.equal(out.host.length, 0);
+  e.handlePushMessage([0xb0, 20, 0]);
+  e.handleLiveState({ type: 'live', key, ok: true, value: 1, name: 'Bass', color: [255, 0, 0] });
+  assert.deepEqual(out.push.filter((m) => m[1] === 20).at(-1), [0xb0, 20, 5]); // nearest bright red
+});
+
+test('live encoders send normalised values and accumulate fast turns', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['enc.1'], { type: 'live', sensitivity: 1, live: { target: 'volume', track: 'selected' } });
+  });
+  const key = Object.keys(out.live.find((x) => x.cmd === 'watchLive').targets)[0];
+  e.handlePushMessage(SYSEX_USER);
+  e.handleLiveState({ type: 'live', key, ok: true, value: 0.5, name: 'Volume', display: '0.0 dB' });
+  clear();
+  e.handlePushMessage([0xb0, 71, 2]);
+  e.handlePushMessage([0xb0, 71, 2]);
+  assert.equal(out.live.length, 2);
+  assert.ok(Math.abs(out.live[1].value - (0.5 + 4 / 127)) < 1e-9);
+  assert.equal(out.host.length, 0);
+});
+
+test('transport live actions call the bridge', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls.tap, { type: 'live', live: { action: 'tap' } });
+    Object.assign(c.pages[0].controls['scene.1'], { type: 'live', live: { action: 'scene', scene: 3 } });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  clear();
+  e.handlePushMessage([0xb0, 3, 127]);
+  e.handlePushMessage([0xb0, 36, 127]);
+  assert.deepEqual(out.live, [
+    { cmd: 'liveCall', spec: { t: 'song' }, fn: 'tap' },
+    { cmd: 'liveCall', spec: { t: 'scene', index: 3 }, fn: 'fire' },
+  ]);
 });

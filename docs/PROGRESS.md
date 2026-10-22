@@ -23,11 +23,13 @@ Update this file after every step so work can resume after an interruption.
 
 - [x] v0.4.0 shift layer (per-control alternate mapping, own state/LEDs/feedback) + pageHold
 
+- [x] v0.5.0 Live-aware controls (engine/src/live.js + p3um-live.js): track mute/solo/arm/select with track colour,
+      transport, scene launch; encoders on volume/pan/send/macro/device param/tempo with names+values on the display.
+      Bridge tested against a fake LOM (engine/test/live-bridge.test.js).
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white
-- [ ] v0.5 Live-aware controls via Live API (track mute/solo/arm/select with track colours, scene/clip launch,
-      rack macros with names and values on the display) — no MIDI mapping needed
 - [ ] v0.6 add-on framework (`addons/`), first add-ons from SVEBOR's workflow: sampling station (record mic/violin
       into Simpler / drum rack pads), rack-variation grid for many racks, Beat Repeat performance page
 - [ ] Phase 2 ideas: Push display (USB, Live holds it), shift layers, momentary page hold,

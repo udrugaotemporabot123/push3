@@ -15,6 +15,8 @@ var ready = false;
 var targets = {}; // key -> { target, rackId, watchers: [] }
 var pendingWatch = null;
 var selectedTrackWatcher = null;
+var pendingLive = null;
+var liveTargets = {}; // key -> { spec, watchers: [], path }
 
 function init() {
   ready = true;
@@ -25,6 +27,10 @@ function init() {
   if (pendingWatch) {
     watch(pendingWatch);
     pendingWatch = null;
+  }
+  if (pendingLive) {
+    watchLive(pendingLive);
+    pendingLive = null;
   }
 }
 
@@ -41,6 +47,13 @@ function live(json) {
     else watch(msg.targets);
   } else if (msg.cmd === 'variation') {
     if (ready) variation(msg);
+  } else if (msg.cmd === 'watchLive') {
+    if (!ready) pendingLive = msg.targets;
+    else watchLive(msg.targets);
+  } else if (msg.cmd === 'liveSet') {
+    if (ready) liveSet(msg);
+  } else if (msg.cmd === 'liveCall') {
+    if (ready) liveCall(msg);
   }
 }
 
@@ -63,6 +76,10 @@ function watch(newTargets) {
 function onSelectedTrack() {
   for (var key in targets) {
     if (targets[key].target.track === 'selected') resolve(key);
+  }
+  for (var lk in liveTargets) {
+    var sp = liveTargets[lk].spec;
+    if (sp.track === 'selected' || sp.t === 'trackSelect' || sp.target === 'deviceParam') resolveLive(lk);
   }
 }
 
@@ -228,4 +245,207 @@ function str(v) {
   v = String(v === undefined ? '' : v);
   if (v.charAt(0) === '"' && v.charAt(v.length - 1) === '"') v = v.slice(1, -1);
   return v;
+}
+
+// ---------------------------------------------------------------------------------------
+// Live-aware controls: observe/set track mute/solo/arm/select, transport, mixer and device
+// parameters. Values are normalised to 0..1 for parameters, 0/1 for switches.
+
+var TEMPO_MIN = 60;
+var TEMPO_MAX = 200;
+
+function watchLive(newTargets) {
+  var key;
+  for (key in liveTargets) {
+    if (!newTargets[key]) {
+      dropWatchers(liveTargets[key]);
+      delete liveTargets[key];
+    }
+  }
+  for (key in newTargets) {
+    if (!liveTargets[key]) liveTargets[key] = { spec: newTargets[key], watchers: [], path: null };
+    resolveLive(key);
+  }
+}
+
+function trackApi(spec) {
+  var t = spec === undefined || spec === null || spec === '' ? 'selected' : String(spec);
+  if (/^[0-9]+$/.test(t)) {
+    var n = parseInt(t, 10) - 1;
+    var set = new LiveAPI('live_set');
+    if (n < 0 || n >= set.getcount('tracks')) return null;
+    return new LiveAPI('live_set tracks ' + n);
+  }
+  return findTrack(t);
+}
+
+// Path of the object a spec talks to, plus which property holds its value.
+function livePath(spec) {
+  var tr;
+  if (spec.t === 'song') return { path: 'live_set', prop: spec.prop };
+  if (spec.t === 'trackProp' || spec.t === 'trackSelect') {
+    tr = trackApi(spec.track);
+    if (!tr) return null;
+    if (spec.t === 'trackProp') {
+      if (spec.prop === 'arm' && num(tr.get('can_be_armed')) !== 1) return null;
+      if (spec.prop !== 'arm' && tr.unquotedpath.indexOf('master_track') >= 0) return null;
+    }
+    return { path: tr.unquotedpath, prop: spec.t === 'trackProp' ? spec.prop : null, trackId: tr.id };
+  }
+  if (spec.t === 'param') {
+    if (spec.target === 'tempo') return { path: 'live_set', prop: 'tempo', tempo: true };
+    tr = trackApi(spec.track);
+    if (!tr) return null;
+    var base = tr.unquotedpath;
+    switch (spec.target) {
+      case 'volume':
+        return { path: base + ' mixer_device volume', prop: 'value', param: true, trackId: tr.id };
+      case 'pan':
+        return { path: base + ' mixer_device panning', prop: 'value', param: true, trackId: tr.id };
+      case 'send':
+        return { path: base + ' mixer_device sends ' + ((spec.index | 0) - 1), prop: 'value', param: true, trackId: tr.id };
+      case 'macro':
+        var rack = findRack(tr, spec.device);
+        if (!rack) return null;
+        return { path: rack.unquotedpath + ' parameters ' + (spec.index | 0), prop: 'value', param: true, trackId: tr.id };
+      case 'deviceParam':
+        return { path: base + ' view selected_device parameters ' + (spec.index | 0), prop: 'value', param: true, trackId: tr.id, viewPath: base + ' view' };
+    }
+  }
+  return null;
+}
+
+function resolveLive(key) {
+  var lt = liveTargets[key];
+  if (!lt) return;
+  dropWatchers(lt);
+  var info = livePath(lt.spec);
+  if (info) {
+    var probe = new LiveAPI(info.path);
+    if (!probe.id || probe.id == 0) info = null;
+  }
+  lt.info = info;
+  if (!info) {
+    reportLive(key, { ok: false });
+    return;
+  }
+  var cb = function () {
+    sendLive(key);
+  };
+  if (lt.spec.t === 'trackSelect') {
+    // Selection changes are already observed globally (onSelectedTrack); colour changes here.
+    var wc = new LiveAPI(cb, info.path);
+    wc.property = 'color';
+    lt.watchers.push(wc);
+  } else {
+    var w = new LiveAPI(cb, info.path);
+    w.property = info.prop;
+    lt.watchers.push(w);
+    if (info.trackId && !info.param) {
+      var wcol = new LiveAPI(cb, 'id ' + info.trackId);
+      wcol.property = 'color';
+      lt.watchers.push(wcol);
+    }
+  }
+  if (info.viewPath) {
+    // Re-resolve when another device gets selected on that track.
+    var first = true;
+    var wd = new LiveAPI(function () {
+      if (first) {
+        first = false;
+        return;
+      }
+      resolveLive(key);
+    }, info.viewPath);
+    wd.property = 'selected_device';
+    lt.watchers.push(wd);
+  }
+  sendLive(key);
+}
+
+function trackColor(trackId) {
+  if (!trackId) return null;
+  var c = num(new LiveAPI('id ' + trackId).get('color'));
+  return [(c >> 16) & 255, (c >> 8) & 255, c & 255];
+}
+
+function sendLive(key) {
+  var lt = liveTargets[key];
+  if (!lt || !lt.info) return;
+  var info = lt.info;
+  var api = new LiveAPI(info.path);
+  if (!api.id || api.id == 0) {
+    resolveLive(key);
+    return;
+  }
+  var spec = lt.spec;
+  if (spec.t === 'trackSelect') {
+    var sel = new LiveAPI('live_set view selected_track');
+    reportLive(key, { ok: true, value: sel.id == info.trackId ? 1 : 0, name: str(api.get('name')), color: trackColor(info.trackId) });
+  } else if (info.tempo) {
+    var bpm = num(api.get('tempo'));
+    reportLive(key, { ok: true, value: (bpm - TEMPO_MIN) / (TEMPO_MAX - TEMPO_MIN), name: 'Tempo', display: bpm.toFixed(1) + ' BPM' });
+  } else if (info.param) {
+    var v = num(api.get('value'));
+    var min = num(api.get('min'));
+    var max = num(api.get('max'));
+    var disp = '';
+    try {
+      disp = str(api.call('str_for_value', v));
+    } catch (e) {
+      disp = String(Math.round(v * 100) / 100);
+    }
+    reportLive(key, { ok: true, value: max > min ? (v - min) / (max - min) : 0, name: str(api.get('name')), display: disp });
+  } else {
+    var val = num(api.get(info.prop));
+    var name = spec.t === 'song' ? info.prop : str(api.get('name'));
+    reportLive(key, { ok: true, value: val ? 1 : 0, name: name, color: info.trackId ? trackColor(info.trackId) : null });
+  }
+}
+
+function reportLive(key, data) {
+  data.type = 'live';
+  data.key = key;
+  outlet(0, 'liveState', JSON.stringify(data));
+}
+
+function liveSet(msg) {
+  var key = msg.key;
+  if (!liveTargets[key]) {
+    liveTargets[key] = { spec: msg.spec, watchers: [], path: null };
+    resolveLive(key);
+  }
+  var info = liveTargets[key].info;
+  if (!info) return;
+  var api = new LiveAPI(info.path);
+  var value = Number(msg.value) || 0;
+  if (msg.spec.t === 'song' && info.prop === 'is_playing') {
+    api.call(value ? 'start_playing' : 'stop_playing');
+  } else if (info.tempo) {
+    api.set('tempo', TEMPO_MIN + Math.max(0, Math.min(1, value)) * (TEMPO_MAX - TEMPO_MIN));
+  } else if (info.param) {
+    var min = num(api.get('min'));
+    var max = num(api.get('max'));
+    var v = min + Math.max(0, Math.min(1, value)) * (max - min);
+    if (num(api.get('is_quantized')) === 1) v = Math.round(v);
+    api.set('value', v);
+  } else {
+    api.set(info.prop, value ? 1 : 0);
+  }
+}
+
+var SONG_CALLS = { play: 'start_playing', stop: 'stop_playing', tap: 'tap_tempo', undo: 'undo', redo: 'redo', capture: 'capture_midi' };
+
+function liveCall(msg) {
+  var spec = msg.spec || {};
+  if (msg.fn === 'select') {
+    var tr = trackApi(spec.track);
+    if (tr) new LiveAPI('live_set view').set('selected_track', 'id', tr.id);
+  } else if (msg.fn === 'fire') {
+    var idx = spec.index | 0;
+    var scene = idx > 0 ? new LiveAPI('live_set scenes ' + (idx - 1)) : new LiveAPI('live_set view selected_scene');
+    if (scene.id && scene.id != 0) scene.call('fire');
+  } else if (SONG_CALLS[msg.fn]) {
+    new LiveAPI('live_set').call(SONG_CALLS[msg.fn]);
+  }
 }

@@ -15,7 +15,9 @@ const el = (tag, attrs = {}, ...kids) => {
 };
 
 const T = {
-  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija' },
+  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)' },
+  liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI' },
+  liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', tempo: 'Tempo' },
   behaviors: { momentary: 'Momentary (dok držiš)', toggle: 'Toggle (uklj/isklj)', trigger: 'Trigger (jedan impuls)' },
   encModes: { absolute: 'Apsolutno (0–127, s povratnom info)', relative2c: 'Relativno – 2’s complement', relativeOffset: 'Relativno – offset 64' },
   anims: { none: 'Bez', 'pulse-slow': 'Pulsira sporo', pulse: 'Pulsira', 'pulse-fast': 'Pulsira brzo', 'blink-slow': 'Blinka sporo', blink: 'Blinka', 'blink-fast': 'Blinka brzo' },
@@ -291,6 +293,7 @@ function mappingSummary(c, m) {
   if (c.kind === 'encoder' || c.kind === 'touchstrip') {
     if (m.type === 'none') return '—';
     if (m.type === 'pitchbend') return 'PB';
+    if (m.type === 'live') return `Live ${(T.liveTargets[m.live && m.live.target] || '').split(' ')[0]}`;
     return `CC${m.number}${m.mode && m.mode !== 'absolute' ? ' rel' : ''}`;
   }
   const beh = m.behavior === 'toggle' ? ' T' : m.behavior === 'trigger' ? ' ⚡' : '';
@@ -309,6 +312,10 @@ function mappingSummary(c, m) {
       return '◀ Str.';
     case 'variation':
       return `Var ${m.index + 1}${m.action !== 'recall' ? ` ${m.action}` : ''}`;
+    case 'live':
+      return `⚡${(T.liveActions[m.live && m.live.action] || 'Live').replace(' tracka', '')}${m.live && m.live.track && m.live.track !== 'selected' && ['mute', 'solo', 'arm', 'select'].includes(m.live.action) ? ` ${m.live.track}` : ''}`;
+    case 'pageHold':
+      return `⇥ ${S.config.pages[m.page] ? S.config.pages[m.page].name : `P${m.page + 1}`}`;
     default:
       return '—';
   }
@@ -585,6 +592,8 @@ function renderButtonInspector(box, ctls, maps) {
     box.append(field('Stranica', selectEl(opts, common(maps, 'page'), (v) => setAll('page', Number(v)))));
   } else if (type === 'variation') {
     renderVariationFields(box, maps);
+  } else if (type === 'live') {
+    renderLiveButtonFields(box, maps);
   }
 
   if (!noLed && type !== undefined) {
@@ -605,7 +614,85 @@ function setType(m, v) {
     if (m.index === undefined) m.index = 0;
     m.action = m.action || 'recall';
   }
-  if (v === 'page' && m.page === undefined) m.page = 0;
+  if ((v === 'page' || v === 'pageHold') && m.page === undefined) m.page = 0;
+  if (v === 'live' && !m.live) m.live = { action: 'mute', track: 'selected', scene: 0, trackColor: true };
+}
+
+// Same key the engine uses for a Live-aware mapping (see engine/src/live.js).
+function liveKeyOf(m) {
+  const l = m && m.live;
+  if (!l) return null;
+  let spec = null;
+  if (l.target) {
+    spec = l.target === 'tempo' ? { t: 'param', target: 'tempo' } : { t: 'param', target: l.target, track: l.track };
+    if (l.target === 'send' || l.target === 'deviceParam') spec.index = l.index;
+    if (l.target === 'macro') Object.assign(spec, { device: l.device, index: l.index });
+  } else if (['mute', 'solo', 'arm'].includes(l.action)) spec = { t: 'trackProp', track: l.track, prop: l.action };
+  else if (l.action === 'select') spec = { t: 'trackSelect', track: l.track };
+  else if (l.action === 'play') spec = { t: 'song', prop: 'is_playing' };
+  else if (l.action === 'record') spec = { t: 'song', prop: 'session_record' };
+  else if (l.action === 'metronome') spec = { t: 'song', prop: 'metronome' };
+  else if (l.action === 'overdub') spec = { t: 'song', prop: 'arrangement_overdub' };
+  if (!spec) return null;
+  return JSON.stringify(Object.keys(spec).sort().reduce((o, k) => ((o[k] = spec[k]), o), {}));
+}
+
+function liveStatus(m) {
+  const key = liveKeyOf(m);
+  if (!key) return null;
+  const v = S.snapshot.liveState && S.snapshot.liveState.values && S.snapshot.liveState.values[key];
+  if (!S.meta || !S.meta.inMax) return el('div', { class: 'warn' }, 'Live funkcije rade samo kad motor radi unutar Max for Live devicea.');
+  if (!v) return el('div', { class: 'muted small' }, 'Čekam odgovor Livea…');
+  if (!v.ok) return el('div', { class: 'warn' }, 'Cilj nije pronađen u Liveu (provjeri ime/broj tracka ili racka).');
+  return el('div', { class: 'note' }, `Povezano: ${v.name || ''}${v.display ? ` · ${v.display}` : ''}${v.value !== undefined && !v.display ? ` · ${v.value ? 'ON' : 'OFF'}` : ''}`);
+}
+
+function setLive(key, value) {
+  setAll((m) => (m.live = { ...(m.live || {}), [key]: value }));
+}
+
+function renderLiveButtonFields(box, maps) {
+  const action = common(maps, (m) => m.live && m.live.action);
+  box.append(field('Radnja', selectEl(T.liveActions, action, (v) => setLive('action', v))));
+  if (['mute', 'solo', 'arm', 'select'].includes(action)) {
+    box.append(field('Track', textEl(common(maps, (m) => m.live && m.live.track), (v) => setLive('track', v.trim() || 'selected'), 'selected'), 'selected = odabrani track, broj (1, 2, …) ili točno ime tracka'));
+    box.append(field('Boja tracka', selectEl({ true: 'Da (LED u boji tracka)', false: 'Ne (Boja ON)' }, String(common(maps, (m) => m.live && m.live.trackColor)), (v) => setLive('trackColor', v === 'true'))));
+  }
+  if (action === 'scene') box.append(field('Scena', numEl(common(maps, (m) => m.live && m.live.scene), 0, 999, (v) => setLive('scene', v)), '0 = odabrana scena, inače broj scene'));
+  if (maps.length === 1) {
+    const st = liveStatus(maps[0]);
+    if (st) box.append(st);
+  }
+}
+
+function renderLiveEncoderFields(box, maps) {
+  const target = common(maps, (m) => m.live && m.live.target);
+  box.append(field('Cilj', selectEl(T.liveTargets, target, (v) => setLive('target', v))));
+  if (target !== 'tempo') box.append(field('Track', textEl(common(maps, (m) => m.live && m.live.track), (v) => setLive('track', v.trim() || 'selected'), 'selected'), 'selected = odabrani track, broj ili ime'));
+  if (target === 'macro') box.append(field('Rack', textEl(common(maps, (m) => m.live && m.live.device), (v) => setLive('device', v.trim() || 'first'), 'first'), 'first = prvi rack, ili ime racka'));
+  if (['send', 'macro', 'deviceParam'].includes(target)) {
+    const lbl = target === 'send' ? 'Send broj' : target === 'macro' ? 'Makro broj' : 'Parametar broj';
+    const row = el('div', { class: 'inline' }, numEl(common(maps, (m) => m.live && m.live.index), 1, 128, (v) => setLive('index', v)));
+    if (maps.length > 1) row.append(el('button', { onclick: () => liveIndexSequence() }, 'Redom 1…n'));
+    box.append(field(lbl, row));
+  }
+  box.append(field('Osjetljivost', numEl(common(maps, 'sensitivity'), 0.05, 8, (v) => setAll('sensitivity', v), 0.05)));
+  if (maps.length === 1) {
+    const st = liveStatus(maps[0]);
+    if (st) box.append(st);
+  }
+  box.append(el('p', { class: 'muted small' }, 'Ime i vrijednost parametra prikazuju se na ekranu.'));
+}
+
+function liveIndexSequence() {
+  const ctls = selectedControls().sort((a, b) => S.controls.indexOf(a) - S.controls.indexOf(b));
+  commit((cfg) => {
+    const page = cfg.pages[S.snapshot.page];
+    ctls.forEach((c, i) => {
+      const m = layerMap(page.controls[c.id], c, true);
+      m.live = { ...(m.live || {}), index: i + 1 };
+    });
+  });
 }
 
 function renderVariationFields(box, maps) {
@@ -676,7 +763,15 @@ function numberSequence() {
 
 function renderEncoderInspector(box, ctls, maps) {
   const type = common(maps, 'type');
-  box.append(field('Funkcija', selectEl({ none: 'Ništa', cc: 'CC' }, type, (v) => setAll('type', v))));
+  box.append(field('Funkcija', selectEl({ none: 'Ništa', cc: 'CC', live: 'Live (bez mapiranja)' }, type, (v) => setAll((m) => {
+    m.type = v;
+    if (v === 'live' && !m.live) m.live = { target: 'volume', track: 'selected', device: 'first', index: 1 };
+  }))));
+  if (type === 'live') {
+    renderLiveEncoderFields(box, maps);
+    box.append(el('div', { class: 'sep' }), field('Oznaka', textEl(common(maps, 'label'), (v) => setAll('label', v), 'npr. Cutoff')));
+    return;
+  }
   if (type === 'cc') {
     const numRow = el('div', { class: 'inline' }, numEl(common(maps, 'number'), 0, 127, (v) => setAll('number', v)));
     if (ctls.length > 1) numRow.append(el('button', { onclick: () => numberSequence() }, 'Redom…'));

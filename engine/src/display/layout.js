@@ -15,6 +15,8 @@ const GREY = [110, 116, 124];
 const DIM = [52, 56, 62];
 const WHITE = [235, 238, 240];
 
+const LIVE_LABELS = { mute: 'Mute', solo: 'Solo', arm: 'Arm', select: 'Select', scene: 'Scene', play: 'Play', stop: 'Stop', record: 'Rec', metronome: 'Metro', overdub: 'Overdub', tap: 'Tap', undo: 'Undo', redo: 'Redo', capture: 'Capture', volume: 'Volume', pan: 'Pan', send: 'Send', macro: 'Macro', deviceParam: 'Param', tempo: 'Tempo' };
+
 function hexToRgb(hex) {
   const s = String(hex || '000000');
   return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
@@ -34,6 +36,8 @@ function summary(ctl, m) {
       return 'Pitch bend';
     case 'variation':
       return `Var ${m.index + 1}`;
+    case 'live':
+      return m.live ? LIVE_LABELS[m.live.action || m.live.target] || m.live.action || m.live.target : 'Live';
     case 'page':
       return `→ P${m.page + 1}`;
     case 'pageNext':
@@ -71,14 +75,21 @@ function buildModel(engine, palette, lastAction, now) {
     const enc = push3.byId.get(`enc.${i}`);
     const em = page.controls[enc.id];
     const st = engine.ctlState(engine.page, enc.id);
-    model.encoders.push({
-      label: em && em.type !== 'none' ? summary(enc, em) : '',
-      value: em && em.type === 'cc' && em.mode === 'absolute' ? (st.value === null ? null : Math.round(st.value)) : undefined,
-      min: em ? em.min : 0,
-      max: em ? em.max : 127,
-      relative: !!(em && em.type === 'cc' && em.mode !== 'absolute'),
-      touched: engine.pressed.has(enc.id),
-    });
+    const enc0 = { label: '', text: null, frac: 0, relative: false, touched: engine.pressed.has(enc.id) };
+    if (em && em.type === 'live') {
+      const v = engine.liveValue(em);
+      enc0.label = em.label || (v && v.ok && v.name) || summary(enc, em);
+      enc0.text = v && v.ok ? v.display || String(Math.round(v.value * 127)) : '–';
+      enc0.frac = v && v.ok ? v.value : 0;
+    } else if (em && em.type === 'cc') {
+      enc0.label = summary(enc, em);
+      if (em.mode !== 'absolute') enc0.relative = true;
+      else {
+        enc0.text = st.value === null ? '–' : String(Math.round(st.value));
+        enc0.frac = st.value === null ? 0 : (st.value - em.min) / Math.max(1, em.max - em.min);
+      }
+    }
+    model.encoders.push(enc0);
     const low = push3.byId.get(`lower.${i}`);
     const lm = page.controls[low.id];
     const lled = engine.ledFor(low);
@@ -108,10 +119,9 @@ function draw(canvas, model) {
       canvas.text(x + COL / 2, 56, '↑↓', { font: 'big', color: e.touched ? WHITE : DIM, align: 'center' });
       return;
     }
-    const txt = e.value === null || e.value === undefined ? '–' : String(e.value);
-    canvas.text(x + COL / 2, 52, txt, { font: 'big', color: e.touched ? WHITE : [200, 204, 208], align: 'center' });
-    const range = Math.max(1, e.max - e.min);
-    const frac = e.value === null || e.value === undefined ? 0 : Math.min(1, Math.max(0, (e.value - e.min) / range));
+    const txt = e.text || '–';
+    canvas.text(x + COL / 2, txt.length > 6 ? 58 : 52, txt, { font: txt.length > 6 ? 'bold' : 'big', color: e.touched ? WHITE : [200, 204, 208], align: 'center', maxWidth: COL - 10 });
+    const frac = Math.min(1, Math.max(0, e.frac || 0));
     canvas.fillRect(x + 12, 88, COL - 24, 4, [34, 37, 42]);
     canvas.fillRect(x + 12, 88, Math.round((COL - 24) * frac), 4, model.pageColor);
   });

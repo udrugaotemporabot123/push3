@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.5.0 – 2026-10-22
+Live funkcije bez MIDI mapiranja: Mute/Solo/Arm/Select tracka (LED u boji tracka), transport, scene; enkoderi na volumen/pan/send, makro racka, parametar devicea, tempo — s imenom i vrijednošću na ekranu.
+
 ## v0.4.0 – 2026-10-22
 Shift sloj: svaka kontrola može imati drugu funkciju dok držiš Shift (vlastite boje, stanje i povratna info). Nova funkcija 'Drži za stranicu'. Shift je modifikator (može se isključiti u Postavkama).
 

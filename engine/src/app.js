@@ -10,7 +10,7 @@ const push3 = require('./push3');
 const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 
-const VERSION = '0.4.0';
+const VERSION = '0.5.0';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -66,6 +66,7 @@ function start() {
   };
 
   const engine = new Engine(io, store.load(log));
+  engine.setPalette(palette); // same array; filled with the real Push palette once read
   const display = new DisplayManager({
     engine,
     palette,
