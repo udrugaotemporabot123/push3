@@ -74,7 +74,12 @@ class Engine {
 
   setConfig(config) {
     const toggled = this.config ? this.toggledNotes() : [];
+    const old = this.config;
     this.config = normalizeConfig(config);
+    if (old) {
+      this.stopDisabledAddons(old);
+      this.resetEncoderScales(old);
+    }
     if (this.page >= this.config.pages.length) this.page = 0;
     this.state = this.config.pages.map((p, i) => (this.state && this.state[i]) || {});
     // A toggled-on note whose mapping was edited would sound forever in Live: send its note off.
@@ -93,6 +98,48 @@ class Engine {
       this.updateClock();
     }
     this.emit('config');
+  }
+
+  // An add-on switched off in Settings gets its held controls released and its clock stopped first,
+  // so nothing it was playing keeps sounding (afterwards the engine no longer talks to it).
+  stopDisabledAddons(old) {
+    const was = (old.settings && old.settings.addons) || {};
+    const now = this.config.settings.addons || {};
+    for (const [id, a] of this.addons || []) {
+      if (was[id] === false || now[id] !== false) continue;
+      for (const [ctlId, m] of [...this.addonHeld]) {
+        if (m.addon.id !== id) continue;
+        this.addonHeld.delete(ctlId);
+        try {
+          if (a.inst.release) a.inst.release({ params: m.addon.params || {}, action: m.addon.action, id: ctlId });
+        } catch (e) {
+          this.io.log('error', `Add-on ${id}.release failed: ${e.message}`);
+        }
+      }
+      try {
+        if (a.inst.clock) a.inst.clock('stop');
+      } catch (e) {
+        this.io.log('error', `Add-on ${id}.clock failed: ${e.message}`);
+      }
+    }
+  }
+
+  // Encoder values are 0-127 in 7-bit modes and 0-16383 in absolute14: a mode switch starts fresh.
+  resetEncoderScales(old) {
+    const is14 = (m) => !!m && m.type === 'cc' && m.mode === 'absolute14';
+    this.config.pages.forEach((page, pi) => {
+      const before = old.pages[pi];
+      if (!before) return;
+      for (const [id, base] of Object.entries(page.controls)) {
+        const prev = before.controls[id];
+        if (!prev) continue;
+        for (const [layer, m, pm] of [['', base, prev], ['s', base.shift, prev.shift]]) {
+          if (is14(m) === is14(pm)) continue;
+          const st = this.state[pi] && this.state[pi][layer ? `${id}#s` : id];
+          if (st) st.value = null;
+        }
+      }
+    });
   }
 
   // Toggles that are on and send notes (so a config edit can turn exactly those off).
@@ -646,7 +693,7 @@ class Engine {
       return;
     }
     if (m.mode === 'absolute14') {
-      // Same travel as 7-bit (sensitivity in 7-bit steps); Shift (fine) reaches single 14-bit steps.
+      // Same travel as 7-bit (sensitivity in 7-bit steps); Shift (fine) moves ~13 of 16384 per detent.
       const [lo, hi] = range14(m);
       const st = this.ctlState(this.page, ctl.id);
       if (st.value === null) st.value = lo;

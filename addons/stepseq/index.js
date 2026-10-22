@@ -14,7 +14,9 @@
 //           current pattern into the slot; hold one pattern and press another = chain (A→B→C… in turn)
 //   mod   – hold + press a step pad: length (loop ends on that step), euclid (spread N hits of the
 //           selected lane evenly over the loop), chance (cycle the step's probability 100/75/50/25 %);
-//           double: one press copies the loop to the next steps and doubles the loop length
+//           double: one press copies the loop to the next steps and doubles the loop length;
+//           copy: hold + drum pad A + drum pad B = copy lane A to lane B
+// Hold a drum pad and turn encoder 1 = rotate the lane (nudge its rhythm), 2 = all its velocities.
 // A step pad with lane "selected" edits the lane chosen with the last hit (Push-style drum sequencer:
 // 16 drum pads + 32 steps of the selected lane). Swing (MPC style, 50 = straight) is set on Play.
 // Live setup: Settings > MIDI > Output "Push3 UM": Sync ON (clock), and a MIDI track with
@@ -36,7 +38,7 @@ const swingTicks = (pct) => Math.max(0, Math.min(3, Math.round(((int(pct, 50) - 
 const CHANCES = [100, 75, 50, 25];
 const SLOTS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const slotOf = (v) => (SLOTS.includes(String(v || '').toUpperCase()) ? String(v).toUpperCase() : 'A');
-const MOD_COLORS = { length: 45, euclid: 9, chance: 13, double: 21 };
+const MOD_COLORS = { length: 45, euclid: 9, chance: 13, double: 21, copy: 37 };
 const MOD_MODES = Object.keys(MOD_COLORS);
 // Euclidean rhythm: k hits spread as evenly as possible over n steps, starting on step 1.
 const euclid = (k, n) => Array.from({ length: n }, (_, i) => (i * k) % n < k);
@@ -84,7 +86,7 @@ module.exports = {
       label: 'Modifikator koraka',
       fields: {
         seq: { label: 'Sekvenca', default: 'A' },
-        mode: { label: 'Način', default: 'length', help: 'length = drži + korak: duljina loopa; euclid = drži + korak N: N udaraca ravnomjerno; chance = drži + korak: vjerojatnost; double = udvostruči loop' },
+        mode: { label: 'Način', default: 'length', help: 'length = drži + korak: duljina loopa; euclid = drži + korak N: N udaraca ravnomjerno; chance = drži + korak: vjerojatnost; double = udvostruči loop; copy = drži + drum pad A + drum pad B: kopiraj traku' },
       },
     },
   },
@@ -158,7 +160,10 @@ module.exports = {
       if (sq.mod === 'length') sq.loop = i + 1 >= sq.length ? 0 : i + 1;
       else if (sq.mod === 'euclid' && l) {
         const hits = euclid(Math.min(i + 1, n), n);
-        for (let s = 0; s < n; s++) l.steps[s] = hits[s] ? l.steps[s] || 100 : 0;
+        for (let s = 0; s < n; s++) {
+          if (hits[s] && !l.steps[s]) clearStep(l, s, 100);
+          else if (!hits[s]) clearStep(l, s, 0);
+        }
       } else if (sq.mod === 'chance' && l && l.steps[i]) {
         const cur = CHANCES.indexOf(l.chance[i] || 100);
         l.chance[i] = CHANCES[(cur + 1) % CHANCES.length];
@@ -173,9 +178,17 @@ module.exports = {
         for (let s = 0; s < n; s++) {
           l.steps[s + n] = l.steps[s] || 0;
           l.chance[s + n] = l.chance[s] || 0;
+          l.gate[s + n] = l.gate[s] || 0;
         }
       }
       sq.loop = n * 2 >= sq.length ? 0 : n * 2;
+    }
+
+    // A step set or removed starts fresh: no leftover chance or note length from an earlier step.
+    function clearStep(l, i, vel) {
+      l.steps[i] = vel;
+      l.chance[i] = 0;
+      l.gate[i] = 0;
     }
 
     // A live hit while recording goes into the step that is closest in time; if that is the coming step,
@@ -183,15 +196,14 @@ module.exports = {
     function recordHit(sq, l, vel) {
       if (!sq.recording || !sq.length) return;
       if (!transport || !sq.running) {
-        l.steps[sq.cursor % loopLen(sq)] = vel; // step entry
-        l.chance[sq.cursor % loopLen(sq)] = 0;
+        clearStep(l, sq.cursor % loopLen(sq), vel); // step entry
         sq.cursorPending = true;
         return;
       }
       if (sq.pos < 0) return;
       const late = tick - sq.stepTick >= TICKS_PER_STEP / 2;
       const i = late ? (sq.pos + 1) % loopLen(sq) : sq.pos;
-      l.steps[i] = vel;
+      clearStep(l, i, vel);
       if (late) l.skip = i;
     }
 
@@ -309,10 +321,18 @@ module.exports = {
           if (!l) return;
           sq.selected = lane;
           if (shift) l.steps = [];
-          else {
+          else if (sq.mod === 'copy') {
+            const src = sq.copyFrom && sq.lanes[sq.copyFrom];
+            if (src && sq.copyFrom !== lane) {
+              l.steps = src.steps.slice();
+              l.chance = src.chance.slice();
+              l.gate = src.gate.slice();
+              sq.copyFrom = null;
+            } else sq.copyFrom = lane;
+          } else {
             const prev = heldHits.get(id);
             if (prev) api.sendHost([0x90 | prev[0], prev[1], 0]);
-            heldHits.set(id, [l.channel, l.note]);
+            heldHits.set(id, [l.channel, l.note, sq, l]);
             api.sendHost([0x90 | l.channel, l.note, vel]);
             recordHit(sq, l, vel);
           }
@@ -338,8 +358,42 @@ module.exports = {
 
       // Encoders while a step is held: 1 velocity, 2 chance, 3 gate. Returns true = encoder consumed.
       turn({ id, encoder, delta }) {
+        // Shift makes deltas fractional (fine): collect them until a whole unit is reached.
+        const whole = (holder) => {
+          holder.acc = (holder.acc || 0) + delta;
+          const d = Math.trunc(Math.round(holder.acc * 1000) / 1000); // 10 × 0.1 must make 1
+          holder.acc -= d;
+          return d;
+        };
+        const hit = heldHits.get(id);
+        if (hit) {
+          const [, , sq, l] = hit;
+          if (encoder !== 'enc.1' && encoder !== 'enc.2') return false;
+          const unit = whole(hit);
+          if (!unit) return true;
+          delta = unit;
+          const n = loopLen(sq);
+          if (encoder === 'enc.1') {
+            // Rotate the lane inside the loop, one step per detent.
+            const k = ((Math.sign(delta) % n) + n) % n;
+            for (const key of ['steps', 'chance', 'gate']) {
+              const arr = Array.from({ length: n }, (_, i) => l[key][i] || 0);
+              for (let i = 0; i < n; i++) l[key][(i + k) % n] = arr[i];
+            }
+          } else if (encoder === 'enc.2') {
+            for (let i = 0; i < l.steps.length; i++) if (l.steps[i]) l.steps[i] = Math.max(1, Math.min(127, Math.round(l.steps[i] + delta)));
+          } else return false;
+          persist();
+          api.renderAddons();
+          return true;
+        }
         const h = heldSteps.get(id);
         if (!h) return false;
+        if (encoder !== 'enc.1' && encoder !== 'enc.2' && encoder !== 'enc.3') return false;
+        h.turned = true;
+        const unit = whole(h);
+        if (!unit) return true;
+        delta = unit;
         const { l, i } = h;
         if (!l.steps[i]) l.steps[i] = 100;
         if (encoder === 'enc.1') l.steps[i] = Math.max(1, Math.min(127, Math.round(l.steps[i] + delta)));
@@ -367,7 +421,7 @@ module.exports = {
           const h = heldSteps.get(id);
           heldSteps.delete(id);
           if (h && h.removeOnRelease && !h.turned) {
-            h.l.steps[h.i] = 0;
+            clearStep(h.l, h.i, 0);
             persist();
             api.renderAddons();
           }
@@ -376,6 +430,7 @@ module.exports = {
         if (action === 'mod') {
           const sq = seqOf(params.seq);
           if (sq.mod === params.mode || (sq.mod === 'length' && !MOD_MODES.includes(params.mode))) sq.mod = null;
+          sq.copyFrom = null;
           api.renderAddons();
           return;
         }
@@ -459,7 +514,7 @@ module.exports = {
         }
         const playing = transport && sq.running;
         const parts = [`Seq ${params.seq || 'A'} ${playing ? '▶' : '■'} ${playing && sq.pos >= 0 ? sq.pos + 1 : '–'}/${loopLen(sq)}`];
-        if (sq.mod) parts.push(`[${sq.mod}]`);
+        if (sq.mod) parts.push(sq.mod === 'copy' ? (sq.copyFrom ? `[copy ${sq.copyFrom} → ?]` : '[copy: izvor?]') : `[${sq.mod}]`);
         if (sq.pattern !== 'A' || sq.queued || Object.keys(sq.patterns).length) parts.push(`pat ${sq.pattern}${sq.queued ? `→${sq.queued}` : ''}${sq.chain.length > 1 ? ` (${sq.chain.join('')})` : ''}`);
         if (sq.selected && Object.keys(sq.lanes).length > 1) parts.push(`traka ${sq.selected}`);
         if (sq.recording) parts.push(transport && sq.running ? '● REC' : `● unos ${sq.cursor + 1}`);

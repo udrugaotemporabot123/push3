@@ -414,6 +414,11 @@ test('bridge: padParam follows the Drum Rack pad selection, also from an empty p
   assert.equal(states(b.out).at(-1).value, 0.2);
   view.set('selected_drum_pad', 'id', live.pads[1].id); // empty pad: nothing to control
   assert.equal(states(b.out).at(-1).ok, false);
+  // A Simpler dropped onto the empty selected pad is picked up without reselecting.
+  const sim = live.obj({ name: 'Simpler', class_name: 'OriginalSimpler' }, { sample: null, parameters: [p('Transpose', 0.9)] });
+  live.pads[1].children.chains = [live.obj({ name: 'C#1' }, { devices: [sim] })];
+  new live.LiveAPI(`id ${live.pads[1].id}`).set('chains', 1);
+  assert.deepEqual([states(b.out).at(-1).ok, states(b.out).at(-1).value], [true, 0.9]);
   view.set('selected_drum_pad', 'id', live.pads[0].id); // back to a Simpler: found again
   st = states(b.out).at(-1);
   assert.deepEqual([st.ok, st.value], [true, 0.5]);

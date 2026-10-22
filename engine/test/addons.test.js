@@ -471,3 +471,61 @@ test('step sequencer: with Live stopped, REC enters hits step by step (chords st
   for (let i = 0; i < 12; i++) e.handleHostMessage([0xf8]);
   assert.deepEqual(out.host.filter((m) => m[2] > 0), [[0x94, 36, 100], [0x94, 36, 90], [0x94, 38, 80]]);
 });
+
+test('step sequencer: copy lane, rotate a lane with a held drum pad + encoder 1', () => {
+  const stepseq = require('../../addons/stepseq');
+  const { e, out, clear } = setup((c) => {
+    const ctl = c.pages[0].controls;
+    Object.assign(ctl['pad.0.0'], { type: 'addon', addon: { id: 'stepseq', action: 'hit', params: { seq: 'K', lane: '1', note: '36' } } });
+    Object.assign(ctl['pad.0.1'], { type: 'addon', addon: { id: 'stepseq', action: 'hit', params: { seq: 'K', lane: '2', note: '38' } } });
+    for (let step = 1; step <= 4; step++) Object.assign(ctl[`pad.7.${step - 1}`], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'K', lane: 'selected', step: String(step) } } });
+    Object.assign(ctl['pad.0.4'], { type: 'addon', addon: { id: 'stepseq', action: 'mod', params: { seq: 'K', mode: 'copy' } } });
+  }, [stepseq]);
+  const tap = (note, vel = 100) => (e.handlePushMessage([0x90, note, vel]), e.handlePushMessage([0x80, note, 0]));
+  tap(36);
+  tap(92); // lane 1 step 1
+  e.handlePushMessage([0x90, 40, 100]); // hold Copy
+  tap(36);
+  tap(37); // lane 1 -> lane 2
+  e.handlePushMessage([0x80, 40, 0]);
+  e.handlePushMessage([0x90, 37, 100]); // hold lane 2 pad
+  e.handlePushMessage([0xb0, 71, 1]); // rotate right by one step
+  e.handlePushMessage([0x80, 37, 0]);
+  clear();
+  e.handleHostMessage([0xfa]);
+  const at = [];
+  for (let i = 0; i < 24; i++) {
+    const n = out.host.length;
+    e.handleHostMessage([0xf8]);
+    for (const m of out.host.slice(n)) if (m[2] > 0) at.push([i / 6 + 1, m[1]]);
+  }
+  assert.deepEqual(at, [[1, 36], [2, 38]]);
+});
+
+test('review fixes: switching an add-on off releases its held pad; Shift + turn on a held step is fine, not lost', () => {
+  const stepseq = require('../../addons/stepseq');
+  const { e, out, clear } = setup((c) => {
+    const ctl = c.pages[0].controls;
+    Object.assign(ctl['pad.0.0'], { type: 'addon', addon: { id: 'stepseq', action: 'hit', params: { seq: 'R', lane: '1', note: '36' } } });
+    Object.assign(ctl['pad.7.0'], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'R', lane: 'selected', step: '1' } } });
+  }, [stepseq]);
+  e.handlePushMessage([0x90, 36, 100]); // drum pad held (note on in Live)
+  clear();
+  const cfg = JSON.parse(JSON.stringify(e.config));
+  cfg.settings.addons = { stepseq: false };
+  e.setConfig(cfg);
+  assert.deepEqual(out.host, [[0x94, 36, 0]]);
+  e.handlePushMessage([0x80, 36, 0]);
+  cfg.settings.addons = { stepseq: true };
+  e.setConfig(cfg);
+  // Step 1 on, then hold it with Shift and turn encoder 1 ten detents: +1 velocity in total.
+  e.handlePushMessage([0x90, 92, 100]);
+  e.handlePushMessage([0x80, 92, 0]);
+  e.handlePushMessage([0x90, 92, 100]); // hold the step, then Shift (Shift + press would clear the lane)
+  e.handlePushMessage([0xb0, 49, 127]);
+  for (let i = 0; i < 10; i++) e.handlePushMessage([0xb0, 71, 1]);
+  assert.match(e.addonStatus()[0], /vel 101/);
+  e.handlePushMessage([0xb0, 49, 0]);
+  e.handlePushMessage([0x80, 92, 0]);
+  assert.match(e.addonStatus()[0] || '', /Seq R/); // the step survived (it was edited)
+});

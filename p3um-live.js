@@ -367,19 +367,8 @@ function resolveLive(key) {
   if (!info) {
     reportLive(key, { ok: false });
     // A pad parameter can appear later: watch the Drum Rack's pad selection meanwhile.
-    var retry = retryPath(lt.spec);
-    if (retry) {
-      var firstRetry = true;
-      var wr = new LiveAPI(function () {
-        if (firstRetry) {
-          firstRetry = false;
-          return;
-        }
-        resolveLive(key);
-      }, retry.path);
-      wr.property = retry.prop;
-      lt.watchers.push(wr);
-    }
+    var retries = retryPaths(lt.spec);
+    for (var ri = 0; ri < retries.length; ri++) lt.watchers.push(retryWatcher(key, retries[ri]));
     return;
   }
   var cb = function () {
@@ -443,11 +432,31 @@ function resolveLive(key) {
   sendLive(key);
 }
 
-function retryPath(spec) {
-  if (spec.t !== 'param' || spec.target !== 'padParam') return null;
+// What to observe while a pad parameter cannot be found yet: the Drum Rack's pad selection, the
+// selected pad's chains (a Simpler dropped on an empty pad), or the track's devices (no Drum Rack yet).
+function retryPaths(spec) {
+  if (spec.t !== 'param' || spec.target !== 'padParam') return [];
   var tr = trackApi(spec.track);
-  var drum = tr ? findDrumRack(tr, spec.device) : null;
-  return drum ? { path: drum.unquotedpath + ' view', prop: 'selected_drum_pad' } : null;
+  if (!tr) return [];
+  var drum = findDrumRack(tr, spec.device);
+  if (!drum) return [{ path: tr.unquotedpath, prop: 'devices' }];
+  var out = [{ path: drum.unquotedpath + ' view', prop: 'selected_drum_pad' }];
+  var pad = new LiveAPI(drum.unquotedpath + ' view selected_drum_pad');
+  if (pad.id && pad.id != 0) out.push({ path: pad.unquotedpath, prop: 'chains' });
+  return out;
+}
+
+function retryWatcher(key, where) {
+  var first = true;
+  var w = new LiveAPI(function () {
+    if (first) {
+      first = false;
+      return;
+    }
+    resolveLive(key);
+  }, where.path);
+  w.property = where.prop;
+  return w;
 }
 
 function trackColor(trackId) {
@@ -653,7 +662,8 @@ function findParam(device, spec) {
     var idx = parseInt(s, 10);
     return idx < n ? device.unquotedpath + ' parameters ' + idx : null;
   }
-  var wanted = s.toLowerCase();
+  var wanted = s.toLowerCase().replace(/^\s+|\s+$/g, '');
+  if (!wanted) return null;
   var partial = null;
   for (var i = 0; i < n; i++) {
     var p = new LiveAPI(device.unquotedpath + ' parameters ' + i);

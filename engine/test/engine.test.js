@@ -621,3 +621,16 @@ test('editing a toggled-on note mapping sends its note off (no stuck notes)', ()
   assert.deepEqual(out.host, [[0x94, 40, 0]]);
   assert.equal(e.ctlState(0, 'pad.0.0').on, false);
 });
+
+test('switching an encoder between 7-bit and 14-bit starts from a fresh value (no jump)', () => {
+  const { e, out, clear } = setup();
+  e.handlePushMessage(SYSEX_USER);
+  e.handleHostMessage([0xb4, 71, 100]); // Live says 100 (7-bit)
+  const cfg = JSON.parse(JSON.stringify(e.config));
+  Object.assign(cfg.pages[0].controls['enc.1'], { mode: 'absolute14', number: 20 });
+  e.setConfig(cfg);
+  assert.equal(e.ctlState(0, 'enc.1').value, null);
+  clear();
+  e.handleHostMessage([0xb4, 20, 64]);
+  assert.equal(e.ctlState(0, 'enc.1').value, 64 * 128);
+});

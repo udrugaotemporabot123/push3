@@ -26,7 +26,12 @@ function parseQuery(url) {
   const q = String(url || '').split('?')[1] || '';
   for (const part of q.split('&')) {
     const [k, v] = part.split('=');
-    if (k) out[k] = decodeURIComponent(v || '');
+    if (!k) continue;
+    try {
+      out[k] = decodeURIComponent(v || '');
+    } catch (e) {
+      out[k] = ''; // malformed % escape: treat as no value
+    }
   }
   return out;
 }
@@ -61,7 +66,7 @@ function createServer({ port, lanPort, onClientMessage, getHello, log, onReady, 
   let lanToken = null;
   let lanServer = null;
 
-  const lanAuthorized = (req) => sameToken(parseQuery(req.url).k, lanToken) || sameToken(cookieValue(req, COOKIE), lanToken);
+  const lanAuthorized = (req) => !!lanServer && (sameToken(parseQuery(req.url).k, lanToken) || sameToken(cookieValue(req, COOKIE), lanToken));
 
   const handler = (lan) => (req, res) => {
     if (lan && !lanAuthorized(req)) {
@@ -69,7 +74,13 @@ function createServer({ port, lanPort, onClientMessage, getHello, log, onReady, 
       return;
     }
     if (lan && parseQuery(req.url).k) res.setHeader('Set-Cookie', `${COOKIE}=${lanToken}; HttpOnly; SameSite=Strict; Path=/`);
-    const url = decodeURIComponent((req.url || '/').split('?')[0]);
+    let url;
+    try {
+      url = decodeURIComponent((req.url || '/').split('?')[0]);
+    } catch (e) {
+      res.writeHead(400).end();
+      return;
+    }
     const rel = url === '/' ? 'index.html' : url.replace(/^\/+/, '');
     const file = path.normalize(path.join(EDITOR_DIR, rel));
     if (!file.startsWith(EDITOR_DIR)) {
@@ -167,6 +178,7 @@ function createServer({ port, lanPort, onClientMessage, getHello, log, onReady, 
       lanServer.listen(lanPort, '0.0.0.0', () => log('info', `Editor on the local network: port ${lanPort}`));
     } else if (!enabled && lanServer) {
       lanServer.close();
+      if (lanServer.closeAllConnections) lanServer.closeAllConnections(); // also kept-alive ones
       lanServer = null;
       for (const c of clients) if (c.lan) c.ws.close();
     }

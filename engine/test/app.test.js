@@ -46,6 +46,7 @@ test('app starts, serves the editor, accepts a config and saves it', async () =>
     const page = await waitFor(() => get(port, '/').then((r) => r.status === 200 && r));
     assert.ok(page.body.includes('Push 3'));
     assert.notEqual((await get(port, '/../package.json')).status, 200); // no access outside editor/
+    assert.equal((await get(port, '/%E0')).status, 400); // malformed URL is answered, not left hanging
 
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
     const hello = await new Promise((resolve, reject) => {
@@ -77,6 +78,7 @@ test('app starts, serves the editor, accepts a config and saves it', async () =>
     assert.ok(token.length >= 12);
     await waitFor(() => get(lanPort, '/').then((r) => r.status === 401));
     assert.equal((await get(lanPort, '/?k=wrong-token-123')).status, 401);
+    assert.equal((await get(lanPort, '/?k=%E0')).status, 401);
     assert.equal((await get(lanPort, `/?k=${token}`)).status, 200);
     const tablet = new WebSocket(`ws://127.0.0.1:${lanPort}/ws?k=${token}`);
     const tabletHello = await new Promise((resolve, reject) => {
