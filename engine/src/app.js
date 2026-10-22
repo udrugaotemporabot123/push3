@@ -11,7 +11,7 @@ const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 const { loadAddons } = require('../../addons');
 
-const VERSION = '0.24.0';
+const VERSION = '0.25.0';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -138,7 +138,18 @@ function start() {
       log: recentLog.slice(-50),
       inMax: !!max,
       addons: addonInfo,
+      lan: server ? server.lanInfo() : { enabled: false, urls: [] },
     };
+  }
+
+  // Editor on the tablet (opt-in). Only the computer itself may switch it on/off or renew the token.
+  const lan = safe(() => store.loadLan(), { enabled: false, token: null });
+  const newToken = () => require('crypto').randomBytes(12).toString('base64url');
+  if (!lan.token) lan.token = newToken();
+  function applyLan() {
+    server.setLan(lan.enabled, lan.token);
+    safe(() => store.saveLan(lan));
+    server.broadcast({ t: 'lan', lan: server.lanInfo() });
   }
 
   function onClientMessage(msg, client) {
@@ -169,6 +180,15 @@ function start() {
       }
       case 'monitor':
         client.monitor = !!msg.on;
+        break;
+      case 'lan':
+        if (client.lan) break;
+        if (msg.renew) {
+          server.setLan(false);
+          lan.token = newToken();
+        }
+        lan.enabled = msg.on === undefined ? lan.enabled : !!msg.on;
+        applyLan();
         break;
       case 'display':
         client.display = !!msg.on;
@@ -237,6 +257,7 @@ function start() {
   let started = false;
   server = createServer({
     port: EDITOR_PORT,
+    lanPort: EDITOR_PORT + 1,
     onClientMessage,
     getHello: hello,
     log,
@@ -247,6 +268,7 @@ function start() {
   function bootMidi(ok) {
     if (started) return;
     started = true;
+    if (ok && lan.enabled) applyLan();
     if (!ok) {
       log('error', `Another Push3 User Mode instance seems to be running (port ${EDITOR_PORT} busy). This instance stays idle.`);
       if (max) max.outlet('status', 'Idle: another instance is running').catch(() => {});

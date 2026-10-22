@@ -55,6 +55,9 @@ Max for Live device + editor koji od Push 3 **User moda** radi potpuno podesiv M
 
 Konfiguracija se sprema automatski u `~/Documents/Push3UserMode/config.json` (preseti u `presets/`, a najviše jednom u 10 minuta i automatske sigurnosne kopije u `backups/`, zadnjih 20).
 
+### Editor s tableta (v0.25)
+*Postavke → Pristup s tableta → Editor na mreži: Uključen.* Editor pokaže link (npr. `http://192.168.1.20:47392/?k=…`): otvori ga na tabletu u istoj Wi-Fi mreži. Link sadrži tajni ključ; *Novi ključ* poništi stari link. macOS može prvi put pitati smije li Max primati veze: dopusti. Uključiti/isključiti se može samo na računalu, a postavka se ne sprema u presete. Editor na računalu i dalje prima veze samo od sebe (web stranice drugih sajtova ne mogu upravljati tvojim Pushom).
+
 ## Zadano mapiranje
 
 | Kontrola | Šalje |

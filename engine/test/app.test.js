@@ -62,6 +62,33 @@ test('app starts, serves the editor, accepts a config and saves it', async () =>
     ws.send(JSON.stringify({ t: 'setConfig', config: cfg }));
     const file = path.join(dir, 'config.json');
     await waitFor(() => fs.existsSync(file) && JSON.parse(fs.readFileSync(file, 'utf8')).pages[0].name === 'Saved OK');
+
+    // A web page from another site must not get in.
+    const foreign = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { Origin: 'http://evil.example' } });
+    await assert.rejects(new Promise((resolve, reject) => (foreign.on('open', resolve), foreign.on('error', reject))));
+
+    // LAN access is off until switched on from the computer; then it needs the token.
+    const lanPort = port + 1;
+    await assert.rejects(get(lanPort, '/'));
+    const lanMsg = new Promise((resolve) => ws.on('message', (m) => JSON.parse(m.toString()).t === 'lan' && resolve(JSON.parse(m.toString()).lan)));
+    ws.send(JSON.stringify({ t: 'lan', on: true }));
+    assert.equal((await lanMsg).enabled, true);
+    const token = JSON.parse(fs.readFileSync(path.join(dir, 'lan.json'), 'utf8')).token;
+    assert.ok(token.length >= 12);
+    await waitFor(() => get(lanPort, '/').then((r) => r.status === 401));
+    assert.equal((await get(lanPort, '/?k=wrong-token-123')).status, 401);
+    assert.equal((await get(lanPort, `/?k=${token}`)).status, 200);
+    const tablet = new WebSocket(`ws://127.0.0.1:${lanPort}/ws?k=${token}`);
+    const tabletHello = await new Promise((resolve, reject) => {
+      tablet.on('message', (m) => JSON.parse(m.toString()).t === 'hello' && resolve(true));
+      tablet.on('error', reject);
+    });
+    assert.ok(tabletHello);
+    const noKey = new WebSocket(`ws://127.0.0.1:${lanPort}/ws`);
+    await assert.rejects(new Promise((resolve, reject) => (noKey.on('open', resolve), noKey.on('error', reject))));
+    tablet.send(JSON.stringify({ t: 'lan', on: false })); // the tablet cannot switch it off
+    ws.send(JSON.stringify({ t: 'lan', on: false }));
+    await waitFor(() => get(lanPort, '/').then(() => false, () => true));
     ws.close();
   } finally {
     child.kill('SIGTERM');

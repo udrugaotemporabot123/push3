@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.25.0 – 2026-10-22
+Editor s tableta (opt-in, link s tajnim ključem); lokalni editor odbija veze s drugih web stranica.
+
 ## v0.24.0 – 2026-10-22
 Ekran: status add-ona (sekvencer korak/REC, sampler cilj, looper broj loopova), imena akcija na gumbima; Looper: obriši sve (Shift).
 

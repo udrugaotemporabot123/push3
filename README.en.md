@@ -27,6 +27,7 @@ Live-aware extras. *(Hrvatski: [README.md](README.md))*
   (8 racks × 8), Clip grid, Transport, Looper, Sampler, Step sequencer.
 - **Add-ons** (optional, can't crash the core): Live Looper, Sampler (record → straight into the next
   empty Simpler of a Drum Rack), Step sequencer (lanes × steps on Live's clock).
+- **Editor from a tablet** (opt-in, token-protected link on the local network); the local editor refuses connections from other websites.
 - Presets, import/export, copy/paste, undo/redo, MIDI monitor, setup check, rotating backups.
 
 ## Install

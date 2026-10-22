@@ -78,6 +78,7 @@ function shiftDefaults(ctl) {
 // Connection
 
 function connect() {
+  if (/[?&]k=/.test(location.search)) history.replaceState(null, '', location.pathname); // the token now lives in a cookie
   const ws = new WebSocket(`ws://${location.host}/ws`);
   S.ws = ws;
   ws.onmessage = (ev) => handle(JSON.parse(ev.data));
@@ -101,6 +102,7 @@ function handle(m) {
       S.snapshot = m.snapshot;
       S.leds = { ...m.snapshot.leds };
       S.presets = m.presets || [];
+      S.lan = m.lan || { enabled: false, urls: [] };
       S.meta = { virtualPort: m.virtualPort, configFile: m.configFile, version: m.version, inMax: m.inMax, ports: m.ports, addons: m.addons || [] };
       buildSurface();
       renderAll();
@@ -137,6 +139,10 @@ function handle(m) {
       S.palette = m.palette;
       updateAllCtls();
       renderInspector();
+      break;
+    case 'lan':
+      S.lan = m.lan;
+      renderLan();
       break;
     case 'presets':
       S.presets = m.presets;
@@ -1278,9 +1284,34 @@ function renderSettings() {
       el('li', {}, 'Za sviranje: na MIDI tracku postavi MIDI From = ', el('code', {}, vp), ' i kanal stranice.'),
     ),
     el('p', { class: 'muted small' }, S.meta && S.meta.ports ? `MIDI portovi: ${S.meta.ports.inputs.join(', ')}` : ''),
+    el('h4', {}, 'Pristup s tableta'),
+    el('div', { id: 'lanBox', class: 'small' }),
   );
   b.append(el('div', { class: 'settings-grid' }, left, right));
   renderHealth();
+  renderLan();
+}
+
+const isLocalEditor = () => ['127.0.0.1', 'localhost'].includes(location.hostname);
+
+function renderLan() {
+  const box = $('#lanBox');
+  if (!box) return;
+  box.innerHTML = '';
+  const lan = S.lan || { enabled: false, urls: [] };
+  if (!isLocalEditor()) {
+    box.append(el('p', { class: 'muted' }, 'Spojen si preko lokalne mreže. Uključivanje i isključivanje je moguće samo na računalu.'));
+    return;
+  }
+  box.append(
+    el('p', { class: 'muted' }, 'Uređuj s tableta ili mobitela u istoj Wi-Fi mreži. Isključeno dok ga ne uključiš; link sadrži tajni ključ, pa ga ne dijeli.'),
+    field('Editor na mreži', selectEl({ false: 'Isključen', true: 'Uključen' }, String(lan.enabled), (v) => send({ t: 'lan', on: v === 'true' }))),
+  );
+  if (lan.enabled) {
+    if (!lan.urls.length) box.append(el('p', { class: 'muted' }, 'Računalo nije spojeno ni na jednu mrežu.'));
+    for (const u of lan.urls) box.append(el('p', {}, el('code', { style: 'user-select:all;word-break:break-all' }, u)));
+    box.append(el('div', { class: 'btnrow' }, el('button', { onclick: () => confirm('Novi ključ: stari link prestaje raditi. Nastaviti?') && send({ t: 'lan', renew: true }) }, 'Novi ključ')));
+  }
 }
 
 function exportConfig() {

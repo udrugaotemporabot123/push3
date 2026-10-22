@@ -124,4 +124,21 @@ function saveAddonState(id, data) {
   }
 }
 
-module.exports = { DIR, FILE, load, save, listPresets, savePreset, loadPreset, deletePreset, loadAddonState, saveAddonState };
+// LAN access for the editor (kept out of config.json so presets can never switch it on).
+const LAN_FILE = path.join(DIR, 'lan.json');
+
+function loadLan() {
+  const v = readJson(LAN_FILE);
+  return v && typeof v === 'object' ? { enabled: v.enabled === true, token: typeof v.token === 'string' && /^[\w-]{12,64}$/.test(v.token) ? v.token : null } : { enabled: false, token: null };
+}
+
+function saveLan(lan) {
+  try {
+    ensureDirs();
+    writeAtomic(LAN_FILE, JSON.stringify({ enabled: !!lan.enabled, token: lan.token }));
+  } catch (e) {
+    /* best effort */
+  }
+}
+
+module.exports = { DIR, FILE, load, save, listPresets, savePreset, loadPreset, deletePreset, loadAddonState, saveAddonState, loadLan, saveLan };
