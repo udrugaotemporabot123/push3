@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.34.0 – 2026-10-22
+Novi add-on XY FX: padovi kao XY površina za dva parametra efekta (križić prati Live, vraćanje kad pustiš).
+
 ## v0.33.0 – 2026-10-22
 Editor: traženje kontrola (ime, oznaka, broj), pomicanje/brisanje stranica čuva MIDI kanale.
 

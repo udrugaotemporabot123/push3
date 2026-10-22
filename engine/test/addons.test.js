@@ -389,3 +389,31 @@ test('step sequencer: pattern slots switch at the loop end, Shift copies', () =>
   assert.deepEqual(hits, [1, 0, 1, 1]);
   assert.match(e.addonStatus()[0], /pat B/);
 });
+
+test('xy fx: pads set two Live parameters, crosshair follows Live, spring returns', () => {
+  const xyfx = require('../../addons/xyfx');
+  const { e, out, clear } = setup((c) => {
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        Object.assign(c.pages[0].controls[`pad.${row}.${col}`], { type: 'addon', addon: { id: 'xyfx', action: 'xy', params: { track: 'FX', device: 'Auto Filter', xParam: 'Frequency', yParam: 'Resonance', col: String(col + 1), row: String(row + 1), spring: 'yes' } } });
+      }
+    }
+  }, [xyfx]);
+  const xKey = live.liveKey({ t: 'param', target: 'named', track: 'FX', device: 'Auto Filter', param: 'Frequency' });
+  const yKey = live.liveKey({ t: 'param', target: 'named', track: 'FX', device: 'Auto Filter', param: 'Resonance' });
+  e.handleLiveState({ type: 'live', key: xKey, ok: true, value: 0, name: 'Frequency', display: '20 Hz' });
+  e.handleLiveState({ type: 'live', key: yKey, ok: true, value: 0, name: 'Resonance', display: '0 %' });
+  clear();
+  e.handlePushMessage([0x90, 36 + 2 * 8 + 7, 100]); // row 3, col 8 -> x = 1, y = 2/7
+  const sets = out.live.filter((c) => c.cmd === 'liveSet');
+  assert.deepEqual(sets.map((c) => [c.key, Math.round(c.value * 70) / 70]), [[xKey, 1], [yKey, 2 / 7]]);
+  e.handleLiveState({ type: 'live', key: xKey, ok: true, value: 1, name: 'Frequency', display: '18 kHz' });
+  e.handleLiveState({ type: 'live', key: yKey, ok: true, value: 2 / 7, name: 'Resonance', display: '29 %' });
+  assert.match(e.addonStatus()[0], /XY Frequency 18 kHz · Resonance 29 %/);
+  // Crosshair: pad (row 3, col 1) is on the line, (row 1, col 1) is off.
+  const ledOf = (note) => out.push.filter((m) => (m[0] & 0xf0) === 0x90 && m[1] === note).at(-1);
+  assert.equal(ledOf(36 + 16)[2], 45);
+  clear();
+  e.handlePushMessage([0x80, 36 + 2 * 8 + 7, 0]); // spring: back to 0 / 0
+  assert.deepEqual(out.live.filter((c) => c.cmd === 'liveSet').map((c) => c.value), [0, 0]);
+});

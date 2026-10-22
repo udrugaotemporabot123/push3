@@ -76,6 +76,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.31.0 Live encoder target padParam: a parameter of the device on the Drum Rack's selected pad (follows selection, recovers from empty pads, partial name match); sampler templates map encoders 1-8 to the pad's Simpler
 - [x] v0.32.0 Sequencer pattern slots A–H (queued switch at loop end, Shift = copy), in the Drum sequencer template
 - [x] v0.33.0 Editor search (name/label/number, all pages, Enter selects matches), page move/delete freezes automatic channels so Live mappings keep working
+- [x] v0.34.0 XY FX add-on: pad grid as XY surface for two named Live parameters (crosshair LEDs from Live, multi-pad hold, spring return), template XY FX 8x8
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.

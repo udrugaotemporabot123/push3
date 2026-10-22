@@ -1216,6 +1216,26 @@ const TEMPLATES = {
       return r;
     },
   },
+  xyfx: {
+    name: 'XY FX (8×8)',
+    help: 'Padovi su XY površina za dva parametra jednog efekta: stupac = X, red = Y (dolje = 0). Križić prati vrijednosti iz Livea. "Vrati se" = kad pustiš, efekt se vrati gdje je bio (bacanja efekta). Primjer: Auto Filter, Frequency / Resonance.',
+    ask: [
+      { key: 'track', label: 'Track s efektom', default: 'selected' },
+      { key: 'device', label: 'Device (ime, npr. Auto Filter)', default: 'selected' },
+      { key: 'xParam', label: 'X parametar (ime ili broj)', default: 'Frequency' },
+      { key: 'yParam', label: 'Y parametar (ime ili broj)', default: 'Resonance' },
+      { key: 'spring', label: 'Vrati se kad pustiš? (yes/no)', default: 'no' },
+    ],
+    apply(a) {
+      const r = {};
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          r[`pad.${row}.${col}`] = { type: 'addon', addon: { id: 'xyfx', action: 'xy', params: { track: a.track, device: a.device, xParam: a.xParam, yParam: a.yParam, col: String(col + 1), row: String(row + 1), size: '8', spring: a.spring === 'yes' ? 'yes' : 'no' } } };
+        }
+      }
+      return r;
+    },
+  },
   samplerPads: {
     name: 'Sampler + Drum Rack 4×4',
     help: 'Donji lijevi 4×4 padovi sviraju Drum Rack (note 36–51); Shift + pad = odaberi taj pad kao cilj; Capture = snimi u odabrani pad; New = zadnji clip u odabrani pad. Gumbi ispod ekrana 1–5: Reverse, Crop, One-Shot, Classic, Warp za uzorak na odabranom padu; enkoderi 1–8: Start, Length, Transpose, Volume, Filter, Res, Attack, Release njegovog Simplera.',
