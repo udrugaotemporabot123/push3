@@ -18,7 +18,7 @@ const T = {
   types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)' },
   liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka', trackPrev: '◀ Prethodni track', trackNext: 'Sljedeći track ▶', scenePrev: '▲ Prethodna scena', sceneNext: 'Sljedeća scena ▼', devicePrev: '◀ Prethodni device', deviceNext: 'Sljedeći device ▶' },
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
-  liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', tempo: 'Tempo' },
+  liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', padParam: 'Parametar odabranog drum pada (Simpler)', tempo: 'Tempo' },
   behaviors: { momentary: 'Momentary (dok držiš)', toggle: 'Toggle (uklj/isklj)', trigger: 'Trigger (jedan impuls)' },
   encModes: { absolute: 'Apsolutno (0–127, s povratnom info)', absolute14: 'Apsolutno 14-bit (CC 0–31 + LSB)', relative2c: 'Relativno – 2’s complement', relativeOffset: 'Relativno – offset 64', steps: 'Koraci (gore/dolje kao gumbi)' },
   anims: { none: 'Bez', 'pulse-slow': 'Pulsira sporo', pulse: 'Pulsira', 'pulse-fast': 'Pulsira brzo', 'blink-slow': 'Blinka sporo', blink: 'Blinka', 'blink-fast': 'Blinka brzo' },
@@ -776,6 +776,10 @@ function renderLiveEncoderFields(box, maps) {
   box.append(field('Cilj', selectEl(T.liveTargets, target, (v) => setLive('target', v))));
   if (target !== 'tempo') box.append(field('Track', textEl(common(maps, (m) => m.live && m.live.track), (v) => setLive('track', v.trim() || 'selected'), 'selected'), 'selected = odabrani track, broj ili ime'));
   if (target === 'macro') box.append(field('Rack', textEl(common(maps, (m) => m.live && m.live.device), (v) => setLive('device', v.trim() || 'first'), 'first'), 'first = prvi rack, ili ime racka'));
+  if (target === 'padParam') {
+    box.append(field('Drum Rack', textEl(common(maps, (m) => m.live && m.live.device), (v) => setLive('device', v.trim() || 'first'), 'first'), 'first = prvi Drum Rack na tracku, ili ime'));
+    box.append(field('Parametar', textEl(common(maps, (m) => m.live && m.live.param), (v) => setLive('param', v.trim() || '1'), 'npr. Transpose'), 'Ime parametra uređaja na odabranom padu (dovoljan je dio imena) ili broj'));
+  }
   if (target === 'named') {
     box.append(field('Device', textEl(common(maps, (m) => m.live && m.live.device), (v) => setLive('device', v.trim() || 'selected'), 'selected'), 'Ime devicea (traži i unutar rackova), "first" ili "selected"'));
     box.append(field('Parametar', textEl(common(maps, (m) => m.live && m.live.param), (v) => setLive('param', v.trim() || '1'), 'npr. Dry/Wet'), 'Ime parametra ili broj (1 = prvi)'));
@@ -935,6 +939,8 @@ function renderLiveTargetFields(box, maps, key) {
   const target = get('target') || 'volume';
   box.append(field('Live cilj', selectEl(T.liveTargets, target, (v) => set('target', v))));
   if (target !== 'tempo') box.append(field('Track', textEl(get('track'), (v) => set('track', v.trim() || 'selected'), 'selected')));
+  if (target === 'padParam') box.append(field('Drum Rack', textEl(get('device'), (v) => set('device', v.trim() || 'first'), 'first')));
+  if (target === 'padParam') box.append(field('Parametar', textEl(get('param'), (v) => set('param', v.trim() || '1'), 'npr. Transpose')));
   if (target === 'macro' || target === 'named') box.append(field(target === 'macro' ? 'Rack' : 'Device', textEl(get('device'), (v) => set('device', v.trim() || 'first'), 'first')));
   if (['send', 'macro', 'deviceParam'].includes(target)) box.append(field('Broj', numEl(get('index'), 1, 128, (v) => set('index', v))));
   if (target === 'named') box.append(field('Parametar', textEl(get('param'), (v) => set('param', v.trim() || '1'), 'npr. Frequency')));
@@ -999,11 +1005,24 @@ const NAV_BUTTONS = () => {
 };
 
 // One-click page templates built from Live-aware mappings (no MIDI mapping needed).
-// Lower display buttons 1-5: edit the sample on the selected Drum Rack pad.
+// Lower display buttons 1-5 edit the sample on the selected Drum Rack pad; encoders 1-8 its Simpler.
 function simplerButtons(target) {
   const r = {};
   ['reverse', 'crop', 'oneshot', 'classic', 'warp'].forEach((op, i) => {
     r[`lower.${i + 1}`] = { type: 'addon', label: { reverse: 'Reverse', crop: 'Crop', oneshot: 'One-Shot', classic: 'Classic', warp: 'Warp' }[op], addon: { id: 'sampler', action: 'simpler', params: { target, rack: 'first', op } } };
+  });
+  // Encoders follow the selected pad's Simpler (names as Live shows them; a part of the name is enough).
+  [
+    ['S Start', 'Start'],
+    ['S Length', 'Length'],
+    ['Transpose', 'Transpose'],
+    ['Volume', 'Volume'],
+    ['Filter Freq', 'Filter'],
+    ['Filter Res', 'Res'],
+    ['Ve Attack', 'Attack'],
+    ['Ve Release', 'Release'],
+  ].forEach(([param, label], i) => {
+    r[`enc.${i + 1}`] = { type: 'live', label, live: { target: 'padParam', track: target, device: 'first', index: 1, param } };
   });
   return r;
 }
@@ -1141,7 +1160,7 @@ const TEMPLATES = {
   },
   seqDrum: {
     name: 'Drum sekvencer 16 padova + 32 koraka (+ Sampler)',
-    help: 'Donji lijevi 4×4 = drum padovi (note 36–51): udarac svira i odabire traku. Gornja 4 reda = 32 koraka odabrane trake (Shift + korak briše traku). Scene 1 = Play/Stop, Scene 2 = snimanje udaraca (svira dok Live svira, upisuje u najbliži korak), Scene 8 = obriši. Donji red desno: drži Length + korak = duljina loopa, drži Euclid + korak N = N udaraca ravnomjerno, drži Chance + korak = vjerojatnost (100/75/50/25 %), Double = udvostruči loop. Shift + drum pad = ciljni pad za Sampler, Capture = snimi u njega; gumbi ispod ekrana 1–5 uređuju uzorak (Reverse, Crop, One-Shot, Classic, Warp).',
+    help: 'Donji lijevi 4×4 = drum padovi (note 36–51): udarac svira i odabire traku. Gornja 4 reda = 32 koraka odabrane trake (Shift + korak briše traku). Scene 1 = Play/Stop, Scene 2 = snimanje udaraca (svira dok Live svira, upisuje u najbliži korak), Scene 8 = obriši. Donji red desno: drži Length + korak = duljina loopa, drži Euclid + korak N = N udaraca ravnomjerno, drži Chance + korak = vjerojatnost (100/75/50/25 %), Double = udvostruči loop. Shift + drum pad = ciljni pad za Sampler, Capture = snimi u njega; gumbi ispod ekrana 1–5 uređuju uzorak (Reverse, Crop, One-Shot, Classic, Warp), enkoderi 1–8 Simpler odabranog pada (dok držiš korak, enkoderi 1–3 uređuju korak).',
     ask: [
       { key: 'source', label: 'Track koji snima (npr. mic in - sampling)', default: 'selected' },
       { key: 'target', label: 'Track s Drum Rackom', default: 'selected' },
@@ -1172,7 +1191,7 @@ const TEMPLATES = {
   },
   samplerPads: {
     name: 'Sampler + Drum Rack 4×4',
-    help: 'Donji lijevi 4×4 padovi sviraju Drum Rack (note 36–51); Shift + pad = odaberi taj pad kao cilj; Capture = snimi u odabrani pad; New = zadnji clip u odabrani pad. Gumbi ispod ekrana 1–5: Reverse, Crop, One-Shot, Classic, Warp za uzorak na odabranom padu.',
+    help: 'Donji lijevi 4×4 padovi sviraju Drum Rack (note 36–51); Shift + pad = odaberi taj pad kao cilj; Capture = snimi u odabrani pad; New = zadnji clip u odabrani pad. Gumbi ispod ekrana 1–5: Reverse, Crop, One-Shot, Classic, Warp za uzorak na odabranom padu; enkoderi 1–8: Start, Length, Transpose, Volume, Filter, Res, Attack, Release njegovog Simplera.',
     ask: [
       { key: 'source', label: 'Track koji snima (npr. mic in - sampling)', default: 'selected' },
       { key: 'target', label: 'Track s Drum Rackom', default: 'selected' },

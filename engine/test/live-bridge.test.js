@@ -106,7 +106,7 @@ function makeLive() {
     }
     set(k, ...v) {
       this.o.props[k] = v[0] === 'id' ? v[1] : v[0];
-      for (const ob of observers) if (ob.o === this.o && ob._prop === k) ob.cb([k]);
+      for (const ob of [...observers]) if (ob.o === this.o && ob._prop === k) ob.cb([k]); // like Live: only observers that existed at the change
     }
     call(fn, ...args) {
       calls.push([this.o.props.name || 'song', fn, ...args]);
@@ -396,4 +396,27 @@ test('bridge: recordings load as One-Shot; Simpler edits act on the selected pad
   assert.equal(sim.children.sample.props.warping, 1);
   edit('warp');
   assert.equal(sim.children.sample.props.warping, 0);
+});
+
+test('bridge: padParam follows the Drum Rack pad selection, also from an empty pad', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  const p = (name, value) => live.obj({ name, value, min: 0, max: 1, is_quantized: 0 });
+  live.pads[0].children.chains[0].children.devices[0].children.parameters = [p('S Start', 0), p('Transpose', 0.5)];
+  live.pads[2].children.chains[0].children.devices[0].children.parameters = [p('S Start', 0), p('Transpose', 0.2)];
+  const spec = { t: 'param', target: 'padParam', track: 'Bass', device: 'first', param: 'transpose' };
+  b.live(JSON.stringify({ cmd: 'watchLive', targets: { p: spec } }));
+  let st = states(b.out).at(-1);
+  assert.deepEqual([st.ok, st.value, st.name], [true, 0.5, 'Transpose']);
+  const view = new live.LiveAPI('live_set tracks 0 devices 0 view');
+  view.set('selected_drum_pad', 'id', live.pads[2].id);
+  assert.equal(states(b.out).at(-1).value, 0.2);
+  view.set('selected_drum_pad', 'id', live.pads[1].id); // empty pad: nothing to control
+  assert.equal(states(b.out).at(-1).ok, false);
+  view.set('selected_drum_pad', 'id', live.pads[0].id); // back to a Simpler: found again
+  st = states(b.out).at(-1);
+  assert.deepEqual([st.ok, st.value], [true, 0.5]);
+  b.live(JSON.stringify({ cmd: 'liveSet', key: 'p', spec, value: 0.75 }));
+  assert.equal(live.pads[0].children.chains[0].children.devices[0].children.parameters[1].props.value, 0.75);
 });

@@ -4,7 +4,7 @@
 
 const BUTTON_ACTIONS = ['mute', 'solo', 'arm', 'select', 'scene', 'play', 'stop', 'record', 'metronome', 'overdub', 'tap', 'undo', 'redo', 'capture', 'param', 'clip', 'clipDelete', 'stopTrack', 'trackPrev', 'trackNext', 'scenePrev', 'sceneNext', 'devicePrev', 'deviceNext'];
 const PARAM_MODES = ['toggle', 'momentary', 'trigger'];
-const ENCODER_TARGETS = ['volume', 'pan', 'send', 'macro', 'deviceParam', 'named', 'tempo'];
+const ENCODER_TARGETS = ['volume', 'pan', 'send', 'macro', 'deviceParam', 'named', 'padParam', 'tempo'];
 
 // What to observe for a button action (null = nothing to show).
 function specForButton(live) {
@@ -43,7 +43,7 @@ function specForEncoder(live) {
     spec.index = live.index;
   }
   if (live.target === 'deviceParam') spec.index = live.index;
-  if (live.target === 'named') {
+  if (live.target === 'named' || live.target === 'padParam') {
     spec.device = live.device;
     spec.param = live.param;
   }

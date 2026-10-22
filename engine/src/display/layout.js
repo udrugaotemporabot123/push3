@@ -19,7 +19,7 @@ const GREY = [110, 116, 124];
 const DIM = [52, 56, 62];
 const WHITE = [235, 238, 240];
 
-const LIVE_LABELS = { mute: 'Mute', solo: 'Solo', arm: 'Arm', select: 'Select', scene: 'Scene', play: 'Play', stop: 'Stop', record: 'Rec', metronome: 'Metro', overdub: 'Overdub', tap: 'Tap', undo: 'Undo', redo: 'Redo', capture: 'Capture', volume: 'Volume', pan: 'Pan', send: 'Send', macro: 'Macro', deviceParam: 'Param', tempo: 'Tempo' };
+const LIVE_LABELS = { mute: 'Mute', solo: 'Solo', arm: 'Arm', select: 'Select', scene: 'Scene', play: 'Play', stop: 'Stop', record: 'Rec', metronome: 'Metro', overdub: 'Overdub', tap: 'Tap', undo: 'Undo', redo: 'Redo', capture: 'Capture', volume: 'Volume', pan: 'Pan', send: 'Send', macro: 'Macro', deviceParam: 'Param', padParam: 'Pad', tempo: 'Tempo' };
 
 function hexToRgb(hex) {
   const s = String(hex || '000000');

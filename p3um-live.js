@@ -335,6 +335,14 @@ function livePath(spec) {
         return { path: rack.unquotedpath + ' parameters ' + (spec.index | 0), prop: 'value', param: true, trackId: tr.id };
       case 'deviceParam':
         return { path: base + ' view selected_device parameters ' + (spec.index | 0), prop: 'value', param: true, trackId: tr.id, viewPath: base + ' view' };
+      case 'padParam':
+        // A parameter of the first device on the Drum Rack's selected pad (e.g. its Simpler).
+        var drum = findDrumRack(tr, spec.device);
+        if (!drum) return null;
+        var pdev = padDevice(new LiveAPI(drum.unquotedpath + ' view selected_drum_pad'));
+        var ppar = pdev ? findParam(pdev, spec.param) : null;
+        if (!ppar) return null;
+        return { path: ppar, prop: 'value', param: true, trackId: tr.id, viewPath: drum.unquotedpath + ' view', viewProp: 'selected_drum_pad' };
       case 'named':
         var dev = findDevice(tr, spec.device);
         if (!dev) return null;
@@ -358,6 +366,20 @@ function resolveLive(key) {
   lt.info = info;
   if (!info) {
     reportLive(key, { ok: false });
+    // A pad parameter can appear later: watch the Drum Rack's pad selection meanwhile.
+    var retry = retryPath(lt.spec);
+    if (retry) {
+      var firstRetry = true;
+      var wr = new LiveAPI(function () {
+        if (firstRetry) {
+          firstRetry = false;
+          return;
+        }
+        resolveLive(key);
+      }, retry.path);
+      wr.property = retry.prop;
+      lt.watchers.push(wr);
+    }
     return;
   }
   var cb = function () {
@@ -415,10 +437,17 @@ function resolveLive(key) {
       }
       resolveLive(key);
     }, info.viewPath);
-    wd.property = 'selected_device';
+    wd.property = info.viewProp || 'selected_device';
     lt.watchers.push(wd);
   }
   sendLive(key);
+}
+
+function retryPath(spec) {
+  if (spec.t !== 'param' || spec.target !== 'padParam') return null;
+  var tr = trackApi(spec.track);
+  var drum = tr ? findDrumRack(tr, spec.device) : null;
+  return drum ? { path: drum.unquotedpath + ' view', prop: 'selected_drum_pad' } : null;
 }
 
 function trackColor(trackId) {
@@ -625,11 +654,14 @@ function findParam(device, spec) {
     return idx < n ? device.unquotedpath + ' parameters ' + idx : null;
   }
   var wanted = s.toLowerCase();
+  var partial = null;
   for (var i = 0; i < n; i++) {
     var p = new LiveAPI(device.unquotedpath + ' parameters ' + i);
-    if (str(p.get('name')).toLowerCase() === wanted) return device.unquotedpath + ' parameters ' + i;
+    var pname = str(p.get('name')).toLowerCase();
+    if (pname === wanted) return device.unquotedpath + ' parameters ' + i;
+    if (partial === null && pname.indexOf(wanted) >= 0) partial = device.unquotedpath + ' parameters ' + i;
   }
-  return null;
+  return partial;
 }
 
 function slotState(slot) {
@@ -728,6 +760,13 @@ function findDrumRack(track, name) {
     if (!wanted || str(d.get('name')).toLowerCase() === wanted) return d;
   }
   return null;
+}
+
+// First device in the pad's first chain (whatever it is).
+function padDevice(pad) {
+  if (!pad || !pad.id || pad.id == 0 || pad.getcount('chains') < 1) return null;
+  var d = new LiveAPI(pad.unquotedpath + ' chains 0 devices 0');
+  return d.id && d.id != 0 ? d : null;
 }
 
 // First Simpler in the pad's first chain.

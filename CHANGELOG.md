@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.31.0 – 2026-10-22
+Enkoderi prate odabrani drum pad (Simpler: Start, Length, Transpose, Volume, Filter, Res, Attack, Release).
+
 ## v0.30.0 – 2026-10-22
 Sampler: snimke kao One-Shot, uređivanje uzorka na odabranom padu (Reverse, Crop, One-Shot/Classic/Slice, Warp).
 
