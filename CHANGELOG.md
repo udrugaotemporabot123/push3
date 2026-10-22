@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.49.1 – 2026-10-22
+Popravak: Live API most se sada uvijek javi (i nakon Restarta); gumb Predlošci u editoru.
+
 ## v0.49.0 – 2026-10-22
 Looper: zaustavi sve clipove.
 

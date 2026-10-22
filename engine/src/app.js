@@ -11,7 +11,7 @@ const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 const { loadAddons } = require('../../addons');
 
-const VERSION = '0.49.0';
+const VERSION = '0.49.1';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -306,9 +306,21 @@ function start() {
       }
     });
     max.addHandler('bridgeReady', () => {
+      const first = !engine.health.bridgeReady;
       engine.health.bridgeReady = true;
-      engine.syncVariationTargets();
+      if (bridgePing) clearInterval(bridgePing);
+      bridgePing = null;
+      if (first) {
+        log('info', 'Live API bridge ready');
+        engine.syncVariationTargets();
+      }
     });
+    // Ask the bridge until it answers (its own "ready" can arrive before Node listens).
+    let bridgePing = setInterval(() => {
+      if (engine.health.bridgeReady) return;
+      max.outlet('live', JSON.stringify({ cmd: 'ping' })).catch(() => {});
+    }, 1000);
+    if (bridgePing.unref) bridgePing.unref();
     max.addHandler('page', (n) => engine.setPage(Number(n) - 1));
     max.addHandler('editorUrl', () => max.outlet('editorUrl', `http://127.0.0.1:${EDITOR_PORT}/`).catch(() => {}));
   }

@@ -54,6 +54,17 @@ function live(json) {
     if (ready) liveSet(msg);
   } else if (msg.cmd === 'liveCall') {
     if (ready) liveCall(msg);
+  } else if (msg.cmd === 'ping') {
+    // The engine asks until it hears back: live.thisdevice may have fired before Node was listening.
+    if (!ready) {
+      try {
+        var probe = new LiveAPI('live_set');
+        if (probe.id && probe.id != 0) init();
+      } catch (e) {
+        /* Live API not usable yet: the next ping tries again */
+      }
+    }
+    if (ready) outlet(0, 'bridgeReady');
   }
 }
 

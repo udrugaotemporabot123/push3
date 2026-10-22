@@ -1031,7 +1031,7 @@ function renderPageInspector(box) {
       S.config.pages.length > 1 ? el('button', { class: 'danger', onclick: () => deletePage(i) }, 'Obriši stranicu') : null,
     ),
   );
-  box.append(el('div', { class: 'sep' }), el('b', {}, 'Predlošci'));
+  box.append(el('div', { class: 'sep', id: 'templatesAnchor' }), el('b', {}, 'Predlošci'), el('p', { class: 'muted small' }, `Predložak prepiše kontrole stranice "${p.name}". Za novi set kontrola najprije dodaj stranicu (+ Nova).`));
   for (const [cat, keys] of TEMPLATE_GROUPS) {
     const d = el('details', { class: 'tgroup' }, el('summary', {}, cat));
     for (const key of keys) {
@@ -1703,6 +1703,15 @@ function renderAll() {
 
 function wireUi() {
   $('#undoBtn').onclick = undo;
+  // Templates live in the page panel: show it, open the groups and scroll there.
+  $('#templatesBtn').onclick = () => {
+    S.selected.clear();
+    updateAllCtls();
+    renderInspector();
+    document.querySelectorAll('.tgroup').forEach((d) => (d.open = true));
+    const a = $('#templatesAnchor');
+    if (a) a.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const search = $('#search');
   search.addEventListener('input', () => {
     S.search = search.value.trim().toLowerCase();

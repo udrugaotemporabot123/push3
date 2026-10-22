@@ -457,3 +457,13 @@ test('bridge: stopAll stops every clip in the set', () => {
   b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'stopAll' }));
   assert.ok(live.calls.some((c) => c[1] === 'stop_all_clips'));
 });
+
+test('bridge: ping answers bridgeReady, and starts the bridge if live.thisdevice was missed', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.live(JSON.stringify({ cmd: 'ping' })); // init() never called
+  assert.ok(b.out.some((x) => x[0] === 'bridgeReady'));
+  b.out.length = 0;
+  b.live(JSON.stringify({ cmd: 'ping' }));
+  assert.ok(b.out.some((x) => x[0] === 'bridgeReady'));
+});

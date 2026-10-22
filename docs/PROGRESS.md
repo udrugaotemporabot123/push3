@@ -94,6 +94,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.47.0 Display: track colour stripe above Live encoders, touched encoder shown in the status line (name + value)
 - [x] v0.48.0 Sequencer micro-timing: hold step + encoder 4 nudges it ±3 ticks (early notes scheduled from the previous step), kept in patterns/double/copy
 - [x] v0.49.0 Looper: stop all clips (song.stop_all_clips, quantised), on Stop in the Looper template
+- [x] v0.49.1 Hardware test fixes: Live API bridge handshake (engine pings until the bridge answers; the bridge starts itself if live.thisdevice fired before Node listened), Predlošci button in the editor header
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
