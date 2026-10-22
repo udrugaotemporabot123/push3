@@ -163,3 +163,13 @@ test('step sequencer: steps toggle with velocity and play on Live clock', () => 
   const offs = out.host.filter((m) => m[2] === 0);
   assert.equal(offs.length, 3);
 });
+
+test('looper: fixed-length recording passes the bar count to the bridge', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls.record, { type: 'addon', addon: { id: 'looper', action: 'recNext', params: { track: 'VIO', bars: '4', autoArm: 'no' } } });
+  });
+  e.handleLiveState({ type: 'live', key: slotsKey('VIO'), ok: true, value: [0, 0] });
+  clear();
+  e.handlePushMessage([0xb0, 86, 127]);
+  assert.deepEqual(out.live, [{ cmd: 'liveCall', spec: { t: 'slot', track: 'VIO', scene: 1 }, fn: 'fireSlot', recordBars: 4 }]);
+});

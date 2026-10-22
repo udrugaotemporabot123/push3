@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.21.0 – 2026-10-22
+Looper: snimanje fiksne duljine (polje Taktova) – snimi točno N taktova i sam zatvori loop.
+
 ## v0.20.0 – 2026-10-22
 Dokumentacija za community: README na engleskom i vodič za pisanje add-ona (docs/ADDONS.md).
 

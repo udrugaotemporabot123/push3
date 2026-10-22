@@ -12,7 +12,14 @@ module.exports = {
   name: 'Live Looper',
   description: 'Snimanje loopova po tracku jednim gumbom: snimi u sljedeći prazni slot, zatvori loop, poništi, play/stop.',
   actions: {
-    recNext: { label: 'Snimi sljedeći loop', fields: { track: { label: 'Track', default: 'selected', help: 'selected, broj ili ime tracka' }, autoArm: { label: 'Auto arm', default: 'yes', help: 'yes = armaj track prije snimanja' } } },
+    recNext: {
+      label: 'Snimi sljedeći loop',
+      fields: {
+        track: { label: 'Track', default: 'selected', help: 'selected, broj ili ime tracka' },
+        bars: { label: 'Taktova', default: '', help: 'prazno = slobodno (drugi pritisak zatvara loop); broj = snima točno toliko taktova i sam zatvori loop' },
+        autoArm: { label: 'Auto arm', default: 'yes', help: 'yes = armaj track prije snimanja' },
+      },
+    },
     undoLast: { label: 'Poništi zadnji loop', fields: { track: { label: 'Track', default: 'selected' } } },
     playStop: { label: 'Play / Stop tracka', fields: { track: { label: 'Track', default: 'selected' } } },
     arm: { label: 'Arm tracka', fields: { track: { label: 'Track', default: 'selected' } } },
@@ -29,7 +36,15 @@ module.exports = {
       for (let i = s.length - 1; i >= 0; i--) if (s[i] !== SLOT.EMPTY) return i;
       return -1;
     };
-    const fire = (p, index) => api.toLive({ cmd: 'liveCall', spec: { t: 'slot', track: p.track || 'selected', scene: index + 1 }, fn: 'fireSlot' });
+    const fire = (p, index, bars) => {
+      const cmd = { cmd: 'liveCall', spec: { t: 'slot', track: p.track || 'selected', scene: index + 1 }, fn: 'fireSlot' };
+      if (bars) cmd.recordBars = bars;
+      api.toLive(cmd);
+    };
+    const barsOf = (p) => {
+      const n = Number.parseInt(p.bars, 10);
+      return n > 0 && n <= 64 ? n : 0;
+    };
 
     return {
       watch(params, action) {
@@ -52,7 +67,7 @@ module.exports = {
           if (next < 0) return api.log('warn', 'Looper: nema praznog slota na tracku');
           const arm = api.liveValue(armSpec(params));
           if (params.autoArm !== 'no' && !(arm && arm.value)) api.toLive({ cmd: 'liveSet', key: api.liveKey(armSpec(params)), spec: armSpec(params), value: 1 });
-          fire(params, next);
+          fire(params, next, barsOf(params));
         } else if (action === 'undoLast') {
           const last = lastWithClip(s);
           if (last >= 0) api.toLive({ cmd: 'liveCall', spec: { t: 'slot', track: params.track || 'selected', scene: last + 1 }, fn: 'deleteSlot' });

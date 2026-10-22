@@ -349,3 +349,13 @@ test('bridge: track navigation moves the selection', () => {
   b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'nav' }, fn: 'trackNext' }));
   assert.equal(live.songView.props.selected_track, live.vio.id);
 });
+
+test('bridge: fixed-length record fires with beats = bars x signature numerator', () => {
+  const live = makeLive();
+  live.song.props.signature_numerator = 4;
+  const b = loadBridge(live);
+  b.init();
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'slot', track: 'Bass', scene: 1 }, fn: 'fireSlot', recordBars: 2 }));
+  const fire = live.calls.find((c) => c[1] === 'fire');
+  assert.deepEqual(fire.slice(1), ['fire', 8]);
+});

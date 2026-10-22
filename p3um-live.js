@@ -529,7 +529,11 @@ function liveCall(msg) {
     var info = livePath(spec);
     if (!info) return;
     var slot = new LiveAPI(info.path);
-    if (msg.fn === 'fireSlot') slot.call('fire');
+    if (msg.fn === 'fireSlot' && msg.recordBars > 0 && num(slot.get('has_clip')) !== 1) {
+      // Fixed-length recording: ClipSlot.fire(record_length) takes beats.
+      var beatsPerBar = num(new LiveAPI('live_set').get('signature_numerator')) || 4;
+      slot.call('fire', msg.recordBars * beatsPerBar);
+    } else if (msg.fn === 'fireSlot') slot.call('fire');
     else if (num(slot.get('has_clip')) === 1) slot.call('delete_clip');
     return;
   }
