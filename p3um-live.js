@@ -713,6 +713,7 @@ function clipToPad(spec) {
 function loadIntoPad(spec, file) {
   var tr = trackApi(spec.target);
   if (!tr) return notice('Sampler: ciljni track nije pronađen');
+  if (spec.pad === 'simpler') return loadIntoTrackSimpler(tr, spec, file);
   var rack = findDrumRack(tr, spec.rack);
   if (!rack) return notice('Sampler: Drum Rack nije pronađen na ciljnom tracku');
   var simpler = null;
@@ -741,6 +742,20 @@ function loadIntoPad(spec, file) {
 }
 
 var SIMPLER_MODES = { classic: 0, oneshot: 1, slice: 2 };
+
+// Slicer: the first Simpler directly on the target track (no Drum Rack) gets the recording.
+function loadIntoTrackSimpler(tr, spec, file) {
+  var n = tr.getcount('devices');
+  for (var i = 0; i < n; i++) {
+    var d = new LiveAPI(tr.unquotedpath + ' devices ' + i);
+    if (str(d.get('class_name')) !== 'OriginalSimpler') continue;
+    d.call('replace_sample', file);
+    if (SIMPLER_MODES.hasOwnProperty(spec.mode)) d.set('playback_mode', SIMPLER_MODES[spec.mode]);
+    notice('Uzorak → ' + str(tr.get('name')) + (spec.mode === 'slice' ? ' (slice)' : ''));
+    return;
+  }
+  notice('Sampler: na ciljnom tracku nema Simplera');
+}
 var SIMPLER_LABELS = { reverse: 'Reverse', crop: 'Crop', classic: 'Classic', oneshot: 'One-Shot', slice: 'Slice', warp: 'Warp' };
 
 // Edit the Simpler on the selected Drum Rack pad: reverse, crop, playback mode, warp on/off.

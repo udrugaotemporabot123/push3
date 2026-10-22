@@ -24,6 +24,15 @@ module.exports = {
     sampleToPad: { label: 'Snimi → sljedeći pad', fields: { ...TRACK_FIELDS, autoArm: { label: 'Auto arm', default: 'yes' } } },
     lastToPad: { label: 'Zadnji clip → sljedeći pad', fields: TRACK_FIELDS },
     lastToSelected: { label: 'Zadnji clip → odabrani pad', fields: TRACK_FIELDS },
+    sampleToSlices: {
+      label: 'Snimi → Simpler za rezanje (slice)',
+      fields: {
+        source: TRACK_FIELDS.source,
+        target: { label: 'Track sa Simplerom', default: 'Slicer', help: 'MIDI track s jednim Simplerom (bez Drum Racka): ime, broj ili selected' },
+        mode: { label: 'Simpler način', default: 'slice', help: 'slice = padovi sviraju dijelove (od C1), classic, oneshot ili keep' },
+        autoArm: { label: 'Auto arm', default: 'yes' },
+      },
+    },
     sampleToSelected: { label: 'Snimi → odabrani pad', fields: { ...TRACK_FIELDS, autoArm: { label: 'Auto arm', default: 'yes' } } },
     targetPad: {
       label: 'Odaberi ciljni pad',
@@ -61,7 +70,7 @@ module.exports = {
     return {
       watch(params, action) {
         if (action === 'targetPad' || action === 'simpler') return [];
-        return action === 'sampleToPad' || action === 'sampleToSelected' ? [slotsSpec(params), armSpec(params)] : [slotsSpec(params)];
+        return action === 'sampleToPad' || action === 'sampleToSelected' || action === 'sampleToSlices' ? [slotsSpec(params), armSpec(params)] : [slotsSpec(params)];
       },
 
       press({ params, action }) {
@@ -77,11 +86,12 @@ module.exports = {
         }
         const s = slots(params);
         if (!s) return api.log('warn', 'Sampler: izvorni track još nije povezan');
-        if (action === 'sampleToPad' || action === 'sampleToSelected') {
+        if (action === 'sampleToPad' || action === 'sampleToSelected' || action === 'sampleToSlices') {
           const rec = s.indexOf(SLOT.RECORDING);
           if (rec >= 0) {
             fire(params, rec); // stop recording
-            load(params, rec, action === 'sampleToSelected' ? 'selected' : 'next'); // the bridge waits until the file is ready
+            const pad = { sampleToSelected: 'selected', sampleToSlices: 'simpler' }[action] || 'next';
+            load({ ...params, mode: params.mode || (action === 'sampleToSlices' ? 'slice' : 'oneshot') }, rec, pad); // the bridge waits until the file is ready
             return;
           }
           let next = s.indexOf(SLOT.EMPTY);
@@ -110,7 +120,7 @@ module.exports = {
         if (action === 'simpler') return { color: 53, anim: 0 };
         const s = slots(params);
         if (!s) return { color: 0, anim: 0 };
-        if (action === 'sampleToPad' || action === 'sampleToSelected') return s.includes(SLOT.RECORDING) ? { color: 5, anim: api.ANIM.blink } : { color: 50, anim: 0 };
+        if (action === 'sampleToPad' || action === 'sampleToSelected' || action === 'sampleToSlices') return s.includes(SLOT.RECORDING) ? { color: 5, anim: api.ANIM.blink } : { color: 50, anim: 0 };
         return { color: lastWithClip(s) >= 0 ? 49 : 0, anim: 0 };
       },
     };

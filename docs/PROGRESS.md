@@ -83,6 +83,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.38.0 Page display mode "addon": full-screen add-on view (view hook); sequencer grid of lanes x steps with velocity shading, playhead/cursor, selected lane
 - [x] v0.39.0 Sequencer copy lane + drum pad encoders (rotate, lane velocity). Review fixes: add-on switched off releases its held controls and stops its notes, encoder mode 7/14-bit switch resets value, Shift-fine turns on held steps accumulate, Double copies gate, recorded/euclid/removed steps start without old chance/gate, malformed URLs answered (400/401), LAN off closes kept-alive connections, padParam re-resolves when a Simpler/Drum Rack appears, empty param names never match
 - [x] v0.40.0 Stable page uids: toggle/encoder state and the shown page follow pages that are moved, deleted or duplicated
+- [x] v0.41.0 Slicer: sampler action sampleToSlices loads the recording into the target track's Simpler in Slice mode; template Slicer 4x4
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.

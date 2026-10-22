@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.41.0 – 2026-10-22
+Slicer: snimi frazu i odmah je sviraj izrezanu po padovima (Simpler Slice).
+
 ## v0.40.0 – 2026-10-22
 Stanje stranica (toggle, enkoderi) prati stranicu kad je pomakneš ili obrišeš.
 

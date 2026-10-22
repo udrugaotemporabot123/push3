@@ -435,3 +435,17 @@ test('bridge stays ES5 (Max [js] has no ES6): no arrows, let/const, template str
     assert.ok(!re.test(src), `p3um-live.js uses ${what}`);
   }
 });
+
+test('bridge: slicer loads the recording into the track Simpler in Slice mode', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  const slicer = live.obj({ name: 'Simpler', class_name: 'OriginalSimpler' }, { sample: null });
+  live.bass.children.devices.push(slicer);
+  const vioSlot = new live.LiveAPI('live_set tracks 1 clip_slots 0').o;
+  Object.assign(vioSlot.props, { has_clip: 1, is_recording: 0 });
+  vioSlot.children.clip = { id: 9005, props: { file_path: '/rec/phrase.wav' }, children: {} };
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'clipToPad', source: 'Violin', scene: 1, target: 'Bass', rack: 'first', pad: 'simpler', mode: 'slice' }, fn: 'clipToPad' }));
+  assert.equal(slicer.children.sample.props.file_path, '/rec/phrase.wav');
+  assert.equal(slicer.props.playback_mode, 2);
+});

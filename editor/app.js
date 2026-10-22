@@ -1237,6 +1237,22 @@ const TEMPLATES = {
       return r;
     },
   },
+  slicer: {
+    name: 'Slicer 4×4 (snimi pa sviraj dijelove)',
+    help: 'Capture snima s tracka koji snima, drugi Capture učita snimku u Simpler na tracku za rezanje u Slice načinu; donji lijevi 4×4 padovi sviraju dijelove (note 36–51, kanal stranice). Track za rezanje: MIDI track s jednim Simplerom, MIDI From = Push3 UM.',
+    ask: [
+      { key: 'source', label: 'Track koji snima (npr. mic in - sampling)', default: 'selected' },
+      { key: 'target', label: 'MIDI track sa Simplerom za rezanje', default: 'Slicer' },
+    ],
+    apply(a) {
+      const r = {};
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 4; col++) r[`pad.${row}.${col}`] = { type: 'note', number: 36 + row * 4 + col, behavior: 'momentary', velocity: 'dynamic', colorOn: 3, colorOff: 37 };
+      }
+      r.capture = { type: 'addon', addon: { id: 'sampler', action: 'sampleToSlices', params: { source: a.source, target: a.target, mode: 'slice', autoArm: 'yes' } } };
+      return r;
+    },
+  },
   samplerPads: {
     name: 'Sampler + Drum Rack 4×4',
     help: 'Donji lijevi 4×4 padovi sviraju Drum Rack (note 36–51); Shift + pad = odaberi taj pad kao cilj; Capture = snimi u odabrani pad; New = zadnji clip u odabrani pad. Gumbi ispod ekrana 1–5: Reverse, Crop, One-Shot, Classic, Warp za uzorak na odabranom padu; enkoderi 1–8: Start, Length, Transpose, Volume, Filter, Res, Attack, Release njegovog Simplera.',
