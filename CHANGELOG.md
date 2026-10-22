@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.49.2 – 2026-10-22
+Sigurnost: preuzimanje ekrana se gasi pri svakom pokretanju (Live se više ne bi smio zamrznuti pri učitavanju).
+
 ## v0.49.1 – 2026-10-22
 Popravak: Live API most se sada uvijek javi (i nakon Restarta); gumb Predlošci u editoru.
 

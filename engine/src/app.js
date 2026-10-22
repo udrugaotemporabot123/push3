@@ -11,7 +11,7 @@ const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 const { loadAddons } = require('../../addons');
 
-const VERSION = '0.49.1';
+const VERSION = '0.49.2';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -68,7 +68,15 @@ function start() {
     saveAddonState: (id, data) => store.saveAddonState(id, data),
   };
 
-  const engine = new Engine(io, store.load(log));
+  // Safety: the experimental display takeover is never active right after loading (it could keep Live
+  // waiting for its Push display). Switch it on again in Settings when Live is up.
+  const startConfig = store.load(log);
+  if (startConfig.settings.display === 'takeover') {
+    startConfig.settings.display = 'editor';
+    safe(() => store.save(startConfig, log));
+    log('info', 'Push display takeover switched off at startup (turn it on again in Settings)');
+  }
+  const engine = new Engine(io, startConfig);
   engine.setPalette(palette); // same array; filled with the real Push palette once read
   const addons = loadAddons(log);
   engine.setAddons(addons);

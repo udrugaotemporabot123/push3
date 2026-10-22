@@ -98,3 +98,20 @@ test('app starts, serves the editor, accepts a config and saves it', async () =>
   }
   assert.ok(!/uncaught/i.test(stderr), stderr);
 });
+
+test('display takeover saved in the config is switched off at startup', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'p3um-'));
+  const { defaultConfig } = require('../src/config');
+  const cfg = defaultConfig();
+  cfg.settings.display = 'takeover';
+  fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(cfg));
+  const port = 40000 + Math.floor(Math.random() * 20000);
+  const child = spawn(process.execPath, ['p3um-main.js'], { cwd: ROOT, env: { ...process.env, P3UM_DIR: dir, P3UM_PORT: String(port) }, stdio: 'pipe' });
+  try {
+    await waitFor(() => get(port, '/').then((r) => r.status === 200));
+    await waitFor(() => JSON.parse(fs.readFileSync(path.join(dir, 'config.json'), 'utf8')).settings.display === 'editor');
+  } finally {
+    child.kill('SIGTERM');
+    await new Promise((r) => child.on('exit', r));
+  }
+});

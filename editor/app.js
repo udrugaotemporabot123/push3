@@ -1479,7 +1479,7 @@ function renderSettings() {
     field('Nemapirane LED', selectEl({ off: 'Ugašene', dim: 'Lagano upaljene' }, s.unmappedLeds, (v) => set('unmappedLeds', v))),
     field('Shift + enkoder', selectEl({ true: '10× finije', false: 'Normalno' }, String(s.shiftFine), (v) => set('shiftFine', v === 'true')), 'Vrijedi za enkodere koji nemaju vlastiti Shift sloj.'),
     field('Shift sloj', selectEl({ true: 'Uključen (Shift = modifikator)', false: 'Isključen (Shift je običan gumb)' }, String(s.shiftLayer), (v) => set('shiftLayer', v === 'true')), 'Dok držiš Shift, kontrole s Shift slojem šalju drugu poruku.'),
-    field('Push ekran', selectEl({ editor: 'Samo pregled u editoru', takeover: 'Preuzmi ekran u User modu (eksperimentalno)' }, s.display, (v) => set('display', v)), 'Pokušava crtati na Push 3 ekran dok si u User modu. Ako ga Live drži, ostaje pregled ovdje.'),
+    field('Push ekran', selectEl({ editor: 'Samo pregled u editoru', takeover: 'Preuzmi ekran u User modu (eksperimentalno, gasi se pri pokretanju)' }, s.display, (v) => set('display', v)), 'Pokušava crtati na Push 3 ekran dok si u User modu. Ako ga Live drži, ostaje pregled ovdje.'),
     field('Interni clock', selectEl({ true: 'Da (animacije rade i bez Live clocka)', false: 'Ne' }, String(s.internalClock), (v) => set('internalClock', v === 'true'))),
     el('h4', {}, 'Add-oni'),
     ...((S.meta && S.meta.addons) || []).map((a) =>
