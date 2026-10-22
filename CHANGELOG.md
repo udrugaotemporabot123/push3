@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.50.0 – 2026-10-22
+Lite verzija (Push3UserModeLite.amxd): samo MIDI kontroler, minimalan CPU u Liveu.
+
 ## v0.49.5 – 2026-10-22
 Pokus s Push ekranom: sigurnije (manje prometa, sigurnosni prekid nakon 400 ms, ekran se vraća Liveu).
 

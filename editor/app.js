@@ -102,6 +102,8 @@ function handle(m) {
       S.snapshot = m.snapshot;
       S.leds = { ...m.snapshot.leds };
       S.presets = m.presets || [];
+      S.lite = !!m.lite;
+      document.body.classList.toggle('lite', S.lite);
       S.lan = m.lan || { enabled: false, urls: [] };
       S.meta = { virtualPort: m.virtualPort, configFile: m.configFile, version: m.version, inMax: m.inMax, ports: m.ports, addons: m.addons || [] };
       buildSurface();
@@ -110,7 +112,7 @@ function handle(m) {
       $('.brand').innerHTML = `Push 3 <b>User Mode</b> <span class="muted small">v${m.version}</span>`;
       (m.log || []).forEach(addEngineLog);
       if (S.monitorOn) send({ t: 'monitor', on: true });
-      send({ t: 'display', on: true });
+      if (!S.lite) send({ t: 'display', on: true });
       break;
     case 'display':
       renderDisplayPreview(m);
@@ -621,7 +623,7 @@ function renderButtonInspector(box, ctls, maps) {
   const isPad = ctls.every((c) => c.kind === 'pad');
   const isWhite = ctls.every((c) => c.led === 'white');
   const noLed = ctls.every((c) => c.led === 'none');
-  box.append(field('Funkcija', selectEl(T.types, type, (v) => setAll((m) => setType(m, v)))));
+  box.append(field('Funkcija', selectEl(S.lite ? LITE_TYPES : T.types, type, (v) => setAll((m) => setType(m, v)))));
 
   if (type === 'note' || type === 'cc' || type === 'pc') {
     const numRow = el('div', { class: 'inline' }, numEl(common(maps, 'number'), 0, 127, (v) => setAll('number', v)));
@@ -922,7 +924,7 @@ function numberSequence() {
 
 function renderEncoderInspector(box, ctls, maps) {
   const type = common(maps, 'type');
-  box.append(field('Funkcija', selectEl({ none: 'Ništa', cc: 'CC', live: 'Live (bez mapiranja)' }, type, (v) => setAll((m) => {
+  box.append(field('Funkcija', selectEl(S.lite ? { none: 'Ništa', cc: 'CC' } : { none: 'Ništa', cc: 'CC', live: 'Live (bez mapiranja)' }, type, (v) => setAll((m) => {
     m.type = v;
     if (v === 'live' && !m.live) m.live = { target: 'volume', track: 'selected', device: 'first', index: 1 };
   }))));
@@ -993,7 +995,7 @@ function renderLiveTargetFields(box, maps, key) {
 
 function renderStripInspector(box, maps) {
   const type = common(maps, 'type');
-  box.append(field('Funkcija', selectEl({ none: 'Ništa', pitchbend: 'Pitch bend', cc: 'CC', live: 'Live parametar', morph: 'Morph između snapshota' }, type, (v) => setAll('type', v))));
+  box.append(field('Funkcija', selectEl(S.lite ? { none: 'Ništa', pitchbend: 'Pitch bend', cc: 'CC' } : { none: 'Ništa', pitchbend: 'Pitch bend', cc: 'CC', live: 'Live parametar', morph: 'Morph između snapshota' }, type, (v) => setAll('type', v))));
   if (type === 'morph') {
     box.append(field('Od / do', el('div', { class: 'inline' }, numEl(common(maps, 'slotA'), 1, 16, (v) => setAll('slotA', v)), numEl(common(maps, 'slotB'), 1, 16, (v) => setAll('slotB', v))), 'Dno stripa = snapshot A, vrh = snapshot B'));
     box.append(el('p', { class: 'muted small' }, 'Svi enkoderi spremljeni u ta dva snapshota (gumbi tipa Snapshot na ovoj stranici) prelaze iz jednog u drugi. Uključi u Postavkama Touch strip = Fader.'));
@@ -1017,7 +1019,7 @@ function renderPageInspector(box) {
   box.append(field('Ime', textEl(p.name, (v) => commit((c) => (c.pages[i].name = v.slice(0, 24) || c.pages[i].name)))));
   const chOpts = { 0: `Automatski (${((S.config.settings.baseChannel - 1 + i) % 16) + 1})` };
   for (let k = 1; k <= 16; k++) chOpts[k] = `${k}`;
-  box.append(field('Ekran', selectEl({ controls: 'Kontrole (enkoderi + gumbi)', big: 'Veliko (ime stranice, zadnja radnja, tempo)', addon: 'Add-on (npr. mreža sekvencera)' }, p.display || 'controls', (v) => commit((c) => (c.pages[i].display = v))), 'Što Push ekran prikazuje na ovoj stranici'));
+  if (!S.lite) box.append(field('Ekran', selectEl({ controls: 'Kontrole (enkoderi + gumbi)', big: 'Veliko (ime stranice, zadnja radnja, tempo)', addon: 'Add-on (npr. mreža sekvencera)' }, p.display || 'controls', (v) => commit((c) => (c.pages[i].display = v))), 'Što Push ekran prikazuje na ovoj stranici'));
   box.append(field('MIDI kanal', selectEl(chOpts, String(p.channel), (v) => commit((c) => (c.pages[i].channel = Number(v)))), 'Sve kontrole ove stranice šalju na ovaj kanal (osim ako kontrola ima svoj).'));
   const wrap = el('div', {});
   wrap.append(palettePicker(p.color, (k) => commit((c) => (c.pages[i].color = k))));
@@ -1031,8 +1033,8 @@ function renderPageInspector(box) {
       S.config.pages.length > 1 ? el('button', { class: 'danger', onclick: () => deletePage(i) }, 'Obriši stranicu') : null,
     ),
   );
-  box.append(el('div', { class: 'sep', id: 'templatesAnchor' }), el('b', {}, 'Predlošci'), el('p', { class: 'muted small' }, `Predložak prepiše kontrole stranice "${p.name}". Za novi set kontrola najprije dodaj stranicu (+ Nova).`));
-  for (const [cat, keys] of TEMPLATE_GROUPS) {
+  if (!S.lite) box.append(el('div', { class: 'sep', id: 'templatesAnchor' }), el('b', {}, 'Predlošci'), el('p', { class: 'muted small' }, `Predložak prepiše kontrole stranice "${p.name}". Za novi set kontrola najprije dodaj stranicu (+ Nova).`));
+  for (const [cat, keys] of S.lite ? [] : TEMPLATE_GROUPS) {
     const d = el('details', { class: 'tgroup' }, el('summary', {}, cat));
     for (const key of keys) {
       const t = TEMPLATES[key];
@@ -1082,6 +1084,9 @@ function simplerButtons(target) {
   });
   return r;
 }
+
+// Lite device: plain MIDI only.
+const LITE_TYPES = { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', transpose: 'Transpozicija padova (Oct −/+)', panic: 'Panic (all notes off)' };
 
 const TEMPLATE_GROUPS = [
   ['Live sampling i looper', ['samplerPads', 'sampler', 'slicer', 'looper']],
@@ -1479,9 +1484,9 @@ function renderSettings() {
     field('Nemapirane LED', selectEl({ off: 'Ugašene', dim: 'Lagano upaljene' }, s.unmappedLeds, (v) => set('unmappedLeds', v))),
     field('Shift + enkoder', selectEl({ true: '10× finije', false: 'Normalno' }, String(s.shiftFine), (v) => set('shiftFine', v === 'true')), 'Vrijedi za enkodere koji nemaju vlastiti Shift sloj.'),
     field('Shift sloj', selectEl({ true: 'Uključen (Shift = modifikator)', false: 'Isključen (Shift je običan gumb)' }, String(s.shiftLayer), (v) => set('shiftLayer', v === 'true')), 'Dok držiš Shift, kontrole s Shift slojem šalju drugu poruku.'),
-    field('Push ekran', selectEl({ editor: 'Samo pregled u editoru', takeover: 'Preuzmi ekran u User modu (eksperimentalno, gasi se pri pokretanju)' }, s.display, (v) => set('display', v)), 'Pokušava crtati na Push 3 ekran dok si u User modu. Ako ga Live drži, ostaje pregled ovdje.'),
+    ...(S.lite ? [] : [field('Push ekran', selectEl({ editor: 'Samo pregled u editoru', takeover: 'Preuzmi ekran u User modu (eksperimentalno, gasi se pri pokretanju)' }, s.display, (v) => set('display', v)), 'Pokušava crtati na Push 3 ekran dok si u User modu. Ako ga Live drži, ostaje pregled ovdje.'),
     field('Interni clock', selectEl({ true: 'Da (animacije rade i bez Live clocka)', false: 'Ne' }, String(s.internalClock), (v) => set('internalClock', v === 'true'))),
-    el('h4', {}, 'Add-oni'),
+    el('h4', {}, 'Add-oni')]),
     ...((S.meta && S.meta.addons) || []).map((a) =>
       field(a.name, selectEl({ true: 'Uključen', false: 'Isključen' }, String(!(s.addons && s.addons[a.id] === false)), (v) => commit((c) => (c.settings.addons = { ...(c.settings.addons || {}), [a.id]: v === 'true' }))), a.description),
     ),
@@ -1624,14 +1629,14 @@ function renderHealth() {
   if (!box || !S.health) return;
   const h = S.health;
   const ago = (t) => (t ? (h.now - t) / 1000 : Infinity);
-  const rows = [
+  const rows = (S.lite ? (r) => r.filter((x) => !/Live API|MIDI clock/.test(x[1])) : (r) => r)([
     [h.pushConnected, 'Push 3 User Port pronađen', 'Spoji Push 3 USB-om; u Liveu za Push 3 User Port isključi Track i Remote.'],
     [h.virtualPort, 'Virtualni port Push3 UM postoji', 'Restartaj device (gumb Restart).'],
     [h.inMax && h.bridgeReady, 'Live API most radi (varijacije, Live funkcije)', h.inMax ? 'Pričekaj par sekundi ili restartaj device.' : 'Radi samo unutar Max for Live devicea.'],
     [ago(h.hostFeedbackAt) < Infinity, 'Povratna informacija iz Livea stiže', 'Live → Settings → MIDI: izlaz Push3 UM → Remote ON (i nešto mapirano na tu kontrolu).'],
     [ago(h.hostClockAt) < 3, 'MIDI clock iz Livea stiže', 'Treba samo za sekvencer i animacije usklađene s tempom: izlaz Push3 UM → Sync ON, i Live mora svirati.'],
     [h.mode === 'user', 'Push je u User modu', 'Pritisni User na Pushu.'],
-  ];
+  ]);
   box.innerHTML = '';
   for (const [ok, label, fix] of rows) box.append(el('li', {}, el('b', { style: `color:${ok ? 'var(--accent)' : 'var(--warn)'}` }, ok ? '✓ ' : '• '), label, ok ? null : el('div', { class: 'muted small' }, fix)));
 }

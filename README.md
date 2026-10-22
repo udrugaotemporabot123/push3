@@ -27,6 +27,15 @@ Max for Live device + editor koji od Push 3 **User moda** radi potpuno podesiv M
 - **Izvoz/uvoz .json** (Preseti ▾) i **kopiraj/zalijepi** kontrola (Cmd+C / Cmd+V, radi i između stranica)
 - **preseti**, undo/redo, MIDI monitor, popis nepoznatih kontrola (za provjeru na hardveru)
 
+## Lite verzija (za teške projekte)
+
+U istoj mapi je i **`Push3UserModeLite.amxd`**: samo MIDI kontroler.
+- **Ima:** note, CC, Program Change, momentary/toggle/trigger, boje, stranice, Shift sloj, transpozicija, panic, povratna informacija iz Livea (LED-ice, enkoderi), editor u pregledniku.
+- **Nema:** predloške, add-one (sampler, looper, sekvencer, XY), Live funkcije bez mapiranja, pregled ekrana, animacije.
+- **Štedi CPU unutar Livea:** nema Live API mosta (ništa ne prati Live), nema ugrađenog web prozora u deviceu (*Editor* otvara običan preglednik), nema crtanja ekrana ni sata za animacije.
+
+Koristi **ili** Lite **ili** puni device, ne oba odjednom. Postavke i mapiranja su zajednički.
+
 ## Instalacija (jednom)
 
 1. Skini cijelu mapu (repo) i stavi je npr. u

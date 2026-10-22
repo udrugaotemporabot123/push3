@@ -115,3 +115,31 @@ test('display takeover saved in the config is switched off at startup', async ()
     await new Promise((r) => child.on('exit', r));
   }
 });
+
+test('Lite entry point: plain MIDI controller, no add-ons, no display preview', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'p3um-'));
+  const port = 40000 + Math.floor(Math.random() * 20000);
+  const child = spawn(process.execPath, ['p3um-lite.js'], { cwd: ROOT, env: { ...process.env, P3UM_DIR: dir, P3UM_PORT: String(port) }, stdio: 'pipe' });
+  try {
+    await waitFor(() => get(port, '/').then((r) => r.status === 200));
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    const got = [];
+    const hello = await new Promise((resolve, reject) => {
+      ws.on('message', (m) => {
+        const msg = JSON.parse(m.toString());
+        got.push(msg.t);
+        if (msg.t === 'hello') resolve(msg);
+      });
+      ws.on('error', reject);
+    });
+    assert.equal(hello.lite, true);
+    assert.deepEqual(hello.addons, []);
+    ws.send(JSON.stringify({ t: 'display', on: true })); // ignored: nothing is rendered
+    await new Promise((r) => setTimeout(r, 600));
+    assert.ok(!got.includes('display'));
+    ws.close();
+  } finally {
+    child.kill('SIGTERM');
+    await new Promise((r) => child.on('exit', r));
+  }
+});

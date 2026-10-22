@@ -1,6 +1,6 @@
 {
   "name": "push3-user-mode",
-  "version": "0.49.5",
+  "version": "0.50.0",
   "description": "Turns Ableton Push 3 User Mode into a fully configurable MIDI controller (Max for Live device + editor).",
   "main": "p3um-main.js",
   "private": true,

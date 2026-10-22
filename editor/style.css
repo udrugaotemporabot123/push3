@@ -109,3 +109,6 @@ code { background: #0f1113; padding: 1px 4px; border-radius: 4px; }
 
 .tgroup { margin: 4px 0; }
 .tgroup > summary { cursor: pointer; padding: 6px 0; font-weight: 600; color: var(--accent); }
+
+/* Lite device: plain MIDI controller, no preview / templates */
+body.lite #templatesBtn, body.lite #display { display: none; }

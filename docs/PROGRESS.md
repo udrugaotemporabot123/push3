@@ -99,8 +99,10 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.49.3 Real cause of the endless "Installing components": the optional usb module has no macOS prebuild and was compiled on every new version. Runtime modules (@julusian/midi with prebuilds, pkg-prebuilds, tslib, ws) now ship in the release; usb is never auto-installed
 - [x] v0.49.4 Bundled binaries were blocked by macOS Gatekeeper (ZIP quarantine). Back to npm install, but only @julusian/midi + ws (usb removed from package.json, never compiled on the user's Mac)
 - [x] v0.49.5 Display takeover experiment, safer: usb back as optional dep (prebuilt @node-usb/usb-darwin-*, confirmed by the user's npm log), hardware frames only when changed and max 10 fps, keepalive 1 s, 400 ms send watchdog hands the display back and disables takeover for the session. Root cause of the morning hang: saved takeover setting (fixed since v0.49.2)
+- [x] v0.50.0 Lite device (Push3UserModeLite.amxd + p3um-lite.js) for heavy sets: plain MIDI controller, no Live API bridge/js, no add-ons, no display rendering/preview, no animation clock, no jweb inside Live (editor opens in the system browser); editor hides non-MIDI options. Shared config
 
 ## Next (roadmap, highest value first)
+- [ ] Full device: load the editor web view (jweb) only when the window is opened (it runs inside Live and costs CPU even when closed).
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
 - [ ] Sampler: "resample master" source (route from Main), verify Simpler parameter names on hardware (S Start, S Length, Ve Attack…).
 - [ ] Looper: overdub (MIDI only in Live session; audio needs a new layer on the next slot).

@@ -11,7 +11,7 @@ const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 const { loadAddons } = require('../../addons');
 
-const VERSION = '0.49.5';
+const VERSION = '0.50.0';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -25,7 +25,10 @@ function tryRequire(name) {
 
 const max = tryRequire('max-api');
 
-function start() {
+// opts.lite: plain MIDI controller only (no Live API bridge, add-ons, display rendering or clock),
+// for heavy Live sets where every bit of CPU counts.
+function start(opts = {}) {
+  const lite = !!opts.lite;
   let server = null;
   const recentLog = [];
 
@@ -56,7 +59,7 @@ function start() {
       monitor('host-out', bytes);
     },
     toLive(obj) {
-      if (max) max.outlet('live', JSON.stringify(obj)).catch(() => {});
+      if (max && !lite) max.outlet('live', JSON.stringify(obj)).catch(() => {});
     },
     log,
     now: () => Date.now(),
@@ -76,18 +79,24 @@ function start() {
     safe(() => store.save(startConfig, log));
     log('info', 'Push display takeover switched off at startup (turn it on again in Settings)');
   }
+  if (lite) {
+    startConfig.settings.display = 'editor';
+    startConfig.settings.internalClock = false; // no 48 Hz clock timer for LED animations
+  }
   const engine = new Engine(io, startConfig);
   engine.setPalette(palette); // same array; filled with the real Push palette once read
-  const addons = loadAddons(log);
+  const addons = lite ? [] : loadAddons(log);
   engine.setAddons(addons);
   const addonInfo = addons.map((a) => ({ id: a.id, name: a.name, description: a.description, actions: a.actions }));
-  const display = new DisplayManager({
-    engine,
-    palette,
-    log,
-    onPreview: (png, transport) => server && server.broadcast({ t: 'display', png, transport }, (c) => c.display),
-  });
-  const updatePreviewWanted = () => display.setPreview(!!server && server.some((c) => c.display));
+  const display = lite
+    ? null
+    : new DisplayManager({
+        engine,
+        palette,
+        log,
+        onPreview: (png, transport) => server && server.broadcast({ t: 'display', png, transport }, (c) => c.display),
+      });
+  const updatePreviewWanted = () => display && display.setPreview(!!server && server.some((c) => c.display));
 
   // ---- Max device UI status -----------------------------------------------------------
   function deviceStatus() {
@@ -146,6 +155,7 @@ function start() {
       log: recentLog.slice(-50),
       inMax: !!max,
       addons: addonInfo,
+      lite,
       lan: server ? server.lanInfo() : { enabled: false, urls: [] },
     };
   }
@@ -305,7 +315,7 @@ function start() {
   }
 
   // ---- Max handlers ------------------------------------------------------------------
-  if (max) {
+  if (max && !lite) {
     max.addHandler('liveState', (json) => {
       try {
         engine.handleLiveState(JSON.parse(json));
@@ -339,7 +349,7 @@ function start() {
     if (stopped) return;
     stopped = true;
     try {
-      display.shutdown();
+      if (display) display.shutdown();
       engine.exitUserMode('shutdown');
       if (midi) midi.stop();
     } catch (e) {
