@@ -420,3 +420,13 @@ test('bridge: padParam follows the Drum Rack pad selection, also from an empty p
   b.live(JSON.stringify({ cmd: 'liveSet', key: 'p', spec, value: 0.75 }));
   assert.equal(live.pads[0].children.chains[0].children.devices[0].children.parameters[1].props.value, 0.75);
 });
+
+test('bridge stays ES5 (Max [js] has no ES6): no arrows, let/const, template strings, spread, classes', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'p3um-live.js'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '')
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''");
+  for (const [what, re] of [['arrow', /=>/], ['let/const', /\b(let|const)\s/], ['template string', /`/], ['spread', /\.\.\./], ['class', /\bclass\s+\w/], ['ES6 string/array helper', /\.(includes|startsWith|endsWith|find|findIndex)\(/]]) {
+    assert.ok(!re.test(src), `p3um-live.js uses ${what}`);
+  }
+});
