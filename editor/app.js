@@ -1097,9 +1097,78 @@ function renderSettings() {
   b.append(el('div', { class: 'settings-grid' }, left, right));
 }
 
+function exportConfig() {
+  const blob = new Blob([JSON.stringify(S.config, null, 1)], { type: 'application/json' });
+  const a = el('a', { href: URL.createObjectURL(blob), download: `push3-user-mode-${new Date().toISOString().slice(0, 10)}.json` });
+  document.body.append(a);
+  a.click();
+  a.remove();
+}
+
+function importConfig() {
+  const input = el('input', { type: 'file', accept: '.json,application/json' });
+  input.addEventListener('change', async () => {
+    const f = input.files[0];
+    if (!f) return;
+    try {
+      const cfg = JSON.parse(await f.text());
+      if (!cfg || !Array.isArray(cfg.pages)) throw new Error('nije Push3 User Mode konfiguracija');
+      if (!confirm(`Učitati "${f.name}"? Trenutne postavke će biti zamijenjene (možeš poništiti s Ctrl+Z).`)) return;
+      commit((c) => {
+        c.version = cfg.version;
+        c.settings = cfg.settings;
+        c.pages = cfg.pages;
+      });
+    } catch (e) {
+      alert(`Ne mogu učitati datoteku: ${e.message}`);
+    }
+  });
+  input.click();
+}
+
+// Copy/paste of mappings (with their shift layers) between controls and pages.
+function copySelection() {
+  const ctls = selectedControls();
+  if (!ctls.length) return;
+  const page = curPage();
+  S.clipboard = sortForPaste(ctls).map((c) => ({ kind: c.kind, m: JSON.parse(JSON.stringify(page.controls[c.id])) }));
+  setStatusFlash(`Kopirano: ${ctls.length}`);
+}
+
+function pasteSelection() {
+  if (!S.clipboard || !S.clipboard.length) return;
+  const targets = sortForPaste(selectedControls());
+  if (!targets.length) return;
+  commit((cfg) => {
+    const page = cfg.pages[S.snapshot.page];
+    targets.forEach((c, i) => {
+      const src = S.clipboard.length === 1 ? S.clipboard[0] : S.clipboard[i];
+      if (!src) return;
+      const sameFamily = (a, b) => a === b || (['pad', 'button', 'touch'].includes(a) && ['pad', 'button', 'touch'].includes(b));
+      if (!sameFamily(src.kind, c.kind)) return;
+      page.controls[c.id] = JSON.parse(JSON.stringify(src.m));
+    });
+  });
+  setStatusFlash(`Zalijepljeno: ${targets.length}`);
+}
+
+function sortForPaste(ctls) {
+  return ctls.slice().sort((a, b) => (a.kind === 'pad' && b.kind === 'pad' ? b.row - a.row || a.col - b.col : S.controls.indexOf(a) - S.controls.indexOf(b)));
+}
+
+function setStatusFlash(text) {
+  const s = $('#status');
+  const prev = [s.textContent, s.className];
+  s.textContent = text;
+  setTimeout(() => {
+    if (s.textContent === text) [s.textContent, s.className] = prev;
+  }, 1200);
+}
+
 function renderPresets() {
   const menu = $('#presetsMenu');
   menu.innerHTML = '';
+  menu.append(el('div', { class: 'row' }, el('button', { onclick: exportConfig, title: 'Spremi cijelu konfiguraciju u .json datoteku' }, 'Izvezi .json'), el('button', { onclick: importConfig, title: 'Učitaj konfiguraciju iz .json datoteke' }, 'Uvezi .json')));
   const name = el('input', { type: 'text', placeholder: 'ime preseta' });
   menu.append(el('div', { class: 'row' }, name, el('button', { class: 'primary', onclick: () => name.value.trim() && send({ t: 'savePreset', name: name.value.trim() }) }, 'Spremi')));
   if (!S.presets.length) menu.append(el('p', { class: 'muted small' }, 'Nema spremljenih preseta.'));
@@ -1195,6 +1264,11 @@ function wireUi() {
       S.selected.clear();
       updateAllCtls();
       renderInspector();
+    } else if (mod && e.key.toLowerCase() === 'c') {
+      copySelection();
+    } else if (mod && e.key.toLowerCase() === 'v') {
+      e.preventDefault();
+      pasteSelection();
     } else if (mod && e.key.toLowerCase() === 'a') {
       e.preventDefault();
       S.selected = new Set(S.controls.filter((c) => c.kind === 'pad').map((c) => c.id));

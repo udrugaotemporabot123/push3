@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.11.0 – 2026-10-22
+Editor: izvoz/uvoz konfiguracije (.json) i kopiraj/zalijepi kontrola (Cmd+C / Cmd+V), i između stranica.
+
 ## v0.10.0 – 2026-10-22
 Varijacije za više rackova: rack se bira i kao #2, #3…; predložak Varijacije (8 rackova × 8) – svaki red padova je jedan rack.
 

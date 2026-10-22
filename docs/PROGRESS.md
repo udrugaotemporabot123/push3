@@ -40,10 +40,11 @@ Update this file after every step so work can resume after an interruption.
 
 - [x] v0.10.0 "#n" rack addressing for variations; template Variations (8 racks x 8)
 
+- [x] v0.11.0 editor: export/import .json, copy/paste mappings (incl. shift layer) across controls and pages
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white
-- [ ] Editor: import/export config file, copy/paste controls between pages, search by label
 - [ ] Phase 2 ideas: Push display (USB, Live holds it), shift layers, momentary page hold,
       LED feedback for variation pads across racks, MIDI-learn of target in editor, 14-bit encoders
 
