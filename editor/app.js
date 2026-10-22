@@ -15,7 +15,7 @@ const el = (tag, attrs = {}, ...kids) => {
 };
 
 const T = {
-  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)', transpose: 'Transpozicija padova (Oct −/+)' },
+  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)', transpose: 'Transpozicija padova (Oct −/+)', repeat: 'Note repeat' },
   liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka', trackPrev: '◀ Prethodni track', trackNext: 'Sljedeći track ▶', scenePrev: '▲ Prethodna scena', sceneNext: 'Sljedeća scena ▼', devicePrev: '◀ Prethodni device', deviceNext: 'Sljedeći device ▶' },
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
   liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', padParam: 'Parametar odabranog drum pada (Simpler)', tempo: 'Tempo' },
@@ -334,6 +334,8 @@ function mappingSummary(c, m) {
     }
     case 'panic':
       return 'PANIC';
+    case 'repeat':
+      return `Repeat ${m.rate}`;
     case 'transpose':
       return m.amount ? `Tr ${m.amount > 0 ? '+' : ''}${m.amount}` : 'Tr 0';
     case 'pageHold':
@@ -638,6 +640,10 @@ function renderButtonInspector(box, ctls, maps) {
         box.append(el('p', { class: 'muted small' }, 'Kad pustiš pad, parametar se vraća na minimum.'));
       }
     }
+  } else if (type === 'repeat') {
+    box.append(field('Brzina', selectEl({ '1/4': '1/4', '1/8': '1/8', '1/8T': '1/8 triola', '1/16': '1/16', '1/16T': '1/16 triola', '1/32': '1/32' }, common(maps, 'rate'), (v) => setAll('rate', v)), 'Držani padovi (note) ponavljaju se u tempu Livea'));
+    box.append(field('Ponašanje', selectEl({ momentary: 'Dok držiš', toggle: 'Uključi/isključi (latch)' }, common(maps, 'behavior'), (v) => setAll('behavior', v))));
+    box.append(el('p', { class: 'muted small' }, 'Treba MIDI clock: Live → izlaz Push3 UM → Sync ON. Jače pritisneš pad = glasnija ponavljanja.'));
   } else if (type === 'transpose') {
     box.append(field('Pomak', selectEl({ '-12': '−12 (oktava dolje)', '12': '+12 (oktava gore)', '-1': '−1 polustepen', '1': '+1 polustepen', '-7': '−7 (kvinta)', '7': '+7 (kvinta)', '0': '0 (vrati)' }, String(common(maps, 'amount')), (v) => setAll('amount', Number(v))), 'Pomiče note padova na ovoj stranici (toggle padovi se ne pomiču)'));
   } else if (type === 'page' || type === 'pageHold') {
@@ -1259,7 +1265,7 @@ const TEMPLATES = {
   },
   keys: {
     name: 'Klavijatura (skala, kao na Pushu)',
-    help: 'Padovi sviraju note u skali: udesno sljedeći ton skale, red gore = kvarta (3 tona skale; kromatski 5 polustepeni). Plavo = tonika. Oct − / Oct + pomiču oktavu (Page ◀ ▶ za polustepen). Pošalji na synth ili instrument na kanalu stranice.',
+    help: 'Padovi sviraju note u skali: udesno sljedeći ton skale, red gore = kvarta (3 tona skale; kromatski 5 polustepeni). Plavo = tonika. Oct − / Oct + pomiču oktavu (Page ◀ ▶ za polustepen), drži Repeat = note repeat 1/16. Pošalji na synth ili instrument na kanalu stranice.',
     ask: [
       { key: 'root', label: 'Tonika (C, C#, D … B)', default: 'C' },
       { key: 'scale', label: 'Skala: major, minor, dorian, mixolydian, harmonic, pentatonic, minorpenta, blues, chromatic', default: 'minor' },
@@ -1288,12 +1294,13 @@ const TEMPLATES = {
       r.octUp = { type: 'transpose', amount: 12, colorOn: 3, colorOff: 1 };
       r.pageLeft = { type: 'transpose', amount: -1, colorOn: 3, colorOff: 1 };
       r.pageRight = { type: 'transpose', amount: 1, colorOn: 3, colorOff: 1 };
+      r.repeat = { type: 'repeat', rate: '1/16', behavior: 'momentary', colorOn: 21, colorOff: 1 };
       return r;
     },
   },
   samplerPads: {
     name: 'Sampler + Drum Rack 4×4',
-    help: 'Donji lijevi 4×4 padovi sviraju Drum Rack (note 36–51); Shift + pad = odaberi taj pad kao cilj; Capture = snimi u odabrani pad; New = zadnji clip u odabrani pad. Gumbi ispod ekrana 1–5: Reverse, Crop, One-Shot, Classic, Warp za uzorak na odabranom padu; enkoderi 1–8: Start, Length, Transpose, Volume, Filter, Res, Attack, Release njegovog Simplera.',
+    help: 'Donji lijevi 4×4 padovi sviraju Drum Rack (note 36–51); Shift + pad = odaberi taj pad kao cilj; Capture = snimi u odabrani pad; New = zadnji clip u odabrani pad; drži Repeat = note repeat. Gumbi ispod ekrana 1–5: Reverse, Crop, One-Shot, Classic, Warp za uzorak na odabranom padu; enkoderi 1–8: Start, Length, Transpose, Volume, Filter, Res, Attack, Release njegovog Simplera.',
     ask: [
       { key: 'source', label: 'Track koji snima (npr. mic in - sampling)', default: 'selected' },
       { key: 'target', label: 'Track s Drum Rackom', default: 'selected' },
@@ -1317,6 +1324,7 @@ const TEMPLATES = {
       const S2 = (action) => ({ type: 'addon', addon: { id: 'sampler', action, params: { source: a.source, target: a.target, rack: 'first', autoArm: 'yes' } } });
       r.capture = S2('sampleToSelected');
       r.new = S2('lastToSelected');
+      r.repeat = { type: 'repeat', rate: '1/16', behavior: 'momentary', colorOn: 21, colorOff: 1 };
       Object.assign(r, simplerButtons(a.target));
       return r;
     },

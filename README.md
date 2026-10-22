@@ -74,7 +74,7 @@ Polje **Traži** gore desno ističe kontrole po imenu, oznaci ili broju (npr. `3
 | Kanal | stranica 1 = kanal 5, stranica 2 = 6, … (mijenja se u Postavkama ili po stranici) |
 
 ### Klavijatura i transpozicija (v0.42)
-Predložak **Klavijatura (skala, kao na Pushu)**: tonika + skala (major, minor, dorian, mixolydian, harmonic, pentatonic, minorpenta, blues, chromatic); udesno sljedeći ton skale, red gore = kvarta, plavo = tonika, poly aftertouch na padovima. Novi tip gumba **Transpozicija padova**: *Oct − / Oct +* pomiču oktavu, *Page ◀ ▶* polustepen (pomak vrijedi za tu stranicu, a nota koju držiš se uvijek ispravno ugasi). Idealno za synthove i vanjske instrumente u User modu.
+Predložak **Klavijatura (skala, kao na Pushu)**: tonika + skala (major, minor, dorian, mixolydian, harmonic, pentatonic, minorpenta, blues, chromatic); udesno sljedeći ton skale, red gore = kvarta, plavo = tonika, poly aftertouch na padovima. Novi tip gumba **Transpozicija padova**: *Oct − / Oct +* pomiču oktavu, *Page ◀ ▶* polustepen (pomak vrijedi za tu stranicu, a nota koju držiš se uvijek ispravno ugasi). Idealno za synthove i vanjske instrumente u User modu. **Note repeat** (v0.43): tip gumba *Note repeat* (1/4 … 1/32, triole; dok držiš ili latch) – držani padovi se ponavljaju u tempu Livea, jače pritisneš = glasnije. Treba *Push3 UM → Sync ON*. U predlošcima Klavijatura i Sampler + Drum Rack je na gumbu **Repeat**.
 
 ## Add-oni (v0.8)
 

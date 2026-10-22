@@ -679,3 +679,29 @@ test('transpose buttons move pad notes per page; note offs match the note that w
   e.handlePushMessage([0x90, 36, 100]); // other page: not transposed
   assert.equal(out.host[0][1], 36);
 });
+
+test('note repeat: held pads retrigger on the clock grid, pressure sets the velocity', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['pad.0.0'], { type: 'note', number: 36, behavior: 'momentary', velocity: 'fixed', onValue: 100 });
+    Object.assign(c.pages[0].controls.repeat, { type: 'repeat', rate: '1/8', behavior: 'momentary' });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  e.handleHostMessage([0xfa]);
+  e.handleHostMessage([0xf8]);
+  e.handleHostMessage([0xf8]); // tick 2: pad pressed mid-grid
+  e.handlePushMessage([0xb0, 56, 127]); // hold Repeat
+  clear();
+  e.handlePushMessage([0x90, 36, 100]);
+  for (let i = 3; i <= 12; i++) e.handleHostMessage([0xf8]); // tick 12 = next 1/8
+  e.handlePushMessage([0xa0, 36, 60]); // press softer
+  for (let i = 13; i <= 24; i++) e.handleHostMessage([0xf8]);
+  e.handlePushMessage([0x80, 36, 0]);
+  for (let i = 25; i <= 36; i++) e.handleHostMessage([0xf8]); // released: no more
+  const notes = out.host.filter((m) => (m[0] & 0xf0) === 0x90);
+  assert.deepEqual(notes, [[0x94, 36, 100], [0x94, 36, 0], [0x94, 36, 100], [0x94, 36, 0], [0x94, 36, 60], [0x94, 36, 0]]);
+  e.handlePushMessage([0xb0, 56, 0]); // Repeat released: pads play normally again
+  clear();
+  e.handlePushMessage([0x90, 36, 100]);
+  for (let i = 0; i < 24; i++) e.handleHostMessage([0xf8]);
+  assert.equal(out.host.filter((m) => (m[0] & 0xf0) === 0x90).length, 1);
+});

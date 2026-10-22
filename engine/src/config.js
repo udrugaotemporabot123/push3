@@ -12,7 +12,8 @@ const MAX_PAGES = 16;
 
 const PAGE_COLORS = [COLORS.mint, COLORS.blue, COLORS.orange, COLORS.pink, COLORS.yellow, COLORS.purple, COLORS.cyan, COLORS.red];
 
-const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live', 'addon', 'panic', 'transpose'];
+const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live', 'addon', 'panic', 'transpose', 'repeat'];
+const REPEAT_RATES = { '1/4': 24, '1/8': 12, '1/8T': 8, '1/16': 6, '1/16T': 4, '1/32': 3 };
 const BEHAVIORS = ['momentary', 'toggle', 'trigger'];
 const ENCODER_TYPES = ['none', 'cc', 'live'];
 const ENCODER_MODES = ['absolute', 'absolute14', 'relative2c', 'relativeOffset', 'steps'];
@@ -173,6 +174,7 @@ function normalizeButton(m, page, ctl, isShift = false) {
     out.pressureCc = clampInt(m.pressureCc, 0, 127, 1);
   }
   if (out.type === 'page' || out.type === 'pageHold') out.page = clampInt(m.page, 0, MAX_PAGES - 1, 0);
+  if (out.type === 'repeat') out.rate = oneOf(m.rate, Object.keys(REPEAT_RATES), '1/16');
   if (out.type === 'transpose') out.amount = clampInt(m.amount, -48, 48, 12); // 0 = back to no transpose
   if (out.type === 'variation') {
     out.target = {
@@ -357,4 +359,5 @@ module.exports = {
   normalizeMapping,
   pageChannel,
   range14,
+  REPEAT_RATES,
 };

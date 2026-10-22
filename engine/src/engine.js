@@ -14,7 +14,7 @@
 //   not visible and switching pages is instant.
 
 const push3 = require('./push3');
-const { normalizeConfig, pageChannel, range14 } = require('./config');
+const { normalizeConfig, pageChannel, range14, REPEAT_RATES } = require('./config');
 const { dimOf, DEFAULT_PALETTE } = require('./palette');
 const live = require('./live');
 
@@ -52,6 +52,9 @@ class Engine {
     this.pressed = new Set(); // control ids physically held
     this.heldOutputs = new Map(); // control id -> bytes to send on release (note offs etc.)
     this.liveHeld = new Map(); // control id -> Live parameter to reset on release (momentary)
+    this.repeat = null; // active note repeat: { id, ticks, latch }
+    this.repeating = new Map(); // pad id -> { note, chan, vel } retriggered on Live's clock
+    this.repeatTick = 0;
     this.transpose = new Map(); // page uid -> semitones added to the page's pad notes (Oct-/Oct+)
     this.addonHeld = new Map(); // control id -> add-on mapping that got the press (release goes to the same one)
     this.touchHeld = new Map(); // encoder id -> touch note that was sent (its note off goes to the same note)
@@ -506,6 +509,14 @@ class Engine {
         this.panic();
         this.renderControl(ctl);
         return;
+      case 'repeat': {
+        const ticks = REPEAT_RATES[m.rate] || 6;
+        if (m.behavior === 'toggle') this.repeat = this.repeat && this.repeat.id === ctl.id ? null : { id: ctl.id, ticks, latch: true };
+        else this.repeat = { id: ctl.id, ticks, latch: false };
+        this.emit('notice', { text: this.repeat ? `Repeat ${m.rate}` : 'Repeat off' });
+        this.renderWhere((x) => x.type === 'repeat');
+        return;
+      }
       case 'transpose': {
         const uid = this.config.pages[this.page].uid;
         const t = m.amount === 0 ? 0 : Math.max(-48, Math.min(48, (this.transpose.get(uid) || 0) + m.amount));
@@ -550,12 +561,18 @@ class Engine {
       st.on = true;
       this.sendValue(m, chan, value, true);
       if (m.type !== 'pc') this.heldOutputs.set(ctl.id, { m, chan, layer });
+      if (this.repeat && ctl.kind === 'pad' && m.type === 'note') this.repeating.set(ctl.id, { note: m.number, chan, vel: value });
     }
     this.renderControl(ctl);
   }
 
   release(ctl) {
     this.pressed.delete(ctl.id);
+    this.repeating.delete(ctl.id);
+    if (this.repeat && this.repeat.id === ctl.id && !this.repeat.latch) {
+      this.repeat = null;
+      this.renderWhere((x) => x.type === 'repeat');
+    }
     this.emit('input', { id: ctl.id, kind: 'release' });
     if (this.lastPressure.has(ctl.id)) {
       const pm = this.mapping(ctl.id);
@@ -601,6 +618,8 @@ class Engine {
       if (s && held.m.behavior === 'momentary' && !held.m.group) s.on = false;
     }
     this.heldOutputs.clear();
+    this.repeating.clear();
+    if (this.repeat && !this.repeat.latch) this.repeat = null;
     for (const lh of this.liveHeld.values()) this.io.toLive({ cmd: 'liveSet', key: lh.key, spec: lh.spec, value: 0 });
     this.liveHeld.clear();
     const addonHeld = [...this.addonHeld];
@@ -664,6 +683,8 @@ class Engine {
   }
 
   pressure(ctl, value) {
+    const rep = this.repeating.get(ctl.id);
+    if (rep && value > 0) rep.vel = value; // note repeat: pressing harder = louder repeats
     const m = this.mapping(ctl.id);
     if (!m || m.type === 'none' || !m.pressure || m.pressure === 'off') return;
     if (this.lastPressure.get(ctl.id) === value) return;
@@ -837,6 +858,8 @@ class Engine {
       if (this.mode === 'user') this.io.toPush([status]);
       // Add-ons that follow Live's clock (sequencers) get every tick, also outside User Mode.
       const type = status === CLOCK ? 'clock' : status === START ? 'start' : status === STOP ? 'stop' : 'continue';
+      if (status === START) this.repeatTick = 0;
+      else if (status === CLOCK) this.noteRepeatTick();
       for (const [id, a] of this.addons) {
         if (typeof a.inst.clock !== 'function' || (this.config.settings.addons && this.config.settings.addons[id] === false)) continue;
         try {
@@ -845,6 +868,17 @@ class Engine {
           this.io.log('error', `Add-on ${id}.clock failed: ${e.message}`);
         }
       }
+    }
+  }
+
+  // Note repeat: every `ticks` clock ticks (from Live's start, so on the grid) each held pad retriggers.
+  noteRepeatTick() {
+    this.repeatTick++;
+    if (!this.repeat || !this.repeating.size || this.mode !== 'user') return;
+    if (this.repeatTick % this.repeat.ticks !== 0) return;
+    for (const r of this.repeating.values()) {
+      this.io.toHost([NOTE_ON | r.chan, r.note, 0]);
+      this.io.toHost([NOTE_ON | r.chan, r.note, Math.max(1, r.vel)]);
     }
   }
 
@@ -1163,6 +1197,7 @@ class Engine {
       if (m.index >= v.count) return { color: 0, anim: 0 };
       return m.index === v.selected ? { color: m.colorOn, anim: push3.ANIMATIONS[m.anim] || 0 } : { color: m.colorOff, anim: 0 };
     }
+    if (m.type === 'repeat') return { color: held || (this.repeat && this.repeat.id === ctl.id) ? m.colorOn : m.colorOff, anim: 0 };
     if (m.type === 'transpose') {
       const t = this.transpose.get(this.config.pages[this.page].uid) || 0;
       const active = held || (m.amount > 0 ? t > 0 : m.amount < 0 ? t < 0 : t !== 0);

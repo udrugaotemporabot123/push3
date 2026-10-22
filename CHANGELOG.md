@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.43.0 – 2026-10-22
+Note repeat (1/4–1/32, triole, jačina iz pritiska) u tempu Livea.
+
 ## v0.42.0 – 2026-10-22
 Klavijatura u skali (kao na Pushu) i gumbi za transpoziciju padova (oktava, polustepen).
 

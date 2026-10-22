@@ -85,6 +85,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.40.0 Stable page uids: toggle/encoder state and the shown page follow pages that are moved, deleted or duplicated
 - [x] v0.41.0 Slicer: sampler action sampleToSlices loads the recording into the target track's Simpler in Slice mode; template Slicer 4x4
 - [x] v0.42.0 Transpose button type (per-page pad transpose, held notes released on the sent note), Keyboard template (root + scale, in-key 4ths layout, poly AT)
+- [x] v0.43.0 Note repeat button type (rates 1/4–1/32 incl. triplets, momentary or latch, grid-aligned to Live's clock, pressure = velocity)
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
