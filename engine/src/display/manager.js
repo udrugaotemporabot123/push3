@@ -10,7 +10,8 @@ const push3 = require('../push3');
 
 const RENDER_MS = 33;
 const PREVIEW_MS = 100;
-const KEEPALIVE_MS = 500; // the display blanks after ~2 s without frames
+const KEEPALIVE_MS = 1000; // the display blanks after ~2 s without frames
+const HW_MIN_MS = 100; // at most 10 frames per second to the hardware, and only when the picture changed
 
 class DisplayManager {
   constructor({ engine, palette, log, onPreview, transport }) {
@@ -28,6 +29,8 @@ class DisplayManager {
     this.keepalive = null;
     this.previewWanted = false;
     this.wasUser = false;
+    this.lastHwAt = 0;
+    this.hwTimer = null;
 
     engine.onChange((what, data) => this.onEngine(what, data));
   }
@@ -112,10 +115,24 @@ class DisplayManager {
     if (!hw && !this.previewWanted) return;
     draw(this.canvas, buildModel(this.engine, this.palette, this.lastAction, Date.now()));
     if (hw) {
-      this.frame = this.canvas.toPushFrame(); // fresh buffer: the previous one may still be in flight
-      this.transport.send(this.frame);
+      const frame = this.canvas.toPushFrame(); // fresh buffer: the previous one may still be in flight
+      if (!this.frame || !frame.equals(this.frame)) {
+        this.frame = frame;
+        this.sendHardware();
+      }
     }
     if (this.previewWanted) this.sendPreview();
+  }
+
+  // Rate-limited hardware send: keeps USB traffic low so Live is not starved on the same link.
+  sendHardware() {
+    const wait = HW_MIN_MS - (Date.now() - this.lastHwAt);
+    if (wait > 0) {
+      if (!this.hwTimer) this.hwTimer = setTimeout(() => ((this.hwTimer = null), this.sendHardware()), wait);
+      return;
+    }
+    this.lastHwAt = Date.now();
+    if (this.frame) this.transport.send(this.frame);
   }
 
   sendPreview() {

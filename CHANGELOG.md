@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.49.5 – 2026-10-22
+Pokus s Push ekranom: sigurnije (manje prometa, sigurnosni prekid nakon 400 ms, ekran se vraća Liveu).
+
 ## v0.49.4 – 2026-10-22
 Vraćena instalacija (npm), ali samo MIDI biblioteke: nema blokade macOS-a ni kompajliranja usb-a.
 

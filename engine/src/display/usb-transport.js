@@ -9,6 +9,7 @@ const VENDOR = 0x2982;
 const PUSH3 = 0x1969;
 const INTERFACE = 0;
 const ENDPOINT = 1;
+const SEND_TIMEOUT_MS = 400; // a frame that takes longer means the USB link is contended: give up
 
 class UsbTransport {
   constructor(log) {
@@ -17,10 +18,12 @@ class UsbTransport {
     this.detail = '';
     this.device = null;
     this.sending = false;
+    this.disabled = false; // set after a timeout/error: no more tries until the engine restarts
   }
 
   async open() {
     if (this.state === 'active' || this.state === 'opening') return this.state;
+    if (this.disabled) return this.set('busy', 'Ekran isključen nakon greške (sigurnost); restartaj device za novi pokušaj');
     let usbLib;
     try {
       usbLib = require('usb');
@@ -70,15 +73,28 @@ class UsbTransport {
   async send(frame) {
     if (this.state !== 'active' || this.sending || !this.device) return false;
     this.sending = true;
+    let timer = null;
     try {
-      await this.device.transferOut(ENDPOINT, FRAME_HEADER);
-      await this.device.transferOut(ENDPOINT, frame);
+      // Safety: if a frame does not go out quickly, Live is probably fighting for the display.
+      // Hand the display back at once and stop trying for this session.
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`USB ne odgovara ${SEND_TIMEOUT_MS} ms`)), SEND_TIMEOUT_MS);
+      });
+      await Promise.race([
+        (async () => {
+          await this.device.transferOut(ENDPOINT, FRAME_HEADER);
+          await this.device.transferOut(ENDPOINT, frame);
+        })(),
+        timeout,
+      ]);
       return true;
     } catch (e) {
-      this.set('error', `Slanje na ekran nije uspjelo: ${e.message}`);
+      this.disabled = true;
+      this.set('error', `Ekran vraćen Liveu (sigurnost): ${e.message}`);
       await this.close();
       return false;
     } finally {
+      clearTimeout(timer);
       this.sending = false;
     }
   }

@@ -13,9 +13,24 @@ for (const dep of ['@julusian/midi', 'ws']) {
   }
 }
 
-// The display module ("usb") is not a dependency: it has no ready-made macOS binary and compiling
-// it could hang "Installing components" for ever. npm install only fetches the MIDI modules (they come
-// with prebuilt binaries; files fetched by npm are not blocked by macOS Gatekeeper, unlike a ZIP).
+// The display module ("usb") is optional; it comes as a ready-made macOS binary (@node-usb/usb-darwin-*),
+// nothing is compiled. If it is missing, ask Max to run "npm install" once per version, never in a loop.
+if (!missing) {
+  try {
+    require.resolve('usb');
+  } catch (e) {
+    const fs = require('fs');
+    const marker = require('path').join(__dirname, 'node_modules', `.p3um-usb-install-${require('./package.json').version}`);
+    if (!fs.existsSync(marker)) {
+      try {
+        fs.writeFileSync(marker, String(Date.now()));
+        missing = 'usb';
+      } catch (e2) {
+        /* read-only folder: run without the display */
+      }
+    }
+  }
+}
 
 if (missing) {
   let max = null;

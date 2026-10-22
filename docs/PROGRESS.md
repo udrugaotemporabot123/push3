@@ -98,6 +98,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.49.2 Safety: display takeover is switched off at every startup (a saved takeover could keep Live loading/hanging); suspected cause of the freeze on the user's Push, bridge still a suspect
 - [x] v0.49.3 Real cause of the endless "Installing components": the optional usb module has no macOS prebuild and was compiled on every new version. Runtime modules (@julusian/midi with prebuilds, pkg-prebuilds, tslib, ws) now ship in the release; usb is never auto-installed
 - [x] v0.49.4 Bundled binaries were blocked by macOS Gatekeeper (ZIP quarantine). Back to npm install, but only @julusian/midi + ws (usb removed from package.json, never compiled on the user's Mac)
+- [x] v0.49.5 Display takeover experiment, safer: usb back as optional dep (prebuilt @node-usb/usb-darwin-*, confirmed by the user's npm log), hardware frames only when changed and max 10 fps, keepalive 1 s, 400 ms send watchdog hands the display back and disables takeover for the session. Root cause of the morning hang: saved takeover setting (fixed since v0.49.2)
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.

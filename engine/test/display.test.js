@@ -112,3 +112,22 @@ test('display setting "editor" never touches the hardware', async () => {
   assert.equal(t.opens, 0);
   await m.shutdown();
 });
+
+test('USB display: a frame that hangs hands the display back and stops further tries (safety)', async () => {
+  const { UsbTransport } = require('../src/display/usb-transport');
+  const logs = [];
+  const t = new UsbTransport((l, m) => logs.push(m));
+  let released = false;
+  t.device = {
+    transferOut: () => new Promise(() => {}), // never completes: Live is fighting for the link
+    releaseInterface: async () => (released = true),
+    close: async () => {},
+    opened: true,
+  };
+  t.state = 'active';
+  const ok = await t.send(Buffer.alloc(16));
+  assert.equal(ok, false);
+  assert.equal(released, true);
+  assert.equal(t.disabled, true);
+  assert.equal(await t.open(), 'busy'); // no new attempt in this session
+});
