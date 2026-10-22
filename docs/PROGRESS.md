@@ -66,13 +66,14 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.21.0 Looper fixed-length recording (ClipSlot.fire(record_length) in beats = bars x numerator)
 - [x] v0.22.0 Sampler target pad: Shift + pad selects the Drum Rack pad, Capture records into it (sampleToSelected, selectDrumPad); template Sampler + Drum Rack 4x4
 - [x] v0.23.0 Sequencer: drum pads (hit: play + select lane + live record into nearest step), steps of the selected lane, MPC swing, template Drum sequencer 16 + 32 (+ Sampler)
+- [x] v0.24.0 Add-on status on the display (status hook: sequencer position/REC, sampler target, looper count), add-on action labels on display buttons, Looper clear all (Shift)
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
 - [ ] Sequencer: per-step note length / probability, pattern pages (bars 1–4), copy lane, loop length per lane, step input while stopped.
 - [ ] Sampler: crop/normalise via Simpler API (crop, warp), "resample master" source.
-- [ ] Looper: overdub on the same slot, per-track "clear all".
-- [ ] Display: add-on pages (sequencer shows lanes/position, sampler shows target pad), track colour bars, encoder touch = big value.
+- [ ] Looper: overdub (MIDI only in Live session; audio needs a new layer on the next slot), stop-all with fade.
+- [ ] Display: full-screen add-on views (sequencer lanes grid), track colour bars, encoder touch = big value.
 - [ ] Editor: LAN access opt-in (edit from the tablet), search by label, drag-to-reorder pages, per-page templates preview.
 - [ ] TouchOSC/OSC mirror of the display state (optional add-on).
 - [ ] 14-bit encoders (CC pairs) for fine absolute control.

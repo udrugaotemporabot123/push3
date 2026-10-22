@@ -26,6 +26,7 @@ module.exports = {
       press({ params, action, id, velocity, shift }) {},
       release({ params, action, id }) {},
       led({ params, action, id, held }) { return { color: 21, anim: 0 }; },
+      status({ params, action }) { return 'Seq A ▶ 5/16'; }, // short text on the display status line
       clock(type) {},            // 'start' | 'clock' (24 ppqn) | 'stop' | 'continue' – needs Sync on Push3 UM out
     };
   },
@@ -34,6 +35,9 @@ module.exports = {
 
 All hooks are optional. `watch` is called for every control mapped to your add-on whenever the
 configuration changes; `ctx` is `{ page, id, channel }` (the MIDI channel that page sends on).
+`status` is called by the display (30 fps, keep it cheap) once per add-on instance on the current page
+(instances are told apart by `params.seq` / `params.track` / `params.source`); an empty string hides it.
+Display buttons mapped to an add-on show the action's `label`.
 
 ## API
 

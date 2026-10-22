@@ -60,6 +60,7 @@ function buttonLabel(engine, ctl, m) {
     const base = summary(ctl, m);
     if (v && v.ok && v.name && ['mute', 'solo', 'arm', 'select'].includes(m.live.action)) return m.live.action === 'select' ? v.name : `${base} ${v.name}`;
   }
+  if (m && m.type === 'addon' && !m.label && typeof engine.addonLabel === 'function') return engine.addonLabel(m) || summary(ctl, m);
   return summary(ctl, m);
 }
 
@@ -77,6 +78,7 @@ function buildModel(engine, palette, lastAction, now) {
     action: lastAction && now - lastAction.at < 1500 ? lastAction : null,
     display: page ? page.display : 'controls',
     transport: transportText(engine),
+    status: typeof engine.addonStatus === 'function' ? engine.addonStatus().join('  ·  ') : '',
   };
   for (let i = 1; i <= 8; i++) {
     const ctl = push3.byId.get(`upper.${i}`);
@@ -161,8 +163,9 @@ function draw(canvas, model) {
     canvas.text(12, 104, model.action.title, { font: 'bold', color: WHITE, maxWidth: 520 });
     canvas.text(948, 104, model.action.detail || '', { font: 'bold', color: model.pageColor, align: 'right', maxWidth: 400 });
   } else {
-    canvas.text(12, 106, model.pageName, { font: 'bold', color: model.pageColor, maxWidth: 520 });
-    canvas.text(948, 108, `${model.transport ? `${model.transport} · ` : ''}ch ${model.channel}`, { font: 'small', color: GREY, align: 'right' });
+    canvas.text(12, 106, model.pageName, { font: 'bold', color: model.pageColor, maxWidth: model.status ? 300 : 520 });
+    const right = model.status || `${model.transport ? `${model.transport} · ` : ''}ch ${model.channel}`;
+    canvas.text(948, 108, right, { font: 'small', color: model.status ? WHITE : GREY, align: 'right', maxWidth: 620 });
   }
 
   // Lower row labels.
@@ -184,7 +187,7 @@ function drawBig(canvas, model) {
     canvas.text(28, 70, model.action.detail || '', { font: 'big', color: model.pageColor, maxWidth: 900 });
   } else {
     canvas.text(28, 22, model.pageName, { font: 'big', color: model.pageColor, maxWidth: 900 });
-    canvas.text(28, 70, `kanal ${model.channel}`, { font: 'bold', color: GREY });
+    canvas.text(28, 70, model.status || `kanal ${model.channel}`, { font: 'bold', color: model.status ? WHITE : GREY, maxWidth: 900 });
   }
   if (model.transport) canvas.text(940, 126, model.transport, { font: 'bold', color: GREY, align: 'right' });
   // Lower button labels stay visible: they belong to the buttons right below the display.

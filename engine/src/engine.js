@@ -799,6 +799,33 @@ class Engine {
     }
   }
 
+  // One short status text per add-on instance used on the current page (shown on the display).
+  addonStatus() {
+    const page = this.config.pages[this.page];
+    if (!page) return [];
+    const seen = new Set();
+    const out = [];
+    for (const c of Object.values(page.controls)) {
+      for (const m of [c, c && c.shift]) {
+        if (!m || m.type !== 'addon' || !m.addon) continue;
+        const p = m.addon.params || {};
+        const key = `${m.addon.id}|${p.seq || ''}|${p.track || p.source || ''}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const s = this.addonCall(m, 'status');
+        if (s && !out.includes(s)) out.push(String(s));
+      }
+    }
+    return out.slice(0, 3);
+  }
+
+  // Label of an add-on action as the add-on names it.
+  addonLabel(m) {
+    const a = this.addonFor(m);
+    const act = a && a.mod.actions && a.mod.actions[m.addon.action];
+    return act ? act.label : '';
+  }
+
   liveSpec(m) {
     if (!m || m.type !== 'live' || !m.live) return null;
     return m.live.target ? live.specForEncoder(m.live) : live.specForButton(m.live);

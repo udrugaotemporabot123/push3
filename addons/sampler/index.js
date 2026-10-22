@@ -43,6 +43,10 @@ module.exports = {
       api.toLive({ cmd: 'liveCall', spec: { t: 'clipToPad', source: p.source || 'selected', scene: slotIndex + 1, target: p.target || 'selected', rack: p.rack || 'first', pad }, fn: 'clipToPad' });
     const fire = (p, slotIndex) => api.toLive({ cmd: 'liveCall', spec: { t: 'slot', track: p.source || 'selected', scene: slotIndex + 1 }, fn: 'fireSlot' });
 
+    const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const noteName = (n) => `${NAMES[n % 12]}${Math.floor(n / 12) - 2}`; // Live: 36 = C1
+    let target = null;
+
     return {
       watch(params, action) {
         if (action === 'targetPad') return [];
@@ -51,7 +55,9 @@ module.exports = {
 
       press({ params, action }) {
         if (action === 'targetPad') {
-          api.toLive({ cmd: 'liveCall', spec: { t: 'drumPad', target: params.target || 'selected', rack: params.rack || 'first', note: Number.parseInt(params.note, 10) || 36 }, fn: 'selectDrumPad' });
+          target = Number.parseInt(params.note, 10) || 36;
+          api.toLive({ cmd: 'liveCall', spec: { t: 'drumPad', target: params.target || 'selected', rack: params.rack || 'first', note: target }, fn: 'selectDrumPad' });
+          api.renderAddons();
           return;
         }
         const s = slots(params);
@@ -75,12 +81,19 @@ module.exports = {
         }
       },
 
+      status({ params, action }) {
+        const s = action === 'targetPad' ? null : slots(params);
+        const parts = [];
+        if (s && s.includes(SLOT.RECORDING)) parts.push('● snima');
+        if (target !== null) parts.push(`cilj ${noteName(target)}`);
+        return parts.length ? `Sampler ${parts.join(' ')}` : '';
+      },
+
       led({ params, action, held }) {
         if (held) return { color: 3, anim: 0 };
-        if (action === 'targetPad') return { color: 49, anim: 0 };
+        if (action === 'targetPad') return { color: Number.parseInt(params.note, 10) === target ? 3 : 49, anim: 0 };
         const s = slots(params);
         if (!s) return { color: 0, anim: 0 };
-        if (action === 'targetPad') return { color: 49, anim: 0 };
         if (action === 'sampleToPad' || action === 'sampleToSelected') return s.includes(SLOT.RECORDING) ? { color: 5, anim: api.ANIM.blink } : { color: 50, anim: 0 };
         return { color: lastWithClip(s) >= 0 ? 49 : 0, anim: 0 };
       },

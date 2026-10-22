@@ -229,6 +229,16 @@ module.exports = {
         }
       },
 
+      status({ params }) {
+        const sq = seqOf(params.seq);
+        if (!sq.length) return '';
+        const playing = transport && sq.running;
+        const parts = [`Seq ${params.seq || 'A'} ${playing ? '▶' : '■'} ${playing && sq.pos >= 0 ? sq.pos + 1 : '–'}/${sq.length}`];
+        if (sq.selected && Object.keys(sq.lanes).length > 1) parts.push(`traka ${sq.selected}`);
+        if (sq.recording) parts.push('● REC');
+        return parts.join(' ');
+      },
+
       led({ params, action, held }) {
         const sq = seqOf(params.seq);
         if (held) return { color: 3, anim: 0 };

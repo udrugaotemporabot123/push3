@@ -230,3 +230,38 @@ test('step sequencer: swing delays every second 16th', () => {
   }
   assert.deepEqual(at, [0, 8]); // step 2 at tick 6 + 2 swing ticks
 });
+
+test('looper: clear all needs Shift and deletes every clip of the track', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['pad.0.0'], { type: 'addon', addon: { id: 'looper', action: 'clearAll', params: { track: 'VIO' } } });
+  });
+  e.handleLiveState({ type: 'live', key: slotsKey('VIO'), ok: true, value: [2, 1, 0, 1] });
+  assert.equal(e.addonStatus()[0], 'Looper VIO 3 loopa');
+  clear();
+  e.handlePushMessage([0x90, 36, 100]);
+  e.handlePushMessage([0x80, 36, 0]);
+  assert.deepEqual(out.live, []);
+  e.handlePushMessage([0xb0, 49, 127]); // shift
+  e.handlePushMessage([0x90, 36, 100]);
+  assert.deepEqual(out.live.map((c) => c.spec.scene), [1, 2, 4]);
+  assert.ok(out.live.every((c) => c.fn === 'deleteSlot'));
+});
+
+test('add-ons: status line and action labels reach the display model', () => {
+  const stepseq = require('../../addons/stepseq');
+  const sampler = require('../../addons/sampler');
+  const layout = require('../src/display/layout');
+  const { e } = setup((c) => {
+    const ctl = c.pages[0].controls;
+    Object.assign(ctl['pad.0.0'], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'A', lane: '1', step: '1', note: '36' } } });
+    Object.assign(ctl['pad.0.1'], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'A', lane: '1', step: '2', note: '36' } } });
+    Object.assign(ctl['scene.2'], { type: 'addon', addon: { id: 'stepseq', action: 'rec', params: { seq: 'A' } } });
+    Object.assign(ctl['lower.1'], { type: 'addon', addon: { id: 'sampler', action: 'targetPad', params: { note: '38' } } });
+  }, [stepseq, sampler]);
+  e.handlePushMessage([0xb0, 37, 127]); // rec on
+  e.handlePushMessage([0xb0, 20, 127]); // lower.1: target D1
+  const model = layout.buildModel(e, e.palette || [], null, 0);
+  assert.match(model.status, /Seq A ■ –\/2 ● REC/);
+  assert.match(model.status, /Sampler cilj D1/);
+  assert.equal(model.lower[0].label, 'Odaberi ciljni pad');
+});

@@ -4,6 +4,7 @@
 //   undoLast  – delete the last clip on the track (the most recent loop)
 //   playStop  – stop the track if something plays, otherwise play its last clip
 //   arm       – arm/disarm the track (feedback)
+//   clearAll  – delete every clip on the track (hold Shift for safety: needs shift unless confirm = no)
 
 const SLOT = { EMPTY: 0, STOPPED: 1, PLAYING: 2, RECORDING: 3, TRIGGERED: 4 };
 
@@ -23,6 +24,13 @@ module.exports = {
     undoLast: { label: 'Poništi zadnji loop', fields: { track: { label: 'Track', default: 'selected' } } },
     playStop: { label: 'Play / Stop tracka', fields: { track: { label: 'Track', default: 'selected' } } },
     arm: { label: 'Arm tracka', fields: { track: { label: 'Track', default: 'selected' } } },
+    clearAll: {
+      label: 'Obriši sve loopove',
+      fields: {
+        track: { label: 'Track', default: 'selected' },
+        confirm: { label: 'Samo uz Shift', default: 'yes', help: 'yes = briše samo Shift + gumb (da ne obrišeš slučajno)' },
+      },
+    },
   },
 
   create(api) {
@@ -51,7 +59,15 @@ module.exports = {
         return action === 'arm' ? [armSpec(params)] : [slotsSpec(params), armSpec(params)];
       },
 
-      press({ params, action }) {
+      status({ params }) {
+        const s = slots(params);
+        if (!s) return '';
+        const n = s.filter((x) => x !== SLOT.EMPTY && x !== SLOT.RECORDING).length;
+        const name = params.track && params.track !== 'selected' ? ` ${params.track}` : '';
+        return `Looper${name}${s.includes(SLOT.RECORDING) ? ' ● REC' : ''} ${n} ${n === 1 ? 'loop' : 'loopa'}`;
+      },
+
+      press({ params, action, shift }) {
         if (action === 'arm') {
           const v = api.liveValue(armSpec(params));
           api.toLive({ cmd: 'liveSet', key: api.liveKey(armSpec(params)), spec: armSpec(params), value: v && v.value ? 0 : 1 });
@@ -68,6 +84,11 @@ module.exports = {
           const arm = api.liveValue(armSpec(params));
           if (params.autoArm !== 'no' && !(arm && arm.value)) api.toLive({ cmd: 'liveSet', key: api.liveKey(armSpec(params)), spec: armSpec(params), value: 1 });
           fire(params, next, barsOf(params));
+        } else if (action === 'clearAll') {
+          if (params.confirm !== 'no' && !shift) return api.log('info', 'Looper: Shift + gumb briše sve loopove');
+          s.forEach((x, i) => {
+            if (x !== SLOT.EMPTY) api.toLive({ cmd: 'liveCall', spec: { t: 'slot', track: params.track || 'selected', scene: i + 1 }, fn: 'deleteSlot' });
+          });
         } else if (action === 'undoLast') {
           const last = lastWithClip(s);
           if (last >= 0) api.toLive({ cmd: 'liveCall', spec: { t: 'slot', track: params.track || 'selected', scene: last + 1 }, fn: 'deleteSlot' });
@@ -93,6 +114,7 @@ module.exports = {
         const hasClips = lastWithClip(s) >= 0;
         if (action === 'recNext') return recording ? { color: 5, anim: api.ANIM.blink } : { color: 6, anim: 0 };
         if (action === 'undoLast') return { color: hasClips ? 9 : 0, anim: 0 };
+        if (action === 'clearAll') return { color: hasClips ? 7 : 0, anim: 0 };
         if (action === 'playStop') return playing ? { color: 21, anim: api.ANIM.pulse } : { color: hasClips ? 23 : 0, anim: 0 };
         return { color: 0, anim: 0 };
       },
