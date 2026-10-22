@@ -49,6 +49,8 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.14.0 display: per-page mode (controls / big), track names on mixer encoders and live buttons, tempo + play
       state, shift layer shown while held
 
+- [x] v0.15.0 touch strip and pad pressure → Live parameters (liveAbsolute, dedupe, reset on release)
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white

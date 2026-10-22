@@ -22,7 +22,7 @@ const T = {
   behaviors: { momentary: 'Momentary (dok držiš)', toggle: 'Toggle (uklj/isklj)', trigger: 'Trigger (jedan impuls)' },
   encModes: { absolute: 'Apsolutno (0–127, s povratnom info)', relative2c: 'Relativno – 2’s complement', relativeOffset: 'Relativno – offset 64' },
   anims: { none: 'Bez', 'pulse-slow': 'Pulsira sporo', pulse: 'Pulsira', 'pulse-fast': 'Pulsira brzo', 'blink-slow': 'Blinka sporo', blink: 'Blinka', 'blink-fast': 'Blinka brzo' },
-  pressure: { off: 'Isključeno', polyAT: 'Poly aftertouch', channelAT: 'Channel aftertouch', cc: 'CC' },
+  pressure: { off: 'Isključeno', polyAT: 'Poly aftertouch', channelAT: 'Channel aftertouch', cc: 'CC', live: 'Live parametar' },
   varActions: { recall: 'Pozovi varijaciju', store: 'Spremi u varijaciju', delete: 'Obriši varijaciju', recallLast: 'Zadnja korištena', randomize: 'Random makroi' },
 };
 
@@ -594,6 +594,10 @@ function renderButtonInspector(box, ctls, maps) {
       const pr = common(maps, 'pressure');
       box.append(field('Pritisak', selectEl(T.pressure, pr, (v) => setAll('pressure', v)), 'Što šalje pritisak prsta nakon udarca (poly aftertouch s Pusha).'));
       if (pr === 'cc') box.append(field('Pritisak CC', numEl(common(maps, 'pressureCc'), 0, 127, (v) => setAll('pressureCc', v))));
+      if (pr === 'live') {
+        renderLiveTargetFields(box, maps, 'pressureLive');
+        box.append(el('p', { class: 'muted small' }, 'Kad pustiš pad, parametar se vraća na minimum.'));
+      }
     }
   } else if (type === 'page' || type === 'pageHold') {
     const opts = {};
@@ -857,9 +861,26 @@ function renderEncoderInspector(box, ctls, maps) {
   box.append(el('div', { class: 'sep' }), field('Oznaka', textEl(common(maps, 'label'), (v) => setAll('label', v), 'npr. Cutoff')));
 }
 
+// Live parameter target fields stored under m[key] (touch strip: 'live', pad pressure: 'pressureLive').
+function renderLiveTargetFields(box, maps, key) {
+  const get = (f) => common(maps, (m) => m[key] && m[key][f]);
+  const set = (f, v) => setAll((m) => (m[key] = { target: 'volume', track: 'selected', device: 'first', index: 1, param: '1', ...(m[key] || {}), [f]: v }));
+  const target = get('target') || 'volume';
+  box.append(field('Live cilj', selectEl(T.liveTargets, target, (v) => set('target', v))));
+  if (target !== 'tempo') box.append(field('Track', textEl(get('track'), (v) => set('track', v.trim() || 'selected'), 'selected')));
+  if (target === 'macro' || target === 'named') box.append(field(target === 'macro' ? 'Rack' : 'Device', textEl(get('device'), (v) => set('device', v.trim() || 'first'), 'first')));
+  if (['send', 'macro', 'deviceParam'].includes(target)) box.append(field('Broj', numEl(get('index'), 1, 128, (v) => set('index', v))));
+  if (target === 'named') box.append(field('Parametar', textEl(get('param'), (v) => set('param', v.trim() || '1'), 'npr. Frequency')));
+}
+
 function renderStripInspector(box, maps) {
   const type = common(maps, 'type');
-  box.append(field('Funkcija', selectEl({ none: 'Ništa', pitchbend: 'Pitch bend', cc: 'CC' }, type, (v) => setAll('type', v))));
+  box.append(field('Funkcija', selectEl({ none: 'Ništa', pitchbend: 'Pitch bend', cc: 'CC', live: 'Live parametar' }, type, (v) => setAll('type', v))));
+  if (type === 'live') {
+    renderLiveTargetFields(box, maps, 'live');
+    box.append(el('p', { class: 'muted small' }, 'Za filter sweep i slično uključi u Postavkama Touch strip = Fader (ostaje gdje pustiš).'));
+    return;
+  }
   if (type === 'cc') box.append(field('CC broj', numEl(common(maps, 'number'), 0, 127, (v) => setAll('number', v))));
   if (type !== 'none') box.append(channelSelect(maps));
   box.append(el('p', { class: 'muted small' }, 'Fader način (bez vraćanja na sredinu) uključuješ u Postavkama.'));

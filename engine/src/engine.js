@@ -442,6 +442,10 @@ class Engine {
   release(ctl) {
     this.pressed.delete(ctl.id);
     this.emit('input', { id: ctl.id, kind: 'release' });
+    if (this.lastPressure.has(ctl.id)) {
+      const pm = this.mapping(ctl.id);
+      if (pm && pm.pressure === 'live') this.liveAbsolute(pm.pressureLive, 0);
+    }
     this.lastPressure.delete(ctl.id);
     if (this.pageHold && this.pageHold.id === ctl.id) {
       const ret = this.pageHold.ret;
@@ -531,6 +535,7 @@ class Engine {
     if (!m || m.type === 'none' || !m.pressure || m.pressure === 'off') return;
     if (this.lastPressure.get(ctl.id) === value) return;
     this.lastPressure.set(ctl.id, value);
+    if (m.pressure === 'live') return this.liveAbsolute(m.pressureLive, value / 127);
     const chan = this.channelFor(m);
     if (m.pressure === 'polyAT' && m.type === 'note') this.io.toHost([POLY_AT | chan, m.number, value]);
     else if (m.pressure === 'channelAT') this.io.toHost([CHAN_AT | chan, value]);
@@ -581,6 +586,7 @@ class Engine {
     this.emit('input', { id: ctl.id, kind: 'strip', value: value14 });
     const m = this.mapping(ctl.id);
     if (!m || m.type === 'none') return;
+    if (m.type === 'live') return this.liveAbsolute(m.live, value14 / 16383);
     const chan = this.channelFor(m);
     if (m.type === 'pitchbend') this.io.toHost([PITCHBEND | chan, value14 & 0x7f, value14 >> 7]);
     else this.io.toHost([CC | chan, m.number, value14 >> 7]);
@@ -687,6 +693,10 @@ class Engine {
           if (m.type === 'variation') targets[variationKey(m.target)] = m.target;
           const spec = this.liveSpec(m);
           if (spec) liveTargets[live.liveKey(spec)] = spec;
+          if (m.pressure === 'live' && m.pressureLive) {
+            const ps = live.specForEncoder(m.pressureLive);
+            liveTargets[live.liveKey(ps)] = ps;
+          }
           if (m.type === 'addon') {
             const a = this.addonFor(m);
             let specs = [];
@@ -810,6 +820,18 @@ class Engine {
       this.io.toLive({ cmd: 'liveCall', spec: { t: 'song' }, fn: a });
     }
     this.renderControl(ctl);
+  }
+
+  // Absolute 0..1 value to a Live parameter (touch strip, pad pressure); duplicates are skipped.
+  liveAbsolute(target, value) {
+    if (!target) return;
+    const spec = live.specForEncoder(target);
+    const key = live.liveKey(spec);
+    const v = Math.round(Math.min(1, Math.max(0, value)) * 1000) / 1000;
+    const cur = this.liveState.values[key] || (this.liveState.values[key] = { ok: false, value: -1 });
+    if (cur.value === v) return;
+    cur.value = v;
+    this.io.toLive({ cmd: 'liveSet', key, spec, value: v });
   }
 
   liveTurn(ctl, m, delta) {

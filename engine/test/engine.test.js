@@ -526,3 +526,25 @@ test('velocity curves and panic', () => {
   assert.deepEqual(out.host[0], [0x94, 40, 0]);
   assert.equal(out.host.filter((m) => m[1] === 123).length, 16);
 });
+
+test('touch strip and pad pressure can drive Live parameters directly', () => {
+  const { e, out, clear } = setup((c) => {
+    c.pages[0].controls.strip = { type: 'live', live: { target: 'macro', track: 'VIO', device: 'first', index: 1 } };
+    Object.assign(c.pages[0].controls['pad.0.0'], { pressure: 'live', pressureLive: { target: 'named', track: 'VIO', device: 'Auto Filter', param: 'Frequency' } });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  const targets = out.live.filter((x) => x.cmd === 'watchLive').at(-1).targets;
+  assert.ok(Object.values(targets).some((t) => t.param === 'Frequency'));
+  clear();
+  e.handlePushMessage([0xe0, 0x7f, 0x7f]); // strip at the top
+  e.handlePushMessage([0xe0, 0x7f, 0x7f]); // duplicate skipped
+  e.handlePushMessage([0x90, 36, 80]);
+  e.handlePushMessage([0xa0, 36, 127]);
+  e.handlePushMessage([0x80, 36, 0]);
+  const vals = out.live.filter((x) => x.cmd === 'liveSet').map((x) => [x.spec.target, x.value]);
+  assert.deepEqual(vals, [
+    ['macro', 1],
+    ['named', 1],
+    ['named', 0],
+  ]);
+});

@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.15.0 – 2026-10-22
+Touch strip i pritisak na padu mogu direktno pokretati Live parametar (makro, filter, send…) bez mapiranja.
+
 ## v0.14.0 – 2026-10-22
 Ekran: izbor prikaza po stranici (Kontrole / Veliko), imena trackova na enkoderima i gumbima, tempo i ▶, Shift sloj na ekranu dok držiš Shift.
 

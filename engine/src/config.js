@@ -16,7 +16,8 @@ const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext'
 const BEHAVIORS = ['momentary', 'toggle', 'trigger'];
 const ENCODER_TYPES = ['none', 'cc', 'live'];
 const ENCODER_MODES = ['absolute', 'relative2c', 'relativeOffset'];
-const STRIP_TYPES = ['none', 'pitchbend', 'cc'];
+const STRIP_TYPES = ['none', 'pitchbend', 'cc', 'live'];
+const PRESSURE_TYPES_ALL = ['off', 'polyAT', 'channelAT', 'cc', 'live'];
 const PRESSURE_TYPES = ['off', 'polyAT', 'channelAT', 'cc'];
 const VARIATION_ACTIONS = ['recall', 'store', 'delete', 'recallLast', 'randomize'];
 
@@ -154,7 +155,8 @@ function normalizeButton(m, page, ctl, isShift = false) {
   };
   if (ctl.kind === 'pad') {
     out.curve = oneOf(m.curve, ['soft', 'linear', 'hard'], 'linear');
-    out.pressure = oneOf(m.pressure, PRESSURE_TYPES, 'off');
+    out.pressure = oneOf(m.pressure, PRESSURE_TYPES_ALL, 'off');
+    if (out.pressure === 'live') out.pressureLive = normalizeLiveTarget(m.pressureLive);
     out.pressureCc = clampInt(m.pressureCc, 0, 127, 1);
   }
   if (out.type === 'page' || out.type === 'pageHold') out.page = clampInt(m.page, 0, MAX_PAGES - 1, 0);
@@ -232,11 +234,25 @@ function normalizeEncoder(m, page, ctl, isShift = false) {
 function normalizeStrip(m) {
   const d = defaultStripMapping();
   if (!m || typeof m !== 'object') return d;
-  return {
+  const out = {
     type: oneOf(m.type, STRIP_TYPES, d.type),
     number: clampInt(m.number, 0, 127, d.number),
     channel: clampInt(m.channel, 0, 16, 0),
     label: str(m.label, '', 24),
+  };
+  if (out.type === 'live') out.live = normalizeLiveTarget(m.live);
+  return out;
+}
+
+// Live parameter target shared by encoders, touch strip and pad pressure.
+function normalizeLiveTarget(l0) {
+  const l = l0 && typeof l0 === 'object' ? l0 : {};
+  return {
+    target: oneOf(l.target, live.ENCODER_TARGETS, 'volume'),
+    track: str(l.track, 'selected', 64) || 'selected',
+    device: str(l.device, 'first', 64) || 'first',
+    index: clampInt(l.index, 1, 128, 1),
+    param: str(l.param, '1', 64) || '1',
   };
 }
 
