@@ -11,7 +11,7 @@ const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 const { loadAddons } = require('../../addons');
 
-const VERSION = '0.17.0';
+const VERSION = '0.18.0';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -186,6 +186,9 @@ function start() {
         store.deletePreset(msg.name);
         server.broadcast({ t: 'presets', presets: store.listPresets() });
         break;
+      case 'health':
+        client.ws.send(JSON.stringify({ t: 'health', health: { ...engine.snapshot().health, pushConnected: engine.pushConnected, mode: engine.mode, virtualPort: !!(midi && midi.hostOut), ports: midi && midi.lastPortList, inMax: !!max } }));
+        break;
       case 'clearDiscovered':
         engine.discovered.clear();
         server.broadcast({ t: 'status', snapshot: engine.snapshot() });
@@ -280,7 +283,10 @@ function start() {
         log('warn', `bad liveState: ${e.message}`);
       }
     });
-    max.addHandler('bridgeReady', () => engine.syncVariationTargets());
+    max.addHandler('bridgeReady', () => {
+      engine.health.bridgeReady = true;
+      engine.syncVariationTargets();
+    });
     max.addHandler('page', (n) => engine.setPage(Number(n) - 1));
     max.addHandler('editorUrl', () => max.outlet('editorUrl', `http://127.0.0.1:${EDITOR_PORT}/`).catch(() => {}));
   }

@@ -58,6 +58,7 @@ class Engine {
     this.palette = DEFAULT_PALETTE;
     this.addons = new Map(); // id -> { mod, inst }
     this.discovered = new Map(); // unknown input key -> { bytes, count }
+    this.health = { bridgeReady: false, hostFeedbackAt: 0, hostClockAt: 0, lastPushInputAt: 0 };
     this.setConfig(config);
   }
 
@@ -157,6 +158,7 @@ class Engine {
       pressed: [...this.pressed],
       liveState: this.liveState,
       discovered: [...this.discovered.entries()].map(([key, v]) => ({ key, ...v })),
+      health: { ...this.health, now: this.io.now() },
       savedAftertouch: this.savedAftertouch,
     };
   }
@@ -617,6 +619,7 @@ class Engine {
     if (!bytes || !bytes.length) return;
     const status = bytes[0];
     if (status >= 0xf8) return this.handleHostRealtime(status);
+    this.health.hostFeedbackAt = this.io.now();
     const type = status & 0xf0;
     const chan = status & 0x0f;
     let key;
@@ -650,6 +653,7 @@ class Engine {
   handleHostRealtime(status) {
     if (status === CLOCK || status === START || status === CONTINUE || status === STOP) {
       this.hostClockSeenAt = this.io.now();
+      this.health.hostClockAt = this.hostClockSeenAt;
       if (this.mode === 'user') this.io.toPush([status]);
       // Add-ons that follow Live's clock (sequencers) get every tick, also outside User Mode.
       const type = status === CLOCK ? 'clock' : status === START ? 'start' : status === STOP ? 'stop' : 'continue';

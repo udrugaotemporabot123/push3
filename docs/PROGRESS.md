@@ -57,6 +57,8 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.17.0 step sequencer add-on (lanes x steps, Live MIDI clock, velocity, persistence via addon state files);
       add-on API: clock, sendHost, pageChannel, renderAddons, load/saveState, watch ctx (page, channel)
 
+- [x] v0.18.0 setup check (health checklist in Settings), version in the editor header
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white

@@ -104,6 +104,8 @@ function handle(m) {
       S.meta = { virtualPort: m.virtualPort, configFile: m.configFile, version: m.version, inMax: m.inMax, ports: m.ports, addons: m.addons || [] };
       buildSurface();
       renderAll();
+      $('.brand').title = `verzija ${m.version}`;
+      $('.brand').innerHTML = `Push 3 <b>User Mode</b> <span class="muted small">v${m.version}</span>`;
       (m.log || []).forEach(addEngineLog);
       if (S.monitorOn) send({ t: 'monitor', on: true });
       send({ t: 'display', on: true });
@@ -139,6 +141,10 @@ function handle(m) {
     case 'presets':
       S.presets = m.presets;
       renderPresets();
+      break;
+    case 'health':
+      S.health = m.health;
+      renderHealth();
       break;
     case 'midi':
       addMidiLog(m);
@@ -1162,6 +1168,8 @@ function renderSettings() {
   const right = el(
     'div',
     {},
+    el('h4', {}, 'Provjera'),
+    el('ul', { id: 'healthBox', class: 'small', style: 'list-style:none;padding-left:0' }),
     el('h4', {}, 'Postavljanje u Liveu (jednom)'),
     el(
       'ol',
@@ -1175,6 +1183,7 @@ function renderSettings() {
     el('p', { class: 'muted small' }, S.meta && S.meta.ports ? `MIDI portovi: ${S.meta.ports.inputs.join(', ')}` : ''),
   );
   b.append(el('div', { class: 'settings-grid' }, left, right));
+  renderHealth();
 }
 
 function exportConfig() {
@@ -1243,6 +1252,24 @@ function setStatusFlash(text) {
   setTimeout(() => {
     if (s.textContent === text) [s.textContent, s.className] = prev;
   }, 1200);
+}
+
+// Setup check: what works and what still needs a switch in Live's preferences.
+function renderHealth() {
+  const box = $('#healthBox');
+  if (!box || !S.health) return;
+  const h = S.health;
+  const ago = (t) => (t ? (h.now - t) / 1000 : Infinity);
+  const rows = [
+    [h.pushConnected, 'Push 3 User Port pronađen', 'Spoji Push 3 USB-om; u Liveu za Push 3 User Port isključi Track i Remote.'],
+    [h.virtualPort, 'Virtualni port Push3 UM postoji', 'Restartaj device (gumb Restart).'],
+    [h.inMax && h.bridgeReady, 'Live API most radi (varijacije, Live funkcije)', h.inMax ? 'Pričekaj par sekundi ili restartaj device.' : 'Radi samo unutar Max for Live devicea.'],
+    [ago(h.hostFeedbackAt) < Infinity, 'Povratna informacija iz Livea stiže', 'Live → Settings → MIDI: izlaz Push3 UM → Remote ON (i nešto mapirano na tu kontrolu).'],
+    [ago(h.hostClockAt) < 3, 'MIDI clock iz Livea stiže', 'Treba samo za sekvencer i animacije usklađene s tempom: izlaz Push3 UM → Sync ON, i Live mora svirati.'],
+    [h.mode === 'user', 'Push je u User modu', 'Pritisni User na Pushu.'],
+  ];
+  box.innerHTML = '';
+  for (const [ok, label, fix] of rows) box.append(el('li', {}, el('b', { style: `color:${ok ? 'var(--accent)' : 'var(--warn)'}` }, ok ? '✓ ' : '• '), label, ok ? null : el('div', { class: 'muted small' }, fix)));
 }
 
 function renderPresets() {
@@ -1317,7 +1344,11 @@ function wireUi() {
   $('#settingsBtn').onclick = () => {
     $('#settings').classList.toggle('hidden');
     renderSettings();
+    send({ t: 'health' });
   };
+  setInterval(() => {
+    if (!$('#settings').classList.contains('hidden')) send({ t: 'health' });
+  }, 2000);
   $('#settingsClose').onclick = () => $('#settings').classList.add('hidden');
   $('#monitorBtn').onclick = () => {
     const hidden = $('#monitor').classList.toggle('hidden');

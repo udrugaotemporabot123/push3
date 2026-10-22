@@ -37,6 +37,7 @@ Max for Live device + editor koji od Push 3 **User moda** radi potpuno podesiv M
    - **Push3 UM** In: **Track ON** (sviranje padovima), **Remote ON** (MIDI mapiranje)
    - **Push3 UM** Out: **Remote ON** (povratna informacija za LED-ice i enkodere)
 5. Spremi Live set (ili ga stavi u Default Set) da device bude uvijek tu.
+6. U editoru **Postavke → Provjera** pokazuje ✓ za sve što radi i točno što uključiti za ono što ne radi.
 
 ## Korištenje
 

@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.18.0 – 2026-10-22
+Provjera postavljanja u editoru (Postavke → Provjera): Push, virtualni port, Live most, povratna info, MIDI clock, User mode – s uputom što uključiti. Verzija u zaglavlju editora.
+
 ## v0.17.0 – 2026-10-22
 Step sekvencer add-on: padovi kao mreža koraka (8×8 ili 4×16), svira u tempu Livea, velocity po koraku, pamti uzorke; predlošci. Add-on API: clock, slanje nota, trajno stanje.
 
