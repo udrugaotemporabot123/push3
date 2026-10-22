@@ -80,14 +80,19 @@ Motor sam crta ekran od 960×160: imena stranica gore, oznake i vrijednosti enko
 - Kontrole označene **?** u editoru imaju MIDI brojeve koji još nisu potvrđeni na pravom Pushu 3 (vidi listu dolje).
 - Device je testiran logikom i automatskim testovima, ali **ne na pravom Pushu 3**: prvo testiranje je kod tebe.
 
-## Lista za prvo testiranje
+## Lista za testiranje (v0.11)
 
-1. Device se učita, status dođe do *Ready (Live Mode)*. (Ako ne: Max Console poruke `[p3um]`.)
-2. Pritisni **User**: status prelazi u *USER MODE*, padovi se zasvijetle u boji stranice.
-3. Otvori **MIDI monitor** u editoru i pritisni nekoliko padova: moraju ići `Push → note … ch1` i `→ Live note … ch5`, **bez** pitch bend / CC74 poruka.
-4. Pritisni gumbe označene **?**: u monitoru provjeri da se pojavljuju kao poznate kontrole. Ako nešto završi pod *Nepoznate kontrole*, pošalji mi screenshot.
-5. Mapiraj jedan gumb kao *Toggle CC* na Mute nekog tracka; mutiraj taj track mišem: LED na Pushu mora pratiti.
-6. Pritisni **User** opet: Push se vraća u normalni mod, a pad sviranje opet ima MPE.
+Osnove (iz v0.1) su potvrđene na tvom Pushu. Novo, po važnosti:
+
+1. **Ekran**: Postavke → *Push ekran* → *Preuzmi ekran u User modu*, pa uđi u User mode. Javi što piše ispod pregleda ekrana u editoru (*prikazuje se na Pushu* ili *Live drži ekran*) i što se vidi na Pushu. Kad izađeš iz User moda, Push ekran mora opet raditi normalno.
+2. **Shift sloj**: na nekom gumbu u editoru odaberi *Shift sloj* i postavi drugu funkciju; drži Shift na Pushu i probaj.
+3. **Live funkcije**: predložak *Mixer (8 trackova)* na praznoj stranici, pa probaj mute (LED u boji tracka), volumen na enkoderima (ime i dB na ekranu/pregledu), scene.
+4. **Varijacije (8 rackova × 8)**: predložak na tracku s više rackova.
+5. **Looper**: predložak *Looper (8 trackova)*; gornji pad snimi → opet pritisni → loop svira.
+6. **Sampler**: predložak *Sampler*; treba Drum Rack s praznim Simplerima. Capture: snimi → opet Capture → zvuk mora završiti na sljedećem praznom padu.
+7. **Clip grid 8×8** i **Transport** predlošci.
+
+Ako nešto ne radi, pošalji screenshot editora (Log u MIDI monitoru) i Max Console poruke koje počinju s `[p3um]` ili `p3um-live`.
 
 ## Struktura
 
