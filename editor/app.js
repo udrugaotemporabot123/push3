@@ -74,6 +74,10 @@ function handle(m) {
       renderAll();
       (m.log || []).forEach(addEngineLog);
       if (S.monitorOn) send({ t: 'monitor', on: true });
+      send({ t: 'display', on: true });
+      break;
+    case 'display':
+      renderDisplayPreview(m);
       break;
     case 'config':
       if (S.dirtyTimer) return; // our own pending edit wins
@@ -180,7 +184,7 @@ function buildSurface() {
   const surf = $('#surface');
   surf.innerHTML = '';
   S.ctlEls.clear();
-  surf.append(el('div', { class: 'display', id: 'display' }));
+  surf.append(el('div', { class: 'display', id: 'display' }, el('img', { id: 'displayImg', alt: '' }), el('div', { id: 'displayInfo', class: 'small muted' })));
   for (const c of S.controls) {
     if (!c.w || !c.h) continue;
     const d = el('div', { class: `ctl ${c.kind}${c.reserved ? ' reserved' : ''}${c.verify ? ' verify' : ''}`, title: tooltip(c) }, el('span', { class: 'lbl' }));
@@ -352,13 +356,31 @@ function renderStatus() {
   if (!sn.pushConnected) setStatus('Push 3 nije pronađen', 'off');
   else if (sn.mode === 'user') setStatus(`USER MODE · ${curPage().name}`, 'user');
   else setStatus('Spreman · Live mode', 'live');
-  const disp = $('#display');
-  if (disp) {
-    disp.innerHTML = '';
-    disp.append(
-      el('div', {}, el('b', {}, curPage().name), el('br'), `kanal ${pageChannel(S.snapshot.page)} · `, sn.mode === 'user' ? 'User Mode aktivan' : 'pritisni User na Pushu', el('br'), el('span', { class: 'small' }, `virtualni port: ${S.meta ? S.meta.virtualPort : ''}`)),
-    );
-  }
+  renderDisplayInfo();
+}
+
+const DISPLAY_STATE = {
+  closed: 'pregled (Push ekran drži Live)',
+  opening: 'preuzimam ekran…',
+  active: 'prikazuje se na Pushu',
+  busy: 'Live drži ekran – samo pregled',
+  unavailable: 'USB nije dostupan – samo pregled',
+  error: 'greška – samo pregled',
+};
+
+function renderDisplayInfo() {
+  const info = $('#displayInfo');
+  if (!info || !S.config) return;
+  const t = S.displayTransport || { state: 'closed' };
+  const mode = S.config.settings.display === 'takeover' ? DISPLAY_STATE[t.state] || t.state : 'samo pregled (preuzimanje ekrana isključeno u Postavkama)';
+  info.textContent = `Ekran: ${mode}${t.detail && S.config.settings.display === 'takeover' ? ` · ${t.detail}` : ''}`;
+}
+
+function renderDisplayPreview(m) {
+  const img = $('#displayImg');
+  if (img) img.src = `data:image/png;base64,${m.png}`;
+  S.displayTransport = m.transport;
+  renderDisplayInfo();
 }
 
 function renderPages() {
@@ -714,6 +736,7 @@ function renderSettings() {
     field('Touch strip', selectEl({ false: 'Pitch bend (vraća se)', true: 'Fader (ostaje gdje pustiš)' }, String(s.stripFader), (v) => set('stripFader', v === 'true'))),
     field('Gumbi za stranice', selectEl({ upper: 'Gornji red (1–8)', none: 'Ništa (mapiraj sam)' }, s.pageButtons, (v) => set('pageButtons', v))),
     field('Nemapirane LED', selectEl({ off: 'Ugašene', dim: 'Lagano upaljene' }, s.unmappedLeds, (v) => set('unmappedLeds', v))),
+    field('Push ekran', selectEl({ editor: 'Samo pregled u editoru', takeover: 'Preuzmi ekran u User modu (eksperimentalno)' }, s.display, (v) => set('display', v)), 'Pokušava crtati na Push 3 ekran dok si u User modu. Ako ga Live drži, ostaje pregled ovdje.'),
     field('Interni clock', selectEl({ true: 'Da (animacije rade i bez Live clocka)', false: 'Ne' }, String(s.internalClock), (v) => set('internalClock', v === 'true'))),
     el('div', { class: 'btnrow' }, el('button', { class: 'danger', onclick: () => confirm('Vratiti sve na tvorničke postavke?') && send({ t: 'resetConfig' }) }, 'Vrati na zadano')),
     el('p', { class: 'muted small' }, `Konfiguracija: ${S.meta ? S.meta.configFile : ''}`),

@@ -47,6 +47,7 @@ function defaultSettings() {
     pageButtons: 'upper', // 'upper' = upper display buttons select pages 1-8, 'none'
     unmappedLeds: 'off', // 'off' | 'dim' (show the layout of unmapped controls dimly)
     internalClock: true, // drive blink/pulse LED animations when Live sends no clock
+    display: 'editor', // 'editor' = preview in the editor only, 'takeover' = also drive the Push display in User Mode
   };
 }
 
@@ -228,6 +229,7 @@ function normalizeConfig(cfg) {
     pageButtons: oneOf(s.pageButtons, ['upper', 'none'], ds.pageButtons),
     unmappedLeds: oneOf(s.unmappedLeds, ['off', 'dim'], ds.unmappedLeds),
     internalClock: typeof s.internalClock === 'boolean' ? s.internalClock : ds.internalClock,
+    display: oneOf(s.display, ['editor', 'takeover'], ds.display),
   };
   const srcPages = Array.isArray(src.pages) && src.pages.length ? src.pages.slice(0, MAX_PAGES) : defaultConfig().pages;
   const pages = srcPages.map((p, i) => normalizePage(p, i));

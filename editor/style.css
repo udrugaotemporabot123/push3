@@ -64,8 +64,9 @@ input[type=number] { width: 72px; }
 .ctl.verify::after { content: "?"; position: absolute; top: 1px; right: 3px; font-size: 9px; color: var(--warn); }
 .ctl.dark-text { color: #111; }
 .ctl.dark-text .lbl { text-shadow: none; }
-.display { position: absolute; left: 230px; top: 112px; width: 474px; height: 150px; border-radius: 6px; background: #0b0d10; border: 1px solid #23262a; display: flex; align-items: center; justify-content: center; color: #5d636b; font-size: 12px; text-align: center; padding: 10px; }
-.display b { color: var(--accent); }
+.display { position: absolute; left: 230px; top: 112px; width: 474px; height: 150px; border-radius: 6px; background: #0b0d10; border: 1px solid #23262a; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 6px; }
+.display img { width: 462px; height: 77px; image-rendering: auto; background: #000; border-radius: 2px; }
+.display #displayInfo { text-align: center; line-height: 1.3; }
 
 .inspector { border-left: 1px solid var(--line); background: var(--panel); padding: 12px 14px; overflow: auto; max-height: calc(100vh - 92px); position: sticky; top: 92px; }
 .inspector h3 { margin: 0 0 2px; font-size: 14px; }

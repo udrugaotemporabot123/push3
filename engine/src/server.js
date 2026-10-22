@@ -16,7 +16,7 @@ function loadWs() {
   }
 }
 
-function createServer({ port, onClientMessage, getHello, log, onReady }) {
+function createServer({ port, onClientMessage, getHello, log, onReady, onClientGone }) {
   const server = http.createServer((req, res) => {
     const url = decodeURIComponent((req.url || '/').split('?')[0]);
     const rel = url === '/' ? 'index.html' : url.replace(/^\/+/, '');
@@ -56,8 +56,12 @@ function createServer({ port, onClientMessage, getHello, log, onReady }) {
           log('error', `editor message failed: ${e.message}`);
         }
       });
-      ws.on('close', () => clients.delete(client));
-      ws.on('error', () => clients.delete(client));
+      const drop = () => {
+        clients.delete(client);
+        if (onClientGone) onClientGone(client);
+      };
+      ws.on('close', drop);
+      ws.on('error', drop);
     });
   } else log('error', 'WebSocket module "ws" is not installed; the editor cannot connect');
 
@@ -88,6 +92,7 @@ function createServer({ port, onClientMessage, getHello, log, onReady }) {
     broadcast,
     send,
     hasMonitor: () => [...clients].some((c) => c.monitor),
+    some: (pred) => [...clients].some(pred),
     close: () => server.close(),
   };
 }

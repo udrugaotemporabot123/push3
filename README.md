@@ -51,9 +51,16 @@ Konfiguracija se sprema automatski u `~/Documents/Push3UserMode/config.json` (pr
 | Gornji red (U1–U8) | odabir stranice 1–8 |
 | Kanal | stranica 1 = kanal 5, stranica 2 = 6, … (mijenja se u Postavkama ili po stranici) |
 
-## Što još ne radi / ograničenja
+## Ekran (v0.3, eksperimentalno)
 
-- **Ekran Pusha**: u User modu ekran i dalje crta Live ("User Mode"). Vlastiti prikaz na ekranu zahtijeva pristup USB displayu koji Live drži zauzetim; to je sljedeća faza istraživanja.
+Motor sam crta ekran od 960×160: imena stranica gore, oznake i vrijednosti enkodera, zadnju radnju u sredini i oznake donjih gumba s bojama LED-ica.
+
+- U editoru je **uvijek** vidljiv pregled tog ekrana (u sredini Pusha).
+- **Postavke → Push ekran → "Preuzmi ekran u User modu"**: kad uđeš u User mode, motor pokuša preuzeti USB ekran od Livea, a kad izađeš, vrati ga.
+  Ako ga Live ne pusti, ništa se ne kvari: pod pregledom piše *Live drži ekran* i ostaje samo pregled u editoru.
+- **Molim testiraj** i javi što piše pod pregledom ekrana u editoru (status) i što se vidi na Pushu.
+
+## Što još ne radi / ograničenja
 - **Spremanje varijacije** (Shift + pad) radi samo na praznom mjestu: Live API može samo dodati novu varijaciju na kraj, ne prepisati postojeću.
 - Kontrole označene **?** u editoru imaju MIDI brojeve koji još nisu potvrđeni na pravom Pushu 3 (vidi listu dolje).
 - Device je testiran logikom i automatskim testovima, ali **ne na pravom Pushu 3**: prvo testiranje je kod tebe.

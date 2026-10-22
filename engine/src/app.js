@@ -8,8 +8,9 @@ const { createServer } = require('./server');
 const store = require('./store');
 const push3 = require('./push3');
 const { DEFAULT_PALETTE } = require('./palette');
+const { DisplayManager } = require('./display/manager');
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -65,6 +66,13 @@ function start() {
   };
 
   const engine = new Engine(io, store.load(log));
+  const display = new DisplayManager({
+    engine,
+    palette,
+    log,
+    onPreview: (png, transport) => server && server.broadcast({ t: 'display', png, transport }, (c) => c.display),
+  });
+  const updatePreviewWanted = () => display.setPreview(!!server && server.some((c) => c.display));
 
   // ---- Max device UI status -----------------------------------------------------------
   function deviceStatus() {
@@ -151,6 +159,10 @@ function start() {
       case 'monitor':
         client.monitor = !!msg.on;
         break;
+      case 'display':
+        client.display = !!msg.on;
+        updatePreviewWanted();
+        break;
       case 'savePreset':
         store.savePreset(msg.name, engine.config);
         server.broadcast({ t: 'presets', presets: store.listPresets() });
@@ -215,6 +227,7 @@ function start() {
     getHello: hello,
     log,
     onReady: (ok) => bootMidi(ok),
+    onClientGone: () => updatePreviewWanted(),
   });
 
   function bootMidi(ok) {
@@ -267,6 +280,7 @@ function start() {
     if (stopped) return;
     stopped = true;
     try {
+      display.shutdown();
       engine.exitUserMode('shutdown');
       if (midi) midi.stop();
     } catch (e) {
