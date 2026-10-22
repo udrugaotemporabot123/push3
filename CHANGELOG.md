@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.22.0 – 2026-10-22
+Sampler: Shift + pad bira ciljni pad, Capture snima u odabrani pad; predložak Sampler + Drum Rack 4×4.
+
 ## v0.21.0 – 2026-10-22
 Looper: snimanje fiksne duljine (polje Taktova) – snimi točno N taktova i sam zatvori loop.
 

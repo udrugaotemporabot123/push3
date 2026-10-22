@@ -359,3 +359,16 @@ test('bridge: fixed-length record fires with beats = bars x signature numerator'
   const fire = live.calls.find((c) => c[1] === 'fire');
   assert.deepEqual(fire.slice(1), ['fire', 8]);
 });
+
+test('bridge: selectDrumPad selects the pad with that note, then lastToSelected replaces it', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'drumPad', target: 'Bass', rack: 'first', note: 39 }, fn: 'selectDrumPad' }));
+  assert.equal(live.drums.children.view.props.selected_drum_pad, live.pads[3].id);
+  const vioSlot = new live.LiveAPI('live_set tracks 1 clip_slots 0').o;
+  Object.assign(vioSlot.props, { has_clip: 1, is_recording: 0 });
+  vioSlot.children.clip = { id: 9003, props: { file_path: '/rec/shaker.wav' }, children: {} };
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'clipToPad', source: 'Violin', scene: 1, target: 'Bass', rack: 'first', pad: 'selected' }, fn: 'clipToPad' }));
+  assert.equal(live.pads[3].children.chains[0].children.devices[0].children.sample.props.file_path, '/rec/shaker.wav');
+});

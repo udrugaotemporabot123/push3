@@ -21,6 +21,11 @@ module.exports = {
     sampleToPad: { label: 'Snimi → sljedeći pad', fields: { ...TRACK_FIELDS, autoArm: { label: 'Auto arm', default: 'yes' } } },
     lastToPad: { label: 'Zadnji clip → sljedeći pad', fields: TRACK_FIELDS },
     lastToSelected: { label: 'Zadnji clip → odabrani pad', fields: TRACK_FIELDS },
+    sampleToSelected: { label: 'Snimi → odabrani pad', fields: { ...TRACK_FIELDS, autoArm: { label: 'Auto arm', default: 'yes' } } },
+    targetPad: {
+      label: 'Odaberi ciljni pad',
+      fields: { target: TRACK_FIELDS.target, rack: TRACK_FIELDS.rack, note: { label: 'Nota pada', default: '36', help: '36 = C1 (donji lijevi pad Drum Racka)' } },
+    },
   },
 
   create(api) {
@@ -40,17 +45,22 @@ module.exports = {
 
     return {
       watch(params, action) {
-        return action === 'sampleToPad' ? [slotsSpec(params), armSpec(params)] : [slotsSpec(params)];
+        if (action === 'targetPad') return [];
+        return action === 'sampleToPad' || action === 'sampleToSelected' ? [slotsSpec(params), armSpec(params)] : [slotsSpec(params)];
       },
 
       press({ params, action }) {
+        if (action === 'targetPad') {
+          api.toLive({ cmd: 'liveCall', spec: { t: 'drumPad', target: params.target || 'selected', rack: params.rack || 'first', note: Number.parseInt(params.note, 10) || 36 }, fn: 'selectDrumPad' });
+          return;
+        }
         const s = slots(params);
         if (!s) return api.log('warn', 'Sampler: izvorni track još nije povezan');
-        if (action === 'sampleToPad') {
+        if (action === 'sampleToPad' || action === 'sampleToSelected') {
           const rec = s.indexOf(SLOT.RECORDING);
           if (rec >= 0) {
             fire(params, rec); // stop recording
-            load(params, rec, 'next'); // the bridge waits until the file is ready
+            load(params, rec, action === 'sampleToSelected' ? 'selected' : 'next'); // the bridge waits until the file is ready
             return;
           }
           let next = s.indexOf(SLOT.EMPTY);
@@ -67,9 +77,11 @@ module.exports = {
 
       led({ params, action, held }) {
         if (held) return { color: 3, anim: 0 };
+        if (action === 'targetPad') return { color: 49, anim: 0 };
         const s = slots(params);
         if (!s) return { color: 0, anim: 0 };
-        if (action === 'sampleToPad') return s.includes(SLOT.RECORDING) ? { color: 5, anim: api.ANIM.blink } : { color: 50, anim: 0 };
+        if (action === 'targetPad') return { color: 49, anim: 0 };
+        if (action === 'sampleToPad' || action === 'sampleToSelected') return s.includes(SLOT.RECORDING) ? { color: 5, anim: api.ANIM.blink } : { color: 50, anim: 0 };
         return { color: lastWithClip(s) >= 0 ? 49 : 0, anim: 0 };
       },
     };

@@ -541,6 +541,21 @@ function liveCall(msg) {
     navigate(msg.fn);
     return;
   }
+  if (msg.fn === 'selectDrumPad') {
+    var dt = trackApi(spec.target);
+    var dr = dt ? findDrumRack(dt, spec.rack) : null;
+    if (!dr) return notice('Sampler: Drum Rack nije pronađen');
+    var np = dr.getcount('drum_pads');
+    for (var pi = 0; pi < np; pi++) {
+      var dp = new LiveAPI(dr.unquotedpath + ' drum_pads ' + pi);
+      if (num(dp.get('note')) === (spec.note | 0)) {
+        new LiveAPI(dr.unquotedpath + ' view').set('selected_drum_pad', 'id', dp.id);
+        notice('Cilj: ' + (str(dp.get('name')) || 'pad ' + spec.note));
+        return;
+      }
+    }
+    return;
+  }
   if (msg.fn === 'clipToPad') {
     clipToPad(spec);
     return;

@@ -1107,6 +1107,35 @@ const TEMPLATES = {
       return r;
     },
   },
+  samplerPads: {
+    name: 'Sampler + Drum Rack 4×4',
+    help: 'Donji lijevi 4×4 padovi sviraju Drum Rack (note 36–51); Shift + pad = odaberi taj pad kao cilj; Capture = snimi u odabrani pad; New = zadnji clip u odabrani pad.',
+    ask: [
+      { key: 'source', label: 'Track koji snima (npr. mic in - sampling)', default: 'selected' },
+      { key: 'target', label: 'Track s Drum Rackom', default: 'selected' },
+    ],
+    apply(a) {
+      const r = {};
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 4; col++) {
+          const note = 36 + row * 4 + col;
+          r[`pad.${row}.${col}`] = {
+            type: 'note',
+            number: note,
+            behavior: 'momentary',
+            velocity: 'dynamic',
+            colorOn: 3,
+            colorOff: 51,
+            shift: { type: 'addon', addon: { id: 'sampler', action: 'targetPad', params: { target: a.target, rack: 'first', note: String(note) } } },
+          };
+        }
+      }
+      const S2 = (action) => ({ type: 'addon', addon: { id: 'sampler', action, params: { source: a.source, target: a.target, rack: 'first', autoArm: 'yes' } } });
+      r.capture = S2('sampleToSelected');
+      r.new = S2('lastToSelected');
+      return r;
+    },
+  },
   looper: {
     name: 'Looper (8 trackova)',
     help: 'Stupac = track 1–8: gornji pad snima sljedeći loop (drugi pritisak zatvara loop), ispod Play/Stop, Poništi zadnji, Arm. Brojeve trackova možeš zamijeniti imenima.',

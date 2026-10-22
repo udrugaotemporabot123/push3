@@ -64,6 +64,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.20.0 docs for the community: README.en.md, docs/ADDONS.md (add-on API reference)
 
 - [x] v0.21.0 Looper fixed-length recording (ClipSlot.fire(record_length) in beats = bars x numerator)
+- [x] v0.22.0 Sampler target pad: Shift + pad selects the Drum Rack pad, Capture records into it (sampleToSelected, selectDrumPad); template Sampler + Drum Rack 4x4
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
