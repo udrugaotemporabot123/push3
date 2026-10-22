@@ -1416,7 +1416,22 @@ function renderLan() {
   );
   if (lan.enabled) {
     if (!lan.urls.length) box.append(el('p', { class: 'muted' }, 'Računalo nije spojeno ni na jednu mrežu.'));
-    for (const u of lan.urls) box.append(el('p', {}, el('code', { style: 'user-select:all;word-break:break-all' }, u)));
+    for (const u of lan.urls) {
+      box.append(el('p', {}, el('code', { style: 'user-select:all;word-break:break-all' }, u)));
+      // Scan with the tablet's camera instead of typing the link.
+      if (typeof qrcode === 'function') {
+        try {
+          const q = qrcode(0, 'M');
+          q.addData(u);
+          q.make();
+          const qr = el('div', { class: 'qr', title: 'Skeniraj kamerom tableta' });
+          qr.innerHTML = q.createSvgTag(4, 2);
+          box.append(qr);
+        } catch (e) {
+          /* link text above still works */
+        }
+      }
+    }
     box.append(el('div', { class: 'btnrow' }, el('button', { onclick: () => confirm('Novi ključ: stari link prestaje raditi. Nastaviti?') && send({ t: 'lan', renew: true }) }, 'Novi ključ')));
   }
 }

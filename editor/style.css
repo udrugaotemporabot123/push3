@@ -104,3 +104,5 @@ code { background: #0f1113; padding: 1px 4px; border-radius: 4px; }
   .main { grid-template-columns: 1fr; }
   .inspector { position: static; max-height: none; border-left: none; border-top: 1px solid var(--line); }
 }
+
+.qr svg { background: #fff; border-radius: 6px; margin: 2px 0 10px; }

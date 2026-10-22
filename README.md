@@ -60,7 +60,7 @@ Konfiguracija se sprema automatski u `~/Documents/Push3UserMode/config.json` (pr
 Polje **Traži** gore desno ističe kontrole po imenu, oznaci ili broju (npr. `36`, `mute`, `cutoff`) na svim stranicama; broj pogodaka piše na karticama stranica. **Enter** odabere sve pogođene na ovoj stranici (pa ih urediš odjednom), **Esc** očisti. Pomicanje i brisanje stranica više ne mijenja MIDI kanale ostalih stranica (automatski kanali se prvo zaključaju), pa mapiranja u Liveu ostaju ispravna.
 
 ### Editor s tableta (v0.25)
-*Postavke → Pristup s tableta → Editor na mreži: Uključen.* Editor pokaže link (npr. `http://192.168.1.20:47392/?k=…`): otvori ga na tabletu u istoj Wi-Fi mreži. Link sadrži tajni ključ; *Novi ključ* poništi stari link. macOS može prvi put pitati smije li Max primati veze: dopusti. Uključiti/isključiti se može samo na računalu, a postavka se ne sprema u presete. Editor na računalu i dalje prima veze samo od sebe (web stranice drugih sajtova ne mogu upravljati tvojim Pushom).
+*Postavke → Pristup s tableta → Editor na mreži: Uključen.* Editor pokaže link (npr. `http://192.168.1.20:47392/?k=…`) i **QR kod** (v0.35): skeniraj ga kamerom tableta u istoj Wi-Fi mreži. Link sadrži tajni ključ; *Novi ključ* poništi stari link. macOS može prvi put pitati smije li Max primati veze: dopusti. Uključiti/isključiti se može samo na računalu, a postavka se ne sprema u presete. Editor na računalu i dalje prima veze samo od sebe (web stranice drugih sajtova ne mogu upravljati tvojim Pushom).
 
 ## Zadano mapiranje
 
