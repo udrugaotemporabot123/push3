@@ -1313,6 +1313,26 @@ const TEMPLATES = {
       return r;
     },
   },
+  fxPerform: {
+    name: 'FX performans (enkoderi + snapshoti + morph + XY)',
+    help: 'Enkoderi 1–8 = prvih 8 parametara efekta (imena i vrijednosti na ekranu). Scene 1–8 = snapshoti (prazan = spremi, pun = vrati, Shift = spremi ponovno). Touch strip = morph snapshot 1 → 2 (Postavke: Touch strip = Fader). Padovi = XY za parametre 1 i 2 (vraćaju se kad pustiš).',
+    ask: [
+      { key: 'track', label: 'Track s efektom', default: 'selected' },
+      { key: 'device', label: 'Device (ime, npr. Auto Filter; ili selected)', default: 'selected' },
+    ],
+    apply(a) {
+      const r = {};
+      for (let i = 1; i <= 8; i++) r[`enc.${i}`] = { type: 'live', live: { target: 'named', track: a.track, device: a.device, index: 1, param: String(i) } };
+      for (let i = 1; i <= 8; i++) r[`scene.${i}`] = { type: 'snapshot', slot: i, colorOn: 21, colorOff: 45 };
+      r.strip = { type: 'morph', slotA: 1, slotB: 2 };
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          r[`pad.${row}.${col}`] = { type: 'addon', addon: { id: 'xyfx', action: 'xy', params: { track: a.track, device: a.device, xParam: '1', yParam: '2', col: String(col + 1), row: String(row + 1), size: '8', spring: 'yes' } } };
+        }
+      }
+      return r;
+    },
+  },
   samplerPads: {
     name: 'Sampler + Drum Rack 4×4',
     help: 'Donji lijevi 4×4 padovi sviraju Drum Rack (note 36–51); Shift + pad = odaberi taj pad kao cilj; Capture = snimi u odabrani pad; New = zadnji clip u odabrani pad; drži Repeat = note repeat. Gumbi ispod ekrana 1–5: Reverse, Crop, One-Shot, Classic, Warp za uzorak na odabranom padu; enkoderi 1–8: Start, Length, Transpose, Volume, Filter, Res, Attack, Release njegovog Simplera.',

@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.46.0 – 2026-10-22
+Predložak FX performans: enkoderi, snapshoti, morph i XY za jedan efekt.
+
 ## v0.45.0 – 2026-10-22
 Touch strip morph: klizanje svih enkodera iz jednog snapshota u drugi.
 
