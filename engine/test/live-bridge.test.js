@@ -20,6 +20,7 @@ function makeLive() {
       mixer_device: obj({}, { volume: param('Track Volume', 0.85), panning: param('Track Panning', 0, -1, 1), sends: [param('A-Reverb', 0.2)] }),
       devices: [],
       view: obj({ selected_device: 0 }),
+      clip_slots: [obj({ has_clip: 0, playing_status: 0, is_recording: 0, is_triggered: 0, color: 0 }), obj({ has_clip: 1, playing_status: 1, is_recording: 0, is_triggered: 0, color: 0x0000ff })],
     });
   const bass = track('Bass', 0xff0000);
   const vio = track('Violin', 0x00ff00);
@@ -236,4 +237,21 @@ test('bridge: unknown device name reports not found', () => {
   b.init();
   b.live(JSON.stringify({ cmd: 'watchLive', targets: { x: { t: 'param', target: 'named', track: 'Violin', device: 'Nope', param: '1' } } }));
   assert.equal(states(b.out).at(-1).ok, false);
+});
+
+test('bridge: clip slot state, fire and delete; scene 0 = selected scene', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  const spec = { t: 'slot', track: 'Bass', scene: 2 };
+  b.live(JSON.stringify({ cmd: 'watchLive', targets: { s: spec, e: { t: 'slot', track: 'Bass', scene: 1 } } }));
+  const all = states(b.out);
+  const playing = all.filter((x) => x.key === 's').at(-1);
+  const empty = all.filter((x) => x.key === 'e').at(-1);
+  assert.deepEqual([playing.value, playing.color], [2, [0, 0, 255]]);
+  assert.equal(empty.value, 0);
+  b.live(JSON.stringify({ cmd: 'liveCall', spec, fn: 'fireSlot' }));
+  b.live(JSON.stringify({ cmd: 'liveCall', spec, fn: 'deleteSlot' }));
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'trackSelect', track: 'Bass' }, fn: 'stopTrack' }));
+  assert.deepEqual(live.calls.filter((c) => ['fire', 'delete_clip', 'stop_all_clips'].includes(c[1])).map((c) => c[1]), ['fire', 'delete_clip', 'stop_all_clips']);
 });

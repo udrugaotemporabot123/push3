@@ -292,6 +292,13 @@ function livePath(spec) {
     }
     return { path: tr.unquotedpath, prop: spec.t === 'trackProp' ? spec.prop : null, trackId: tr.id };
   }
+  if (spec.t === 'slot') {
+    tr = trackApi(spec.track);
+    if (!tr) return null;
+    var si = sceneIndex(spec.scene);
+    if (si < 0 || si >= tr.getcount('clip_slots')) return null;
+    return { path: tr.unquotedpath + ' clip_slots ' + si, slot: true, trackId: tr.id };
+  }
   if (spec.t === 'param') {
     if (spec.target === 'tempo') return { path: 'live_set', prop: 'tempo', tempo: true };
     tr = trackApi(spec.track);
@@ -338,7 +345,14 @@ function resolveLive(key) {
   var cb = function () {
     sendLive(key);
   };
-  if (lt.spec.t === 'trackSelect') {
+  if (info.slot) {
+    var props = ['has_clip', 'playing_status', 'is_recording', 'is_triggered', 'color'];
+    for (var pi = 0; pi < props.length; pi++) {
+      var ws = new LiveAPI(cb, info.path);
+      ws.property = props[pi];
+      lt.watchers.push(ws);
+    }
+  } else if (lt.spec.t === 'trackSelect') {
     // Selection changes are already observed globally (onSelectedTrack); colour changes here.
     var wc = new LiveAPI(cb, info.path);
     wc.property = 'color';
@@ -385,6 +399,15 @@ function sendLive(key) {
     return;
   }
   var spec = lt.spec;
+  if (info.slot) {
+    var state = 0;
+    if (num(api.get('is_recording')) === 1) state = 3;
+    else if (num(api.get('is_triggered')) === 1) state = 4;
+    else if (num(api.get('has_clip')) === 1) state = num(api.get('playing_status')) === 1 ? 2 : 1;
+    var col = num(api.get('color'));
+    reportLive(key, { ok: true, value: state, name: '', color: state ? [(col >> 16) & 255, (col >> 8) & 255, col & 255] : null });
+    return;
+  }
   if (spec.t === 'trackSelect') {
     var sel = new LiveAPI('live_set view selected_track');
     reportLive(key, { ok: true, value: sel.id == info.trackId ? 1 : 0, name: str(api.get('name')), color: trackColor(info.trackId) });
@@ -442,8 +465,34 @@ function liveSet(msg) {
 
 var SONG_CALLS = { play: 'start_playing', stop: 'stop_playing', tap: 'tap_tempo', undo: 'undo', redo: 'redo', capture: 'capture_midi' };
 
+// Scene number (1-based) or 0 = the selected scene -> 0-based index.
+function sceneIndex(scene) {
+  var n = scene | 0;
+  if (n > 0) return n - 1;
+  var sel = new LiveAPI('live_set view selected_scene');
+  var set = new LiveAPI('live_set');
+  var count = set.getcount('scenes');
+  for (var i = 0; i < count; i++) {
+    if (new LiveAPI('live_set scenes ' + i).id == sel.id) return i;
+  }
+  return -1;
+}
+
 function liveCall(msg) {
   var spec = msg.spec || {};
+  if (msg.fn === 'fireSlot' || msg.fn === 'deleteSlot') {
+    var info = livePath(spec);
+    if (!info) return;
+    var slot = new LiveAPI(info.path);
+    if (msg.fn === 'fireSlot') slot.call('fire');
+    else if (num(slot.get('has_clip')) === 1) slot.call('delete_clip');
+    return;
+  }
+  if (msg.fn === 'stopTrack') {
+    var st = trackApi(spec.track);
+    if (st) st.call('stop_all_clips');
+    return;
+  }
   if (msg.fn === 'select') {
     var tr = trackApi(spec.track);
     if (tr) new LiveAPI('live_set view').set('selected_track', 'id', tr.id);

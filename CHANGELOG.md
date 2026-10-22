@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.7.0 – 2026-10-22
+Clip slotovi kao Live funkcija: pokreni/snimi, obriši, stop tracka; LED pokazuje stanje (boja clipa, svira, snima, čeka). Predložak Clip grid 8×8 (Shift + pad = obriši).
+
 ## v0.6.0 – 2026-10-22
 Parametri bilo kojeg devicea po imenu (gumbi toggle/momentary/trigger, enkoderi), i unutar rackova — npr. Record na Record.To.Simpleru. Predlošci stranica: Mixer, Odabrani track, Transport.
 

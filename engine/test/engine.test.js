@@ -480,3 +480,21 @@ test('live param button: momentary sets 1 on press and 0 on release; toggle foll
   assert.deepEqual(out.live.map((x) => x.value), [1, 0, 0]);
   assert.equal(out.live[2].spec.param, 'Device On');
 });
+
+test('clip slot pads: launch via bridge, LED follows slot state with clip colour', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['pad.7.0'], { type: 'live', colorOff: 1, live: { action: 'clip', track: '1', scene: 1 } });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  const key = Object.keys(out.live.filter((x) => x.cmd === 'watchLive').at(-1).targets)[0];
+  e.handleLiveState({ type: 'live', key, ok: true, value: 0 });
+  assert.deepEqual(out.push.filter((m) => (m[0] & 0xf0) === 0x90 && m[1] === 92).at(-1), [0x90, 92, 1]);
+  e.handleLiveState({ type: 'live', key, ok: true, value: 2, color: [0, 0, 255] });
+  const last = out.push.filter((m) => (m[0] & 0xf0) === 0x90 && m[1] === 92).at(-1);
+  assert.equal(last[0], 0x90 | push3.ANIMATIONS.pulse);
+  e.handleLiveState({ type: 'live', key, ok: true, value: 3, color: [0, 0, 255] });
+  assert.deepEqual(out.push.filter((m) => (m[0] & 0xf0) === 0x90 && m[1] === 92).at(-1), [0x90 | push3.ANIMATIONS.blink, 92, 5]);
+  clear();
+  e.handlePushMessage([0x90, 92, 100]);
+  assert.deepEqual(out.live, [{ cmd: 'liveCall', spec: { t: 'slot', track: '1', scene: 1 }, fn: 'fireSlot' }]);
+});

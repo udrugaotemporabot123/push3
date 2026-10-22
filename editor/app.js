@@ -16,7 +16,7 @@ const el = (tag, attrs = {}, ...kids) => {
 
 const T = {
   types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)' },
-  liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea' },
+  liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka' },
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
   liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', tempo: 'Tempo' },
   behaviors: { momentary: 'Momentary (dok držiš)', toggle: 'Toggle (uklj/isklj)', trigger: 'Trigger (jedan impuls)' },
@@ -635,6 +635,7 @@ function liveKeyOf(m) {
   else if (l.action === 'record') spec = { t: 'song', prop: 'session_record' };
   else if (l.action === 'metronome') spec = { t: 'song', prop: 'metronome' };
   else if (l.action === 'overdub') spec = { t: 'song', prop: 'arrangement_overdub' };
+  else if (l.action === 'clip' || l.action === 'clipDelete') spec = { t: 'slot', track: l.track, scene: l.scene };
   else if (l.action === 'param') spec = { t: 'param', target: 'named', track: l.track, device: l.device, param: l.param };
   if (!spec) return null;
   return JSON.stringify(Object.keys(spec).sort().reduce((o, k) => ((o[k] = spec[k]), o), {}));
@@ -662,6 +663,11 @@ function renderLiveButtonFields(box, maps) {
     box.append(field('Device', textEl(common(maps, (m) => m.live && m.live.device), (v) => setLive('device', v.trim() || 'selected'), 'selected'), 'Ime devicea (traži i unutar rackova), "first" ili "selected"'));
     box.append(field('Parametar', textEl(common(maps, (m) => m.live && m.live.param), (v) => setLive('param', v.trim() || '1'), 'npr. Device On'), 'Ime parametra (npr. "Device On", "Record") ili broj (1 = prvi)'));
     box.append(field('Način', selectEl(T.paramModes, common(maps, (m) => m.live && m.live.mode), (v) => setLive('mode', v))));
+  }
+  if (['clip', 'clipDelete', 'stopTrack'].includes(action)) {
+    box.append(field('Track', textEl(common(maps, (m) => m.live && m.live.track), (v) => setLive('track', v.trim() || 'selected'), 'selected'), 'selected = odabrani track, broj ili ime'));
+    if (action !== 'stopTrack') box.append(field('Scena (red)', numEl(common(maps, (m) => m.live && m.live.scene), 0, 999, (v) => setLive('scene', v)), '0 = odabrana scena, inače broj scene'));
+    if (action === 'clip') box.append(el('p', { class: 'muted small' }, 'Prazan slot na armanom tracku = snimanje. LED: boja clipa, pulsira dok svira, crveno blinka dok snima.'));
   }
   if (['mute', 'solo', 'arm', 'select'].includes(action)) {
     box.append(field('Track', textEl(common(maps, (m) => m.live && m.live.track), (v) => setLive('track', v.trim() || 'selected'), 'selected'), 'selected = odabrani track, broj (1, 2, …) ili točno ime tracka'));
@@ -887,6 +893,30 @@ const TEMPLATES = {
       return r;
     },
   },
+  clips: {
+    name: 'Clip grid 8×8',
+    help: 'Padovi = clip slotovi (stupac = track 1–8, red = scena 1–8, gornji red = scena 1); Shift + pad briše clip; scene gumbi = scene; donji red = stop tracka.',
+    apply() {
+      const r = {};
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          const scene = 8 - row;
+          r[`pad.${row}.${col}`] = {
+            type: 'live',
+            colorOn: 21,
+            colorOff: 0,
+            live: { action: 'clip', track: String(col + 1), scene },
+            shift: { type: 'live', colorOn: 5, colorOff: 7, live: { action: 'clipDelete', track: String(col + 1), scene } },
+          };
+        }
+      }
+      for (let i = 1; i <= 8; i++) {
+        r[`scene.${i}`] = { type: 'live', colorOn: 21, colorOff: 23, live: { action: 'scene', scene: i } };
+        r[`lower.${i}`] = { type: 'live', colorOn: 5, colorOff: 7, live: { action: 'stopTrack', track: String(i) } };
+      }
+      return r;
+    },
+  },
   transport: {
     name: 'Transport',
     help: 'Play, Record (session), Metronom, Tap, Undo, Capture, Automate = overdub, Stop Clip = stop, Duplicate = redo.',
@@ -912,7 +942,7 @@ function applyTemplate(key) {
   if (!confirm(`Primijeniti predložak "${t.name}" na stranicu "${curPage().name}"? Prepisat će te kontrole.`)) return;
   commit((cfg) => {
     const page = cfg.pages[S.snapshot.page];
-    for (const [id, m] of Object.entries(t.apply())) page.controls[id] = { ...page.controls[id], ...m, shift: page.controls[id] && page.controls[id].shift };
+    for (const [id, m] of Object.entries(t.apply())) page.controls[id] = { ...page.controls[id], ...m, shift: m.shift || (page.controls[id] && page.controls[id].shift) };
   });
 }
 

@@ -30,6 +30,8 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.6.0 named device parameters (buttons: toggle/momentary/trigger; encoders) incl. search inside racks;
       page templates in the editor (Mixer 8, Selected track macros+variations, Transport)
 
+- [x] v0.7.0 clip slots (launch/record, delete, stop track) with slot-state LEDs; Clip grid 8x8 template
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white

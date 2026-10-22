@@ -647,7 +647,7 @@ class Engine {
 
   usesAnimation() {
     const page = this.config.pages[this.page];
-    return page && Object.values(page.controls).some((m) => m.anim && m.anim !== 'none');
+    return page && Object.values(page.controls).some((m) => (m.anim && m.anim !== 'none') || (m.type === 'live' && m.live && m.live.action === 'clip'));
   }
 
   // ---------------------------------------------------------------------------------------
@@ -687,6 +687,24 @@ class Engine {
     return spec ? this.liveState.values[live.liveKey(spec)] : undefined;
   }
 
+  // Clip slot LED: empty = off colour, clip = its colour (dim), playing = pulse, recording = red blink.
+  clipLed(m, held) {
+    const v = this.liveValue(m);
+    if (held) return { color: 3, anim: 0 };
+    if (!v || !v.ok || v.value === live.SLOT.EMPTY) return { color: m.colorOff, anim: 0 };
+    const c = v.color ? live.nearestPaletteIndex(v.color, this.palette) : m.colorOn;
+    switch (v.value) {
+      case live.SLOT.PLAYING:
+        return { color: c, anim: push3.ANIMATIONS.pulse };
+      case live.SLOT.RECORDING:
+        return { color: 5, anim: push3.ANIMATIONS.blink };
+      case live.SLOT.TRIGGERED:
+        return { color: c, anim: push3.ANIMATIONS['blink-fast'] };
+      default:
+        return { color: dimOf(c), anim: 0 };
+    }
+  }
+
   livePress(ctl, m) {
     const a = m.live.action;
     const spec = live.specForButton(m.live);
@@ -704,6 +722,10 @@ class Engine {
       const next = !(cur && cur.value);
       this.io.toLive({ cmd: 'liveSet', key: live.liveKey(spec), spec, value: next ? 1 : 0 });
       if (cur) cur.value = next ? 1 : 0; // optimistic, corrected by the observer
+    } else if (a === 'clip' || a === 'clipDelete') {
+      this.io.toLive({ cmd: 'liveCall', spec, fn: a === 'clip' ? 'fireSlot' : 'deleteSlot' });
+    } else if (a === 'stopTrack') {
+      this.io.toLive({ cmd: 'liveCall', spec: { t: 'trackSelect', track: m.live.track }, fn: 'stopTrack' });
     } else if (a === 'select') {
       this.io.toLive({ cmd: 'liveCall', spec: { t: 'trackSelect', track: m.live.track }, fn: 'select' });
     } else if (a === 'scene') {
@@ -778,6 +800,7 @@ class Engine {
       if (held) return { color: ctl.led === 'rgb' ? 3 : 127, anim: 0 };
       return { color: this.config.settings.unmappedLeds === 'dim' ? (ctl.led === 'rgb' ? 1 : 8) : 0, anim: 0 };
     }
+    if (m.type === 'live' && m.live.action === 'clip') return this.clipLed(m, held);
     if (m.type === 'live') {
       const v = this.liveValue(m);
       const on = held || !!(v && v.ok && v.value >= 0.5);

@@ -2,7 +2,7 @@
 // Live-aware mappings: controls that act on Live directly through the Live API bridge
 // (p3um-live.js) instead of sending MIDI, with real state/feedback coming back.
 
-const BUTTON_ACTIONS = ['mute', 'solo', 'arm', 'select', 'scene', 'play', 'stop', 'record', 'metronome', 'overdub', 'tap', 'undo', 'redo', 'capture', 'param'];
+const BUTTON_ACTIONS = ['mute', 'solo', 'arm', 'select', 'scene', 'play', 'stop', 'record', 'metronome', 'overdub', 'tap', 'undo', 'redo', 'capture', 'param', 'clip', 'clipDelete', 'stopTrack'];
 const PARAM_MODES = ['toggle', 'momentary', 'trigger'];
 const ENCODER_TARGETS = ['volume', 'pan', 'send', 'macro', 'deviceParam', 'named', 'tempo'];
 
@@ -26,6 +26,9 @@ function specForButton(live) {
       return { t: 'song', prop: 'arrangement_overdub' };
     case 'param':
       return { t: 'param', target: 'named', track: live.track, device: live.device, param: live.param };
+    case 'clip':
+    case 'clipDelete':
+      return { t: 'slot', track: live.track, scene: live.scene };
     default:
       return null;
   }
@@ -75,4 +78,7 @@ function nearestPaletteIndex(rgb, palette) {
   return best;
 }
 
-module.exports = { BUTTON_ACTIONS, PARAM_MODES, ENCODER_TARGETS, specForButton, specForEncoder, liveKey, nearestPaletteIndex };
+// Clip slot states reported by the bridge.
+const SLOT = { EMPTY: 0, STOPPED: 1, PLAYING: 2, RECORDING: 3, TRIGGERED: 4 };
+
+module.exports = { SLOT, BUTTON_ACTIONS, PARAM_MODES, ENCODER_TARGETS, specForButton, specForEncoder, liveKey, nearestPaletteIndex };
