@@ -352,3 +352,40 @@ test('step sequencer: hold a step + encoders edit velocity, chance and gate; rel
   // Step 1 at 110, its note off 9 ticks later; step 2 silent.
   assert.deepEqual(out.host, [[0x94, 36, 110], [0x94, 36, 0]]);
 });
+
+test('step sequencer: pattern slots switch at the loop end, Shift copies', () => {
+  const stepseq = require('../../addons/stepseq');
+  const { e, out, clear } = setup((c) => {
+    const ctl = c.pages[0].controls;
+    for (let step = 1; step <= 2; step++) Object.assign(ctl[`pad.0.${step - 1}`], { type: 'addon', addon: { id: 'stepseq', action: 'step', params: { seq: 'P', lane: '1', step: String(step), note: '36' } } });
+    ['A', 'B'].forEach((slot, i) => Object.assign(ctl[`pad.1.${i}`], { type: 'addon', addon: { id: 'stepseq', action: 'pattern', params: { seq: 'P', slot } } }));
+  }, [stepseq]);
+  const tap = (note) => (e.handlePushMessage([0x90, note, 100]), e.handlePushMessage([0x80, note, 0]));
+  tap(36); // A: step 1
+  e.handlePushMessage([0xb0, 49, 127]);
+  tap(45); // Shift + B: copy A into B
+  e.handlePushMessage([0xb0, 49, 0]);
+  tap(45); // stopped: switch to B at once
+  tap(37); // B: add step 2
+  tap(44); // back to A (step 1 only)
+  assert.match(e.addonStatus()[0], /pat A/);
+  clear();
+  e.handleHostMessage([0xfa]);
+  const hits = [];
+  const tick = () => {
+    const n = out.host.length;
+    e.handleHostMessage([0xf8]);
+    return out.host.slice(n).filter((m) => m[2] > 0).length;
+  };
+  hits.push(tick()); // step 1 of A
+  tap(45); // queue B while playing
+  assert.match(e.addonStatus()[0], /pat A→B/);
+  for (let i = 1; i < 6; i++) tick();
+  hits.push(tick()); // tick 6: step 2 of A (empty)
+  for (let i = 7; i < 12; i++) tick();
+  hits.push(tick()); // tick 12: loop end -> B step 1
+  for (let i = 13; i < 18; i++) tick();
+  hits.push(tick()); // tick 18: B step 2
+  assert.deepEqual(hits, [1, 0, 1, 1]);
+  assert.match(e.addonStatus()[0], /pat B/);
+});

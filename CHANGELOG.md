@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.32.0 – 2026-10-22
+Sekvencer: patterni A–H (prebacivanje na kraju loopa, Shift = kopiraj).
+
 ## v0.31.0 – 2026-10-22
 Enkoderi prate odabrani drum pad (Simpler: Start, Length, Transpose, Volume, Filter, Res, Attack, Release).
 

@@ -74,10 +74,11 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.29.0 Hold step + encoders 1-3: velocity / chance / gate (add-on `turn` hook: encoders go to a held add-on control first), retrigger-safe note offs, step removal on release
 - [x] v0.30.0 Sampler: recordings load as One-Shot (mode field), Simpler edits on the selected pad (reverse, crop, playback mode, warp) via bridge simplerEdit; lower buttons in the sampler templates
 - [x] v0.31.0 Live encoder target padParam: a parameter of the device on the Drum Rack's selected pad (follows selection, recovers from empty pads, partial name match); sampler templates map encoders 1-8 to the pad's Simpler
+- [x] v0.32.0 Sequencer pattern slots A–H (queued switch at loop end, Shift = copy), in the Drum sequencer template
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
-- [ ] Sequencer: pattern slots A–D per seq, copy lane, step input while stopped, nudge.
+- [ ] Sequencer: pattern chain (A→B→C auto), copy lane, step input while stopped, nudge.
 - [ ] Sampler: "resample master" source (route from Main), verify Simpler parameter names on hardware (S Start, S Length, Ve Attack…).
 - [ ] Looper: overdub (MIDI only in Live session; audio needs a new layer on the next slot), stop-all with fade.
 - [ ] Display: full-screen add-on views (sequencer lanes grid), track colour bars, encoder touch = big value.

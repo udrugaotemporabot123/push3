@@ -1027,6 +1027,8 @@ function simplerButtons(target) {
   return r;
 }
 
+const SEQ_SLOTS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
 const TEMPLATES = {
   mixer: {
     name: 'Mixer (8 trackova)',
@@ -1160,7 +1162,7 @@ const TEMPLATES = {
   },
   seqDrum: {
     name: 'Drum sekvencer 16 padova + 32 koraka (+ Sampler)',
-    help: 'Donji lijevi 4×4 = drum padovi (note 36–51): udarac svira i odabire traku. Gornja 4 reda = 32 koraka odabrane trake (Shift + korak briše traku). Scene 1 = Play/Stop, Scene 2 = snimanje udaraca (svira dok Live svira, upisuje u najbliži korak), Scene 8 = obriši. Donji red desno: drži Length + korak = duljina loopa, drži Euclid + korak N = N udaraca ravnomjerno, drži Chance + korak = vjerojatnost (100/75/50/25 %), Double = udvostruči loop. Shift + drum pad = ciljni pad za Sampler, Capture = snimi u njega; gumbi ispod ekrana 1–5 uređuju uzorak (Reverse, Crop, One-Shot, Classic, Warp), enkoderi 1–8 Simpler odabranog pada (dok držiš korak, enkoderi 1–3 uređuju korak).',
+    help: 'Donji lijevi 4×4 = drum padovi (note 36–51): udarac svira i odabire traku. Gornja 4 reda = 32 koraka odabrane trake (Shift + korak briše traku). Scene 1 = Play/Stop, Scene 2 = snimanje udaraca (svira dok Live svira, upisuje u najbliži korak), Scene 8 = obriši. Donji red desno: drži Length + korak = duljina loopa, drži Euclid + korak N = N udaraca ravnomjerno, drži Chance + korak = vjerojatnost (100/75/50/25 %), Double = udvostruči loop. Iznad: patterni A–H (pritisak = prebaci na kraju loopa, Shift = kopiraj trenutni u taj). Shift + drum pad = ciljni pad za Sampler, Capture = snimi u njega; gumbi ispod ekrana 1–5 uređuju uzorak (Reverse, Crop, One-Shot, Classic, Warp), enkoderi 1–8 Simpler odabranog pada (dok držiš korak, enkoderi 1–3 uređuju korak).',
     ask: [
       { key: 'source', label: 'Track koji snima (npr. mic in - sampling)', default: 'selected' },
       { key: 'target', label: 'Track s Drum Rackom', default: 'selected' },
@@ -1181,6 +1183,7 @@ const TEMPLATES = {
         for (let col = 0; col < 8; col++) r[`pad.${row}.${col}`] = Q('step', { lane: 'selected', step: String((7 - row) * 8 + col + 1) });
       }
       ['length', 'euclid', 'chance', 'double'].forEach((mode, i) => (r[`pad.0.${4 + i}`] = Q('mod', { mode })));
+      SEQ_SLOTS.forEach((slot, i) => (r[`pad.${2 - Math.floor(i / 4)}.${4 + (i % 4)}`] = Q('pattern', { slot })));
       r['scene.1'] = Q('play', { swing: a.swing });
       r['scene.2'] = Q('rec', {});
       r['scene.8'] = Q('clear', {});

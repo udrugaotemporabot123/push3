@@ -9,6 +9,8 @@
 //   rec   – record on/off for live hits
 // Hold a step pad and turn encoder 1 = velocity, 2 = chance, 3 = note length (gate); a step that
 // was on is removed on release only if no encoder was turned.
+//   pattern – pattern slot A–H: switches at the end of the loop (at once when stopped); Shift = copy the
+//           current pattern into the slot
 //   mod   – hold + press a step pad: length (loop ends on that step), euclid (spread N hits of the
 //           selected lane evenly over the loop), chance (cycle the step's probability 100/75/50/25 %);
 //           double: one press copies the loop to the next steps and doubles the loop length
@@ -31,6 +33,8 @@ const int = (v, d) => {
 // MPC-style swing percentage -> delay of every second 16th in clock ticks (24 ppqn: 6 ticks per 16th).
 const swingTicks = (pct) => Math.max(0, Math.min(3, Math.round(((int(pct, 50) - 50) / 25) * 3)));
 const CHANCES = [100, 75, 50, 25];
+const SLOTS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+const slotOf = (v) => (SLOTS.includes(String(v || '').toUpperCase()) ? String(v).toUpperCase() : 'A');
 const MOD_COLORS = { length: 45, euclid: 9, chance: 13, double: 21 };
 const MOD_MODES = Object.keys(MOD_COLORS);
 // Euclidean rhythm: k hits spread as evenly as possible over n steps, starting on step 1.
@@ -68,6 +72,13 @@ module.exports = {
       },
     },
     clear: { label: 'Obriši sekvencu', fields: { seq: { label: 'Sekvenca', default: 'A' } } },
+    pattern: {
+      label: 'Pattern (A–H)',
+      fields: {
+        seq: { label: 'Sekvenca', default: 'A' },
+        slot: { label: 'Pattern', default: 'A', help: 'A–H; pritisak = prebaci na kraju loopa, Shift = kopiraj trenutni u ovaj' },
+      },
+    },
     mod: {
       label: 'Modifikator koraka',
       fields: {
@@ -91,7 +102,7 @@ module.exports = {
       const key = name || 'A';
       if (!seqs[key]) {
         const old = saved[key] || {};
-        seqs[key] = { running: old.running !== false, length: 0, loop: int(old.loop, 0), mod: null, pos: -1, lastBase: -1, stepTick: 0, swing: 0, recording: false, selected: old.selected || null, lanes: {}, savedLanes: old.lanes || {} };
+        seqs[key] = { running: old.running !== false, length: 0, loop: int(old.loop, 0), mod: null, pos: -1, lastBase: -1, stepTick: 0, swing: 0, recording: false, selected: old.selected || null, lanes: {}, savedLanes: old.lanes || {}, pattern: slotOf(old.pattern), queued: null, patterns: old.patterns && typeof old.patterns === 'object' ? old.patterns : {} };
       }
       return seqs[key];
     };
@@ -101,7 +112,7 @@ module.exports = {
       saveTimer = setTimeout(() => {
         const out = {};
         for (const [k, sq] of Object.entries(seqs)) {
-          out[k] = { running: sq.running, selected: sq.selected, loop: sq.loop, lanes: {} };
+          out[k] = { running: sq.running, selected: sq.selected, loop: sq.loop, pattern: sq.pattern, patterns: sq.patterns, lanes: {} };
           for (const [lane, l] of Object.entries(sq.lanes)) out[k].lanes[lane] = { steps: l.steps, chance: l.chance, gate: l.gate };
         }
         if (api.saveState) api.saveState('stepseq', out);
@@ -176,7 +187,37 @@ module.exports = {
       if (late) l.skip = i;
     }
 
+    // Patterns: the current one lives in the lanes; the others are snapshots in sq.patterns.
+    const snapshot = (sq) => {
+      const lanes = { ...((sq.patterns[sq.pattern] && sq.patterns[sq.pattern].lanes) || {}) };
+      for (const [lane, l] of Object.entries(sq.lanes)) lanes[lane] = { steps: l.steps.slice(), chance: l.chance.slice(), gate: l.gate.slice() };
+      return { loop: sq.loop, lanes };
+    };
+    const hasNotes = (pat) => !!pat && Object.values(pat.lanes || {}).some((l) => (l.steps || []).some((v) => v > 0));
+
+    function switchPattern(sq, slot) {
+      if (slot === sq.pattern) return;
+      sq.patterns[sq.pattern] = snapshot(sq);
+      const next = sq.patterns[slot] || { loop: sq.loop, lanes: {} };
+      for (const [lane, l] of Object.entries(sq.lanes)) {
+        const src = next.lanes[lane] || {};
+        l.steps = Array.isArray(src.steps) ? src.steps.slice(0, 64) : [];
+        l.chance = Array.isArray(src.chance) ? src.chance.slice(0, 64) : [];
+        l.gate = Array.isArray(src.gate) ? src.gate.slice(0, 64) : [];
+        l.skip = -1;
+      }
+      sq.loop = int(next.loop, 0);
+      sq.pattern = slot;
+      delete sq.patterns[slot];
+      persist();
+    }
+
     function playStep(sq) {
+      if (sq.queued && sq.pos + 1 >= loopLen(sq)) {
+        switchPattern(sq, sq.queued);
+        sq.queued = null;
+        sq.pos = -1;
+      }
       sq.pos = (sq.pos + 1) % Math.max(1, loopLen(sq));
       sq.stepTick = tick;
       for (const l of Object.values(sq.lanes)) {
@@ -221,6 +262,16 @@ module.exports = {
         const vel = Math.max(1, Math.min(127, velocity || 100));
         if (action === 'play') sq.running = !sq.running;
         else if (action === 'rec') sq.recording = !sq.recording;
+        else if (action === 'pattern') {
+          const slot = slotOf(params.slot);
+          if (shift) {
+            if (slot !== sq.pattern) sq.patterns[slot] = snapshot(sq);
+          } else if (transport && sq.running && slot !== sq.pattern) sq.queued = sq.queued === slot ? null : slot;
+          else {
+            sq.queued = null;
+            switchPattern(sq, slot);
+          }
+        }
         else if (action === 'mod') {
           const mode = MOD_MODES.includes(params.mode) ? params.mode : 'length';
           if (mode === 'double') double(sq);
@@ -346,6 +397,7 @@ module.exports = {
         const playing = transport && sq.running;
         const parts = [`Seq ${params.seq || 'A'} ${playing ? '▶' : '■'} ${playing && sq.pos >= 0 ? sq.pos + 1 : '–'}/${loopLen(sq)}`];
         if (sq.mod) parts.push(`[${sq.mod}]`);
+        if (sq.pattern !== 'A' || sq.queued || Object.keys(sq.patterns).length) parts.push(`pat ${sq.pattern}${sq.queued ? `→${sq.queued}` : ''}`);
         if (sq.selected && Object.keys(sq.lanes).length > 1) parts.push(`traka ${sq.selected}`);
         if (sq.recording) parts.push('● REC');
         return parts.join(' ');
@@ -356,6 +408,12 @@ module.exports = {
         if (held) return { color: 3, anim: 0 };
         if (action === 'play') return { color: sq.running ? 21 : 23, anim: 0 };
         if (action === 'clear') return { color: 7, anim: 0 };
+        if (action === 'pattern') {
+          const slot = slotOf(params.slot);
+          if (slot === sq.pattern) return { color: 21, anim: 0 };
+          if (slot === sq.queued) return { color: 21, anim: api.ANIM.blink || 0 };
+          return { color: hasNotes(sq.patterns[slot]) ? 23 : 0, anim: 0 };
+        }
         if (action === 'mod') return { color: sq.mod === params.mode ? 3 : MOD_COLORS[params.mode] || MOD_COLORS.length, anim: 0 };
         if (action === 'rec') return { color: sq.recording ? REC_ON : REC_OFF, anim: sq.recording ? api.ANIM.pulse || 0 : 0 };
         const laneKey = String(params.lane || '1') === 'selected' ? sq.selected : String(params.lane || '1');
