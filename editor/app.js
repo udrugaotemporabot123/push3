@@ -15,7 +15,7 @@ const el = (tag, attrs = {}, ...kids) => {
 };
 
 const T = {
-  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)' },
+  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)', transpose: 'Transpozicija padova (Oct −/+)' },
   liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka', trackPrev: '◀ Prethodni track', trackNext: 'Sljedeći track ▶', scenePrev: '▲ Prethodna scena', sceneNext: 'Sljedeća scena ▼', devicePrev: '◀ Prethodni device', deviceNext: 'Sljedeći device ▶' },
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
   liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', padParam: 'Parametar odabranog drum pada (Simpler)', tempo: 'Tempo' },
@@ -334,6 +334,8 @@ function mappingSummary(c, m) {
     }
     case 'panic':
       return 'PANIC';
+    case 'transpose':
+      return m.amount ? `Tr ${m.amount > 0 ? '+' : ''}${m.amount}` : 'Tr 0';
     case 'pageHold':
       return `⇥ ${S.config.pages[m.page] ? S.config.pages[m.page].name : `P${m.page + 1}`}`;
     default:
@@ -636,6 +638,8 @@ function renderButtonInspector(box, ctls, maps) {
         box.append(el('p', { class: 'muted small' }, 'Kad pustiš pad, parametar se vraća na minimum.'));
       }
     }
+  } else if (type === 'transpose') {
+    box.append(field('Pomak', selectEl({ '-12': '−12 (oktava dolje)', '12': '+12 (oktava gore)', '-1': '−1 polustepen', '1': '+1 polustepen', '-7': '−7 (kvinta)', '7': '+7 (kvinta)', '0': '0 (vrati)' }, String(common(maps, 'amount')), (v) => setAll('amount', Number(v))), 'Pomiče note padova na ovoj stranici (toggle padovi se ne pomiču)'));
   } else if (type === 'page' || type === 'pageHold') {
     const opts = {};
     S.config.pages.forEach((p, i) => (opts[i] = p.name));
@@ -1250,6 +1254,40 @@ const TEMPLATES = {
         for (let col = 0; col < 4; col++) r[`pad.${row}.${col}`] = { type: 'note', number: 36 + row * 4 + col, behavior: 'momentary', velocity: 'dynamic', colorOn: 3, colorOff: 37 };
       }
       r.capture = { type: 'addon', addon: { id: 'sampler', action: 'sampleToSlices', params: { source: a.source, target: a.target, mode: 'slice', autoArm: 'yes' } } };
+      return r;
+    },
+  },
+  keys: {
+    name: 'Klavijatura (skala, kao na Pushu)',
+    help: 'Padovi sviraju note u skali: udesno sljedeći ton skale, red gore = kvarta (3 tona skale; kromatski 5 polustepeni). Plavo = tonika. Oct − / Oct + pomiču oktavu (Page ◀ ▶ za polustepen). Pošalji na synth ili instrument na kanalu stranice.',
+    ask: [
+      { key: 'root', label: 'Tonika (C, C#, D … B)', default: 'C' },
+      { key: 'scale', label: 'Skala: major, minor, dorian, mixolydian, harmonic, pentatonic, minorpenta, blues, chromatic', default: 'minor' },
+    ],
+    apply(a) {
+      const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      const SCALES = { major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10], mixolydian: [0, 2, 4, 5, 7, 9, 10], harmonic: [0, 2, 3, 5, 7, 8, 11], pentatonic: [0, 2, 4, 7, 9], minorpenta: [0, 3, 5, 7, 10], blues: [0, 3, 5, 6, 7, 10], chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] };
+      const root = Math.max(0, NAMES.indexOf(String(a.root).toUpperCase().replace('♯', '#')));
+      const scale = SCALES[String(a.scale).toLowerCase()] || SCALES.minor;
+      const chromatic = scale.length === 12;
+      const r = {};
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          let note;
+          if (chromatic) note = 36 + root + row * 5 + col;
+          else {
+            const deg = row * 3 + col;
+            note = 36 + root + 12 * Math.floor(deg / scale.length) + scale[deg % scale.length];
+          }
+          const isRoot = (((note - 36 - root) % 12) + 12) % 12 === 0;
+          const inScale = scale.includes((((note - 36 - root) % 12) + 12) % 12);
+          r[`pad.${row}.${col}`] = { type: note <= 127 ? 'note' : 'none', number: Math.min(127, note), behavior: 'momentary', velocity: 'dynamic', colorOn: 21, colorOff: isRoot ? 45 : inScale ? 2 : 0, pressure: 'polyAT' };
+        }
+      }
+      r.octDown = { type: 'transpose', amount: -12, colorOn: 3, colorOff: 1 };
+      r.octUp = { type: 'transpose', amount: 12, colorOn: 3, colorOff: 1 };
+      r.pageLeft = { type: 'transpose', amount: -1, colorOn: 3, colorOff: 1 };
+      r.pageRight = { type: 'transpose', amount: 1, colorOn: 3, colorOff: 1 };
       return r;
     },
   },

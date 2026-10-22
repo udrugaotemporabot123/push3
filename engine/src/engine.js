@@ -52,6 +52,7 @@ class Engine {
     this.pressed = new Set(); // control ids physically held
     this.heldOutputs = new Map(); // control id -> bytes to send on release (note offs etc.)
     this.liveHeld = new Map(); // control id -> Live parameter to reset on release (momentary)
+    this.transpose = new Map(); // page uid -> semitones added to the page's pad notes (Oct-/Oct+)
     this.addonHeld = new Map(); // control id -> add-on mapping that got the press (release goes to the same one)
     this.touchHeld = new Map(); // encoder id -> touch note that was sent (its note off goes to the same note)
     this.mpeChannelPad = new Map(); // MPE member channel -> pad control (for pressure routing)
@@ -473,7 +474,7 @@ class Engine {
     }
 
     const layer = this.layerFor(ctl.id);
-    const m = this.mapping(ctl.id, this.page, layer);
+    let m = this.mapping(ctl.id, this.page, layer);
     if (!m) return;
     const st = this.ctlState(this.page, ctl.id, layer);
 
@@ -505,6 +506,14 @@ class Engine {
         this.panic();
         this.renderControl(ctl);
         return;
+      case 'transpose': {
+        const uid = this.config.pages[this.page].uid;
+        const t = m.amount === 0 ? 0 : Math.max(-48, Math.min(48, (this.transpose.get(uid) || 0) + m.amount));
+        this.transpose.set(uid, t);
+        this.emit('notice', { text: t ? `Transpose ${t > 0 ? '+' : ''}${t}${t % 12 ? '' : ` (oct ${t > 0 ? '+' : ''}${t / 12})`}` : 'Transpose 0' });
+        this.renderWhere((x) => x.type === 'transpose');
+        return;
+      }
       case 'addon':
         this.addonHeld.set(ctl.id, m);
         this.addonCall(m, 'press', { id: ctl.id, velocity, shift: this.pressed.has('shift') });
@@ -517,6 +526,13 @@ class Engine {
         break;
     }
 
+    // Pad notes follow the page's transpose (Oct-/Oct+); toggles keep their note so they can be turned off.
+    const shiftBy = ctl.kind === 'pad' && m.type === 'note' && m.behavior !== 'toggle' ? this.transpose.get(this.config.pages[this.page].uid) || 0 : 0;
+    if (shiftBy) {
+      const n = m.number + shiftBy;
+      if (n < 0 || n > 127) return this.renderControl(ctl);
+      m = { ...m, number: n };
+    }
     const value = m.velocity === 'dynamic' ? scaleVelocity(applyCurve(velocity, m.curve), m) : m.onValue;
     const chan = this.channelFor(m);
 
@@ -1146,6 +1162,11 @@ class Engine {
       if (m.action !== 'recall') return { color: m.colorOff, anim: 0 };
       if (m.index >= v.count) return { color: 0, anim: 0 };
       return m.index === v.selected ? { color: m.colorOn, anim: push3.ANIMATIONS[m.anim] || 0 } : { color: m.colorOff, anim: 0 };
+    }
+    if (m.type === 'transpose') {
+      const t = this.transpose.get(this.config.pages[this.page].uid) || 0;
+      const active = held || (m.amount > 0 ? t > 0 : m.amount < 0 ? t < 0 : t !== 0);
+      return { color: active ? m.colorOn : m.colorOff, anim: 0 };
     }
     if (m.type === 'page' || m.type === 'pageHold' || m.type === 'pageNext' || m.type === 'pagePrev') {
       const active = (m.type === 'page' || m.type === 'pageHold') && m.page === this.page;

@@ -73,6 +73,9 @@ Polje **Traži** gore desno ističe kontrole po imenu, oznaci ili broju (npr. `3
 | Gornji red (U1–U8) | odabir stranice 1–8 |
 | Kanal | stranica 1 = kanal 5, stranica 2 = 6, … (mijenja se u Postavkama ili po stranici) |
 
+### Klavijatura i transpozicija (v0.42)
+Predložak **Klavijatura (skala, kao na Pushu)**: tonika + skala (major, minor, dorian, mixolydian, harmonic, pentatonic, minorpenta, blues, chromatic); udesno sljedeći ton skale, red gore = kvarta, plavo = tonika, poly aftertouch na padovima. Novi tip gumba **Transpozicija padova**: *Oct − / Oct +* pomiču oktavu, *Page ◀ ▶* polustepen (pomak vrijedi za tu stranicu, a nota koju držiš se uvijek ispravno ugasi). Idealno za synthove i vanjske instrumente u User modu.
+
 ## Add-oni (v0.8)
 
 Dodatne funkcije koje nisu dio jezgre i mogu se isključiti (Postavke → Add-oni). Add-on ne može srušiti jezgru: ako baci grešku, samo ta kontrola ne radi.

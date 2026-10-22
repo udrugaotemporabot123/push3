@@ -48,6 +48,8 @@ function summary(ctl, m) {
       return 'Page →';
     case 'pagePrev':
       return '← Page';
+    case 'transpose':
+      return m.amount ? `Tr ${m.amount > 0 ? '+' : ''}${m.amount}` : 'Tr 0';
     default:
       return m.type;
   }

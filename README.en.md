@@ -23,7 +23,7 @@ Live-aware extras. *(Hrvatski: [README.md](README.md))*
 - **Display**: its own 960×160 layout (page names, encoder names + values, last action, transport),
   per-page "controls" or "big" view, live preview in the editor, experimental takeover of the Push 3
   display while in User Mode.
-- **Templates**: Mixer, Selected device, Sends, Selected track (macros + variations), Variations
+- **Templates**: Keyboard (scale, Push-style in-key layout, octave/semitone transpose buttons), Mixer, Selected device, Sends, Selected track (macros + variations), Variations
   (8 racks × 8), Clip grid, Transport, Looper, Sampler, Step sequencer.
 - **Add-ons** (optional, can't crash the core): Live Looper, Sampler (record → straight into the next
   empty Simpler of a Drum Rack), Step sequencer (lanes × steps on Live's clock, drum pads, live recording, swing, Euclid, chance, patterns), XY FX (pad grid as an XY surface for two effect parameters).

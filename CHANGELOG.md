@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.42.0 – 2026-10-22
+Klavijatura u skali (kao na Pushu) i gumbi za transpoziciju padova (oktava, polustepen).
+
 ## v0.41.0 – 2026-10-22
 Slicer: snimi frazu i odmah je sviraj izrezanu po padovima (Simpler Slice).
 

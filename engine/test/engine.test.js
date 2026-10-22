@@ -658,3 +658,24 @@ test('page state follows its page when pages are moved or deleted (stable uid)',
   e.setConfig(cfg);
   assert.equal(e.ctlState(0, 'pad.0.0').on, true);
 });
+
+test('transpose buttons move pad notes per page; note offs match the note that was sent', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['pad.0.0'], { type: 'note', number: 48, behavior: 'momentary', velocity: 'fixed', onValue: 100 });
+    Object.assign(c.pages[0].controls.octUp, { type: 'transpose', amount: 12 });
+    Object.assign(c.pages[0].controls.octDown, { type: 'transpose', amount: -12 });
+  });
+  e.handlePushMessage(SYSEX_USER);
+  clear();
+  e.handlePushMessage([0x90, 36, 100]); // pad held at 48
+  e.handlePushMessage([0xb0, 55, 127]); // Oct + while holding
+  e.handlePushMessage([0xb0, 55, 0]);
+  e.handlePushMessage([0x80, 36, 0]); // off goes to 48, not 60
+  e.handlePushMessage([0x90, 36, 100]);
+  e.handlePushMessage([0x80, 36, 0]);
+  assert.deepEqual(out.host, [[0x94, 48, 100], [0x94, 48, 0], [0x94, 60, 100], [0x94, 60, 0]]);
+  e.setPage(1);
+  clear();
+  e.handlePushMessage([0x90, 36, 100]); // other page: not transposed
+  assert.equal(out.host[0][1], 36);
+});
