@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.49.4 – 2026-10-22
+Vraćena instalacija (npm), ali samo MIDI biblioteke: nema blokade macOS-a ni kompajliranja usb-a.
+
 ## v0.49.3 – 2026-10-22
 Instalacija više ne treba: MIDI biblioteke su u paketu, usb (ekran) se ne kompajlira automatski. Rješava beskonačno Installing components.
 

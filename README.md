@@ -33,7 +33,7 @@ Max for Live device + editor koji od Push 3 **User moda** radi potpuno podesiv M
    `~/Music/Ableton/User Library/Presets/Audio Effects/Max Audio Effect/Push3UserMode/`
    **Mapa mora ostati cijela** (device traži `p3um-main.js`, `p3um-live.js`, `engine/` i `editor/` pored sebe).
 2. Povuci **`Push3UserMode.amxd`** na bilo koji track (preporuka: **Main/Master** track, jer je to audio efekt koji samo propušta zvuk).
-3. Ništa se ne instalira: MIDI biblioteke su već u preuzetoj mapi (v0.49.3+). Status odmah piše *Ready (Live Mode)*.
+3. Prvi put device sam instalira MIDI biblioteke (`npm install`, ~30 s, treba internet). Status piše *Installing components…*, pa *Ready (Live Mode)*.
    (Preuzimanje Push ekrana treba dodatni modul `usb`, koji se mora kompajlirati: samo za napredne, `npm install usb` u mapi, treba Xcode alate.)
 4. Live → **Settings → Link, Tempo & MIDI**:
    - **Ableton Push 3 User Port** (In i Out): **Track OFF, Remote OFF**. Ovaj device koristi taj port umjesto Livea.

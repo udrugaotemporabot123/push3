@@ -97,6 +97,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.49.1 Hardware test fixes: Live API bridge handshake (engine pings until the bridge answers; the bridge starts itself if live.thisdevice fired before Node listened), Predlošci button in the editor header
 - [x] v0.49.2 Safety: display takeover is switched off at every startup (a saved takeover could keep Live loading/hanging); suspected cause of the freeze on the user's Push, bridge still a suspect
 - [x] v0.49.3 Real cause of the endless "Installing components": the optional usb module has no macOS prebuild and was compiled on every new version. Runtime modules (@julusian/midi with prebuilds, pkg-prebuilds, tslib, ws) now ship in the release; usb is never auto-installed
+- [x] v0.49.4 Bundled binaries were blocked by macOS Gatekeeper (ZIP quarantine). Back to npm install, but only @julusian/midi + ws (usb removed from package.json, never compiled on the user's Mac)
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.

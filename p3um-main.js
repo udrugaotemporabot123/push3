@@ -13,9 +13,9 @@ for (const dep of ['@julusian/midi', 'ws']) {
   }
 }
 
-// The display module ("usb") is optional and never installed automatically: it has no ready-made
-// macOS binary and compiling it on the user's Mac could hang "Installing components" for ever.
-// The MIDI modules ship with the release (node_modules in the download).
+// The display module ("usb") is not a dependency: it has no ready-made macOS binary and compiling
+// it could hang "Installing components" for ever. npm install only fetches the MIDI modules (they come
+// with prebuilt binaries; files fetched by npm are not blocked by macOS Gatekeeper, unlike a ZIP).
 
 if (missing) {
   let max = null;
