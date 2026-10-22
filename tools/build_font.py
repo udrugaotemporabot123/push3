@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONT_DIR = sys.argv[1] if len(sys.argv) > 1 else '/usr/share/fonts/opentype/inter'
-CHARS = ''.join(chr(c) for c in range(32, 127)) + 'čćžšđČĆŽŠĐ→←↑↓…°±·•×–—'
+CHARS = ''.join(chr(c) for c in range(32, 127)) + 'čćžšđČĆŽŠĐ→←↑↓…°±·•×–—▶■●▲▼◀'
 SPECS = {
     'small': ('Inter-Medium.otf', 13),
     'normal': ('Inter-Medium.otf', 16),

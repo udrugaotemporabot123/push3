@@ -73,6 +73,8 @@ Dodatne funkcije koje nisu dio jezgre i mogu se isključiti (Postavke → Add-on
 Motor sam crta ekran od 960×160: imena stranica gore, oznake i vrijednosti enkodera, zadnju radnju u sredini i oznake donjih gumba s bojama LED-ica.
 
 - U editoru je **uvijek** vidljiv pregled tog ekrana (u sredini Pusha).
+- Po stranici biraš prikaz (postavke stranice → *Ekran*): **Kontrole** (enkoderi s imenima trackova/parametara i vrijednostima, gumbi s imenima trackova, tempo i ▶) ili **Veliko** (ime stranice i zadnja radnja velikim slovima, za pozornicu).
+- Dok držiš Shift, ekran pokazuje Shift sloj.
 - **Postavke → Push ekran → "Preuzmi ekran u User modu"**: kad uđeš u User mode, motor pokuša preuzeti USB ekran od Livea, a kad izađeš, vrati ga.
   Ako ga Live ne pusti, ništa se ne kvari: pod pregledom piše *Live drži ekran* i ostaje samo pregled u editoru.
 - **Molim testiraj** i javi što piše pod pregledom ekrana u editoru (status) i što se vidi na Pushu.

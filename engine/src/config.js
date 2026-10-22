@@ -126,7 +126,7 @@ function defaultPage(index) {
     if (ctl.reserved) continue;
     controls[ctl.id] = defaultMapping(index, ctl);
   }
-  return { name: `Page ${index + 1}`, channel: 0, color: PAGE_COLORS[index % PAGE_COLORS.length], controls };
+  return { name: `Page ${index + 1}`, channel: 0, color: PAGE_COLORS[index % PAGE_COLORS.length], display: 'controls', controls };
 }
 
 function defaultConfig(pageCount = 4) {
@@ -260,6 +260,7 @@ function normalizePage(p, index) {
     name: str(src.name, `Page ${index + 1}`, 24) || `Page ${index + 1}`,
     channel: clampInt(src.channel, 0, 16, 0),
     color: clampInt(src.color, 0, 127, PAGE_COLORS[index % PAGE_COLORS.length]),
+    display: oneOf(src.display, ['controls', 'big'], 'controls'),
     controls,
   };
 }

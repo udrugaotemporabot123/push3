@@ -46,6 +46,9 @@ Update this file after every step so work can resume after an interruption.
 
 - [x] v0.13.0 navigation actions (track/scene/device prev/next); templates Selected device (8 params), Sends
 
+- [x] v0.14.0 display: per-page mode (controls / big), track names on mixer encoders and live buttons, tempo + play
+      state, shift layer shown while held
+
 ## Next
 - [ ] push to GitHub (waiting for repo name from user); Drive backup zip exists meanwhile
 - [ ] user's first hardware test (checklist in README) -> fix CC numbers / RGB vs white

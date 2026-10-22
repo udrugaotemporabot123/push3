@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.14.0 – 2026-10-22
+Ekran: izbor prikaza po stranici (Kontrole / Veliko), imena trackova na enkoderima i gumbima, tempo i ▶, Shift sloj na ekranu dok držiš Shift.
+
 ## v0.13.0 – 2026-10-22
 Navigacija: prethodni/sljedeći track, scena i device kao Live radnje; predlošci Odabrani device (8 parametara) i Sendovi odabranog tracka.
 

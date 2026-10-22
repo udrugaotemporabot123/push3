@@ -700,6 +700,8 @@ class Engine {
         }
       }
     }
+    // Always observe transport for the display (tempo, playing).
+    for (const spec of [{ t: 'song', prop: 'is_playing' }, { t: 'param', target: 'tempo' }]) liveTargets[live.liveKey(spec)] = spec;
     this.variationTargets = targets;
     this.liveTargets = liveTargets;
     this.io.toLive({ cmd: 'watch', targets });
@@ -849,6 +851,7 @@ class Engine {
         name: typeof msg.name === 'string' ? msg.name : '',
         display: typeof msg.display === 'string' ? msg.display : '',
         color: Array.isArray(msg.color) ? msg.color : null,
+        track: typeof msg.track === 'string' ? msg.track : '',
       };
       this.renderWhere((m) => {
         if (m.type === 'addon') return true; // add-ons may depend on any observed value

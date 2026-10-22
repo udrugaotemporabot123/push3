@@ -468,7 +468,8 @@ function sendLive(key) {
     } catch (e) {
       disp = String(Math.round(v * 100) / 100);
     }
-    reportLive(key, { ok: true, value: max > min ? (v - min) / (max - min) : 0, name: str(api.get('name')), display: disp });
+    var tname = info.trackId ? str(new LiveAPI('id ' + info.trackId).get('name')) : '';
+    reportLive(key, { ok: true, value: max > min ? (v - min) / (max - min) : 0, name: str(api.get('name')), display: disp, track: tname });
   } else {
     var val = num(api.get(info.prop));
     var name = spec.t === 'song' ? info.prop : str(api.get('name'));
