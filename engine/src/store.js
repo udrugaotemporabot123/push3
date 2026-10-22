@@ -10,9 +10,28 @@ const { defaultConfig, normalizeConfig } = require('./config');
 const DIR = process.env.P3UM_DIR || path.join(os.homedir(), 'Documents', 'Push3UserMode');
 const FILE = path.join(DIR, 'config.json');
 const PRESETS = path.join(DIR, 'presets');
+const BACKUPS = path.join(DIR, 'backups');
+const BACKUP_EVERY_MS = 10 * 60 * 1000;
+const BACKUP_KEEP = 20;
+let lastBackupAt = 0;
 
 function ensureDirs() {
   fs.mkdirSync(PRESETS, { recursive: true });
+  fs.mkdirSync(BACKUPS, { recursive: true });
+}
+
+// Rotating snapshots of the previous config, at most one per 10 minutes, newest 20 kept.
+function rotateBackup() {
+  if (Date.now() - lastBackupAt < BACKUP_EVERY_MS || !fs.existsSync(FILE)) return;
+  lastBackupAt = Date.now();
+  const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+  fs.copyFileSync(FILE, path.join(BACKUPS, `config-${stamp}.json`));
+  const old = fs
+    .readdirSync(BACKUPS)
+    .filter((f) => f.startsWith('config-') && f.endsWith('.json'))
+    .sort()
+    .slice(0, -BACKUP_KEEP);
+  for (const f of old) fs.rmSync(path.join(BACKUPS, f), { force: true });
 }
 
 function readJson(file) {
@@ -44,6 +63,7 @@ function save(config, log) {
     saveTimer = null;
     try {
       ensureDirs();
+      rotateBackup();
       if (fs.existsSync(FILE)) fs.copyFileSync(FILE, `${FILE}.bak`);
       writeAtomic(FILE, JSON.stringify(config, null, 1));
     } catch (e) {

@@ -48,7 +48,7 @@ Max for Live device + editor koji od Push 3 **User moda** radi potpuno podesiv M
 - U Liveu uđi u MIDI Map mode (Cmd+M), klikni parametar i pritisni kontrolu na Pushu (u User modu). Gotovo.
 - Enkoderi: zadano šalju **apsolutni CC** (0–127) i prate vrijednost iz Livea. Ako više voliš relativno, odaberi *Relativno – 2's complement* u editoru **i** isti Mapping Mode u Liveovoj statusnoj traci.
 
-Konfiguracija se sprema automatski u `~/Documents/Push3UserMode/config.json` (preseti u `presets/`).
+Konfiguracija se sprema automatski u `~/Documents/Push3UserMode/config.json` (preseti u `presets/`, a najviše jednom u 10 minuta i automatske sigurnosne kopije u `backups/`, zadnjih 20).
 
 ## Zadano mapiranje
 

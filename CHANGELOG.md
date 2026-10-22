@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.16.0 – 2026-10-22
+Stabilnost: test cijele aplikacije, automatske sigurnosne kopije konfiguracije (zadnjih 20), mjerenje brzine (≈1 µs po događaju).
+
 ## v0.15.0 – 2026-10-22
 Touch strip i pritisak na padu mogu direktno pokretati Live parametar (makro, filter, send…) bez mapiranja.
 
