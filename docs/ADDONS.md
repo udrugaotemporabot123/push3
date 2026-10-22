@@ -28,6 +28,7 @@ module.exports = {
       led({ params, action, id, held }) { return { color: 21, anim: 0 }; },
       status({ params, action }) { return 'Seq A ▶ 5/16'; }, // short text on the display status line
       turn({ params, action, id, encoder, delta }) { return true; }, // encoder turned while this control is held; true = consumed
+      view({ params, action }) { return { title, columns, playhead, rows: [{ label, color, selected, cells: [0..127 | -1] }] }; }, // page display "addon"
       clock(type) {},            // 'start' | 'clock' (24 ppqn) | 'stop' | 'continue' – needs Sync on Push3 UM out
     };
   },

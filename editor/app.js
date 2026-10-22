@@ -991,7 +991,7 @@ function renderPageInspector(box) {
   box.append(field('Ime', textEl(p.name, (v) => commit((c) => (c.pages[i].name = v.slice(0, 24) || c.pages[i].name)))));
   const chOpts = { 0: `Automatski (${((S.config.settings.baseChannel - 1 + i) % 16) + 1})` };
   for (let k = 1; k <= 16; k++) chOpts[k] = `${k}`;
-  box.append(field('Ekran', selectEl({ controls: 'Kontrole (enkoderi + gumbi)', big: 'Veliko (ime stranice, zadnja radnja, tempo)' }, p.display || 'controls', (v) => commit((c) => (c.pages[i].display = v))), 'Što Push ekran prikazuje na ovoj stranici'));
+  box.append(field('Ekran', selectEl({ controls: 'Kontrole (enkoderi + gumbi)', big: 'Veliko (ime stranice, zadnja radnja, tempo)', addon: 'Add-on (npr. mreža sekvencera)' }, p.display || 'controls', (v) => commit((c) => (c.pages[i].display = v))), 'Što Push ekran prikazuje na ovoj stranici'));
   box.append(field('MIDI kanal', selectEl(chOpts, String(p.channel), (v) => commit((c) => (c.pages[i].channel = Number(v)))), 'Sve kontrole ove stranice šalju na ovaj kanal (osim ako kontrola ima svoj).'));
   const wrap = el('div', {});
   wrap.append(palettePicker(p.color, (k) => commit((c) => (c.pages[i].color = k))));

@@ -298,7 +298,7 @@ function normalizePage(p, index) {
     name: str(src.name, `Page ${index + 1}`, 24) || `Page ${index + 1}`,
     channel: clampInt(src.channel, 0, 16, 0),
     color: clampInt(src.color, 0, 127, PAGE_COLORS[index % PAGE_COLORS.length]),
-    display: oneOf(src.display, ['controls', 'big'], 'controls'),
+    display: oneOf(src.display, ['controls', 'big', 'addon'], 'controls'),
     controls,
   };
 }

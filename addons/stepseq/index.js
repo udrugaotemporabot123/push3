@@ -426,6 +426,29 @@ module.exports = {
         }
       },
 
+      // Full-screen display view: lanes x steps of the loop, playhead, selected lane.
+      view({ params }) {
+        const sq = seqOf(params.seq);
+        if (!sq.length) return null;
+        const n = loopLen(sq);
+        const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const lanes = Object.keys(sq.lanes).sort((a, b) => int(a, 0) - int(b, 0));
+        return {
+          title: `Seq ${params.seq || 'A'} · pattern ${sq.pattern}${sq.chain.length > 1 ? ` (${sq.chain.join('')})` : ''} · ${n} koraka`,
+          columns: sq.length,
+          playhead: transport && sq.running ? sq.pos : sq.recording ? sq.cursor : -1,
+          rows: lanes.map((lane) => {
+            const l = sq.lanes[lane];
+            return {
+              label: `${lane} ${names[l.note % 12]}${Math.floor(l.note / 12) - 2}`,
+              color: laneColor(lane),
+              selected: lane === sq.selected,
+              cells: Array.from({ length: sq.length }, (_, i) => (i >= n ? -1 : l.steps[i] || 0)),
+            };
+          }),
+        };
+      },
+
       status({ params }) {
         const sq = seqOf(params.seq);
         if (!sq.length) return '';

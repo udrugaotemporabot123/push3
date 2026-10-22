@@ -79,7 +79,12 @@ function buildModel(engine, palette, lastAction, now) {
     display: page ? page.display : 'controls',
     transport: transportText(engine),
     status: typeof engine.addonStatus === 'function' ? engine.addonStatus().join('  ·  ') : '',
+    view: null,
   };
+  if (model.display === 'addon' && typeof engine.addonView === 'function') {
+    const v = engine.addonView();
+    if (v) model.view = { ...v, rows: v.rows.slice(0, 16).map((r) => ({ ...r, rgb: hexToRgb(palette[r.color] || '808080') })) };
+  }
   for (let i = 1; i <= 8; i++) {
     const ctl = push3.byId.get(`upper.${i}`);
     if (cfg.settings.pageButtons === 'upper') {
@@ -133,6 +138,7 @@ function transportText(engine) {
 
 function draw(canvas, model) {
   if (model.display === 'big') return drawBig(canvas, model);
+  if (model.display === 'addon' && model.view) return drawView(canvas, model);
   canvas.clear([0, 0, 0]);
   // Upper row: page names / upper button labels.
   model.upper.forEach((u, i) => {
@@ -198,6 +204,45 @@ function drawBig(canvas, model) {
   model.lower.forEach((l, i) => {
     if (!l.label) return;
     if (l.color) canvas.fillRect(i * COL + 6, 152, COL - 12, 3, l.color);
+  });
+}
+
+// Add-on view: a grid (rows x cells), e.g. sequencer lanes x steps with the playhead.
+function drawView(canvas, model) {
+  const v = model.view;
+  canvas.clear([0, 0, 0]);
+  canvas.text(10, 2, v.title || model.pageName, { font: 'small', color: WHITE, maxWidth: 560 });
+  canvas.text(950, 2, model.status || model.transport, { font: 'small', color: GREY, align: 'right', maxWidth: 380 });
+  const rows = v.rows;
+  const cols = Math.max(1, Math.min(64, v.columns || 16));
+  const top = 20;
+  const bottom = 134;
+  const left = 80;
+  const rowH = Math.max(4, Math.floor((bottom - top) / Math.max(1, rows.length)));
+  const colW = (950 - left) / cols;
+  rows.forEach((r, ri) => {
+    const y = top + ri * rowH;
+    if (r.selected) canvas.fillRect(0, y, 960, rowH, [24, 26, 30]);
+    if (rowH >= 10) canvas.text(6, y + Math.max(0, (rowH - 12) / 2), r.label || '', { font: 'small', color: r.selected ? WHITE : GREY, maxWidth: left - 10 });
+    for (let c = 0; c < cols; c++) {
+      const x = Math.round(left + c * colW);
+      const w = Math.max(2, Math.round(colW) - 2);
+      const val = (r.cells || [])[c] || 0;
+      let color;
+      if (val < 0) color = [14, 15, 17]; // outside the loop
+      else if (val > 0) {
+        const k = 0.35 + 0.65 * Math.min(1, val / 127);
+        color = r.rgb.map((ch) => Math.round(ch * k));
+      } else color = c % 4 === 0 ? [44, 47, 52] : [30, 32, 36];
+      canvas.fillRect(x, y + 1, w, rowH - 2, color);
+    }
+  });
+  if (v.playhead >= 0 && v.playhead < cols) canvas.fillRect(Math.round(left + v.playhead * colW), top - 2, Math.max(2, Math.round(colW) - 2), 2, WHITE);
+  canvas.fillRect(0, 136, 960, 1, [28, 30, 34]);
+  model.lower.forEach((l, i) => {
+    if (!l.label) return;
+    if (l.color) canvas.fillRect(i * COL + 6, 139, COL - 12, 3, l.color);
+    canvas.text(i * COL + COL / 2, 144, l.label, { font: 'small', color: l.on ? WHITE : GREY, align: 'center', maxWidth: COL - 14 });
   });
 }
 

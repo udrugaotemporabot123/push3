@@ -909,6 +909,20 @@ class Engine {
     return out.slice(0, 3);
   }
 
+  // Full-screen view of the first add-on on the current page that offers one (page display "addon").
+  addonView() {
+    const page = this.config.pages[this.page];
+    if (!page) return null;
+    for (const c of Object.values(page.controls)) {
+      if (!c || c.type !== 'addon') continue;
+      const a = this.addonFor(c);
+      if (!a || typeof a.inst.view !== 'function') continue;
+      const v = this.addonCall(c, 'view');
+      if (v && Array.isArray(v.rows)) return v;
+    }
+    return null;
+  }
+
   // Label of an add-on action as the add-on names it.
   addonLabel(m) {
     const a = this.addonFor(m);
