@@ -800,6 +800,7 @@ class Engine {
     const m = this.mapping(ctl.id);
     if (!m || m.type === 'none') return;
     if (m.type === 'live') return this.liveAbsolute(m.live, value14 / 16383);
+    if (m.type === 'morph') return this.snapshotMorph(m.slotA, m.slotB, value14 / 16383);
     const chan = this.channelFor(m);
     if (m.type === 'pitchbend') this.io.toHost([PITCHBEND | chan, value14 & 0x7f, value14 >> 7]);
     else this.io.toHost([CC | chan, m.number, value14 >> 7]);
@@ -918,29 +919,47 @@ class Engine {
       if (this.io.saveAddonState) this.io.saveAddonState('core-snapshots', all);
       this.emit('notice', { text: `Snapshot ${slot} spremljen (${Object.keys(snap).length})` });
     } else {
-      for (const [id, v] of Object.entries(mine[slot])) {
-        const m = page.controls[id];
-        if (!m) continue;
-        if (m.type === 'live') this.liveAbsolute(m.live, v);
-        else if (m.type === 'cc' && (m.mode === 'absolute' || m.mode === 'absolute14')) {
-          const st = this.ctlState(this.page, id, '');
-          const chan = this.channelFor(m);
-          if (m.mode === 'absolute14') {
-            const [lo, hi] = range14(m);
-            st.value = Math.min(hi, Math.max(lo, Math.round(v)));
-            this.io.toHost([CC | chan, m.number, st.value >> 7]);
-            this.io.toHost([CC | chan, m.number + 32, st.value & 0x7f]);
-          } else {
-            st.value = Math.min(m.max, Math.max(m.min, Math.round(v)));
-            this.io.toHost([CC | chan, m.number, st.value]);
-          }
-          this.emit('value', { page: this.page, id, value: m.mode === 'absolute14' ? st.value / 128 : st.value });
-        }
-      }
+      for (const [id, v] of Object.entries(mine[slot])) this.setEncoderValue(id, v);
       this.lastSnapshot.set(page.uid, slot);
       this.emit('notice', { text: `Snapshot ${slot}` });
     }
     this.renderWhere((x) => x.type === 'snapshot');
+  }
+
+  // Set an encoder of the current page to a value (CC sent only when it changes).
+  setEncoderValue(id, v) {
+    const m = this.config.pages[this.page].controls[id];
+    if (!m) return;
+    if (m.type === 'live') return this.liveAbsolute(m.live, v);
+    if (m.type !== 'cc' || (m.mode !== 'absolute' && m.mode !== 'absolute14')) return;
+    const st = this.ctlState(this.page, id, '');
+    const chan = this.channelFor(m);
+    const prev = st.value;
+    if (m.mode === 'absolute14') {
+      const [lo, hi] = range14(m);
+      st.value = Math.min(hi, Math.max(lo, Math.round(v)));
+      if (st.value === prev) return;
+      this.io.toHost([CC | chan, m.number, st.value >> 7]);
+      this.io.toHost([CC | chan, m.number + 32, st.value & 0x7f]);
+    } else {
+      st.value = Math.min(m.max, Math.max(m.min, Math.round(v)));
+      if (st.value === prev) return;
+      this.io.toHost([CC | chan, m.number, st.value]);
+    }
+    this.emit('value', { page: this.page, id, value: m.mode === 'absolute14' ? st.value / 128 : st.value });
+  }
+
+  // Touch strip morph: every encoder in snapshot A or B goes to the blend at position f (0 = A, 1 = B).
+  snapshotMorph(slotA, slotB, f) {
+    const mine = this.snapshotStore()[this.config.pages[this.page].uid] || {};
+    const a = mine[slotA];
+    const b = mine[slotB];
+    if (!a || !b) return;
+    for (const id of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      const va = id in a ? a[id] : b[id];
+      const vb = id in b ? b[id] : a[id];
+      this.setEncoderValue(id, va + (vb - va) * f);
+    }
   }
 
   // Note repeat: every `ticks` clock ticks (from Live's start, so on the grid) each held pad retriggers.

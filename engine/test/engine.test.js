@@ -734,3 +734,19 @@ test('accent plays pads at full velocity; snapshots store and recall encoder val
   assert.deepEqual(out.host, [[0xb4, 71, 40]]);
   assert.equal(e.ctlState(0, 'enc.1').value, 40);
 });
+
+test('touch strip morph blends encoders between two snapshots', () => {
+  const { e, out, clear } = setup((c) => {
+    Object.assign(c.pages[0].controls['scene.1'], { type: 'snapshot', slot: 1 });
+    Object.assign(c.pages[0].controls['scene.2'], { type: 'snapshot', slot: 2 });
+    c.pages[0].controls.strip = { type: 'morph', slotA: 1, slotB: 2 };
+  });
+  e.handlePushMessage(SYSEX_USER);
+  e.handleHostMessage([0xb4, 71, 0]);
+  e.handlePushMessage([0xb0, 36, 127]); // store A (enc 1 = 0)
+  e.handleHostMessage([0xb4, 71, 100]);
+  e.handlePushMessage([0xb0, 37, 127]); // store B (enc 1 = 100)
+  clear();
+  e.handlePushMessage([0xe0, 0, 64]); // strip in the middle (8192)
+  assert.deepEqual(out.host.filter((m) => m[0] === 0xb4 && m[1] === 71), [[0xb4, 71, 50]]);
+});

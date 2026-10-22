@@ -992,7 +992,12 @@ function renderLiveTargetFields(box, maps, key) {
 
 function renderStripInspector(box, maps) {
   const type = common(maps, 'type');
-  box.append(field('Funkcija', selectEl({ none: 'Ništa', pitchbend: 'Pitch bend', cc: 'CC', live: 'Live parametar' }, type, (v) => setAll('type', v))));
+  box.append(field('Funkcija', selectEl({ none: 'Ništa', pitchbend: 'Pitch bend', cc: 'CC', live: 'Live parametar', morph: 'Morph između snapshota' }, type, (v) => setAll('type', v))));
+  if (type === 'morph') {
+    box.append(field('Od / do', el('div', { class: 'inline' }, numEl(common(maps, 'slotA'), 1, 16, (v) => setAll('slotA', v)), numEl(common(maps, 'slotB'), 1, 16, (v) => setAll('slotB', v))), 'Dno stripa = snapshot A, vrh = snapshot B'));
+    box.append(el('p', { class: 'muted small' }, 'Svi enkoderi spremljeni u ta dva snapshota (gumbi tipa Snapshot na ovoj stranici) prelaze iz jednog u drugi. Uključi u Postavkama Touch strip = Fader.'));
+    return;
+  }
   if (type === 'live') {
     renderLiveTargetFields(box, maps, 'live');
     box.append(el('p', { class: 'muted small' }, 'Za filter sweep i slično uključi u Postavkama Touch strip = Fader (ostaje gdje pustiš).'));

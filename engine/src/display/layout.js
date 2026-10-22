@@ -38,6 +38,8 @@ function summary(ctl, m) {
       return `PC ${m.number}`;
     case 'pitchbend':
       return 'Pitch bend';
+    case 'morph':
+      return `Morph ${m.slotA}→${m.slotB}`;
     case 'variation':
       return `Var ${m.index + 1}`;
     case 'live':

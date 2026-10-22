@@ -22,7 +22,7 @@ const ENCODER_MODES = ['absolute', 'absolute14', 'relative2c', 'relativeOffset',
 function range14(m) {
   return [m.min * 128, m.max === 127 ? 16383 : m.max * 128];
 }
-const STRIP_TYPES = ['none', 'pitchbend', 'cc', 'live'];
+const STRIP_TYPES = ['none', 'pitchbend', 'cc', 'live', 'morph'];
 const PRESSURE_TYPES_ALL = ['off', 'polyAT', 'channelAT', 'cc', 'live'];
 const PRESSURE_TYPES = ['off', 'polyAT', 'channelAT', 'cc'];
 const VARIATION_ACTIONS = ['recall', 'store', 'delete', 'recallLast', 'randomize'];
@@ -267,6 +267,10 @@ function normalizeStrip(m) {
     label: str(m.label, '', 24),
   };
   if (out.type === 'live') out.live = normalizeLiveTarget(m.live);
+  if (out.type === 'morph') {
+    out.slotA = clampInt(m.slotA, 1, 16, 1);
+    out.slotB = clampInt(m.slotB, 1, 16, 2);
+  }
   return out;
 }
 

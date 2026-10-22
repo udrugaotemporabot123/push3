@@ -87,6 +87,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.42.0 Transpose button type (per-page pad transpose, held notes released on the sent note), Keyboard template (root + scale, in-key 4ths layout, poly AT)
 - [x] v0.43.0 Note repeat button type (rates 1/4–1/32 incl. triplets, momentary or latch, grid-aligned to Live's clock, pressure = velocity)
 - [x] v0.44.0 Accent button type (full velocity, momentary/latch) and encoder Snapshots (store/recall CC, 14-bit and Live parameter values per page, persisted)
+- [x] v0.45.0 Touch strip morph between two encoder snapshots (CC, 14-bit, Live parameters)
 
 ## Next (roadmap, highest value first)
 - [ ] Wait for the user's hardware test of v0.11+ (display takeover, live controls, sampler, sequencer) and fix what breaks.
@@ -97,7 +98,6 @@ Update this file after every step so work can resume after an interruption.
 - [ ] Editor: per-page templates preview.
 - [ ] TouchOSC/OSC mirror of the display state (optional add-on).
 
-- [ ] Snapshot morph on the touch strip (blend between two snapshots).
 
 ## Open questions to verify on hardware
 - Display takeover: does Live release the USB display in User Mode? (status shown under the preview in the editor)

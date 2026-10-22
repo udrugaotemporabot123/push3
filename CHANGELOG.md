@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.45.0 – 2026-10-22
+Touch strip morph: klizanje svih enkodera iz jednog snapshota u drugi.
+
 ## v0.44.0 – 2026-10-22
 Accent (puna jačina) i snapshoti enkodera (spremi/vrati sve vrijednosti stranice jednim gumbom).
 
