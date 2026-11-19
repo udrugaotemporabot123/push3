@@ -109,6 +109,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.54.1 Editor: in-page dialogs instead of browser confirm()/prompt()/alert() (on the user's Mac they were blocked, so template clicks did nothing): templates, rename, delete/reset, presets, import, LAN key
 - [x] v0.54.2 Editor: Live updates no longer rebuild the side panel (it collapsed the template groups and swallowed clicks in big sets); engine coalesces live broadcasts to 4/s; editor errors and repeated panel rebuilds are reported in the log; template clicks guarded
 - [x] v0.54.3 Rack picker: spaces ignored in names, search limited to the track's devices + one level inside racks, one shared scan per track (2 s cache) instead of one per pad; clip slots watch 3 properties instead of 5 (less load in big sets)
+- [x] v0.55.0 Search only on demand (user's wish, for CPU): racks are found only when REFRESH is pressed (all tracks once, remembered; track switches search nothing), drum grid only on ●; no automatic search on User Mode / page switch; rack pads have no name observers
 
 ## Next (roadmap, highest value first)
 - [ ] Full device: load the editor web view (jweb) only when the window is opened (it runs inside Live and costs CPU even when closed).

@@ -286,7 +286,8 @@ function reportAnchor(key, ok, track, scene, text) {
 // (deeper levels are ignored on purpose: big racks would make this slow). "A1|A1 FX" = the first of
 // these names that exists. Case and spaces do not matter ("00 MIDI" finds "00  MIDI bass"), and a
 // name may be just the start of the device name as long as no letter/digit follows ("00 A1" is not
-// "00 A12"). The list per track is kept for 2 s so that several pads looking at once share one scan.
+// "00 A12"). Racks are searched only when the user presses REFRESH ("rescanRacks"): every track once,
+// remembered in rackMap. Nothing is searched by itself; switching tracks costs no searching in Live.
 function nameMatches(name, want) {
   var i = 0;
   var j = 0;
@@ -301,11 +302,15 @@ function nameMatches(name, want) {
   return !/[a-z0-9]/.test(name.charAt(i));
 }
 
-var deviceListCache = { trackId: 0, at: 0, list: null };
+var rackMap = {}; // track id -> [{ name, id }]
+var rackMapReady = false;
 
 function trackDevices(track) {
-  var now = new Date().getTime();
-  if (deviceListCache.list && deviceListCache.trackId == track.id && now - deviceListCache.at < 2000) return deviceListCache.list;
+  if (rackMap[track.id]) return rackMap[track.id];
+  return []; // not searched (yet): wait for REFRESH
+}
+
+function scanTrackDevices(track) {
   var list = [];
   var n = track.getcount('devices');
   for (var i = 0; i < n; i++) {
@@ -323,7 +328,7 @@ function trackDevices(track) {
       }
     }
   }
-  deviceListCache = { trackId: track.id, at: now, list: list };
+  rackMap[track.id] = list;
   return list;
 }
 
@@ -476,7 +481,7 @@ function livePath(spec) {
     tr = trackApi(spec.track);
     var found = tr ? findDeviceByNames(tr, spec.device) : null;
     if (!found) return null;
-    return { path: found.unquotedpath, prop: 'name', deviceSel: true, deviceId: found.id, viewPath: tr.unquotedpath + ' view', viewProp: 'selected_device', viewKeep: true };
+    return { path: found.unquotedpath, deviceSel: true, deviceId: found.id, viewPath: tr.unquotedpath + ' view', viewProp: 'selected_device', viewKeep: true };
   }
   if (spec.t === 'trackProp' || spec.t === 'trackSelect') {
     tr = trackApi(spec.track);
@@ -588,7 +593,7 @@ function resolveLive(key) {
     var wc = new LiveAPI(cb, info.path);
     wc.property = 'color';
     lt.watchers.push(wc);
-  } else {
+  } else if (!info.deviceSel) {
     var w = new LiveAPI(cb, info.path);
     w.property = info.prop;
     lt.watchers.push(w);
@@ -786,6 +791,17 @@ function liveCall(msg) {
     clipToPad(spec);
     return;
   }
+  if (msg.fn === 'rescanRacks') {
+    // REFRESH: forget what was found, scan every track once, then point the rack pads at the result.
+    rackMap = {};
+    var set = new LiveAPI('live_set');
+    var nt = set.getcount('tracks');
+    for (var ti = 0; ti < nt; ti++) scanTrackDevices(new LiveAPI('live_set tracks ' + ti));
+    rackMapReady = true;
+    for (var lk in liveTargets) if (liveTargets[lk].spec.t === 'deviceSel') resolveLiveLater(lk);
+    notice('Rackovi pronađeni na ' + nt + ' trackova');
+    return;
+  }
   if (msg.fn === 'findAnchor') {
     findAnchor(msg.key, spec);
     return;
@@ -793,7 +809,7 @@ function liveCall(msg) {
   if (msg.fn === 'selectDevice') {
     var st = trackApi(spec.track);
     var target = st ? findDeviceByNames(st, spec.device) : null;
-    if (!target) return notice('Rack "' + spec.device + '" nije na ovom tracku');
+    if (!target) return notice(rackMapReady ? 'Rack "' + spec.device + '" nije na ovom tracku' : 'Pritisni REFRESH da se rackovi potraže');
     new LiveAPI('live_set view').call('select_device', 'id', target.id);
     return;
   }

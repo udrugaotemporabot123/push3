@@ -833,7 +833,9 @@ test('clip box find: the anchor clip lands on row 2, column 2 (group column + em
     for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) ctl[`pad.${row}.${col}`] = { type: 'live', live: { action: 'clip', track: String(1 + col), scene: 1 + (7 - row), box: true } };
     ctl.center = { type: 'boxFind', anchorTrack: '9 - DRUM CLIPS', anchorClip: 'first kick', row: 2, col: 2 };
   });
-  e.handlePushMessage(SYSEX_USER); // entering User Mode asks for the anchor by itself
+  e.handlePushMessage(SYSEX_USER);
+  assert.equal(out.live.find((c) => c.fn === 'findAnchor'), undefined); // nothing is searched by itself
+  e.handlePushMessage([0xb0, 91, 127]); // ● = search
   const ask = out.live.find((c) => c.fn === 'findAnchor');
   assert.deepEqual(ask.spec, { t: 'anchor', track: '9 - DRUM CLIPS', clip: 'first kick' });
   e.handleLiveState({ type: 'anchor', key: 'anchor', ok: true, track: 10, scene: 37 }); // "first kick" on track 10, scene 37

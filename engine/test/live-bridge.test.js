@@ -505,6 +505,7 @@ test('bridge: rack picker finds racks by name inside the main rack, selects them
   live.rack.props.name = 'ALL';
   live.rack.children.chains = [live.obj({ name: 'c' }, { devices: [mid, rack('INST'), a1] })];
   const spec = (device) => ({ t: 'deviceSel', track: 'selected', device });
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'rescanRacks' })); // REFRESH
   b.live(JSON.stringify({ cmd: 'watchLive', targets: { all: spec('ALL'), mid: spec('MID'), a1: spec('A1|A1 FX'), a2: spec('A2|A2 FX') } }));
   const state = (k) => b.out.filter((x) => x[0] === 'liveState' && x[1].key === k).map((x) => x[1]).at(-1);
   assert.equal(state('a2').ok, false); // no A2 on this track: pad stays dark
@@ -525,6 +526,7 @@ test('bridge: rack picker matches the start of a name ("00 ALL" finds "00 ALL ba
   live.rack.props.name = '00 ALL bass';
   live.rack.children.chains = [live.obj({ name: 'c' }, { devices: [rack('00 MIDI bass'), rack('00 A12 test'), rack('00 A1 keys')] })];
   const spec = (device) => ({ t: 'deviceSel', track: 'selected', device });
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'rescanRacks' })); // REFRESH
   b.live(JSON.stringify({ cmd: 'watchLive', targets: { all: spec('00 ALL'), midi: spec('00 MIDI'), a1: spec('00 A1'), inst: spec('00 INST') } }));
   const state = (k) => b.out.filter((x) => x[0] === 'liveState' && x[1].key === k).map((x) => x[1]).at(-1);
   assert.equal(state('all').name, '00 ALL bass');
@@ -557,8 +559,22 @@ test('bridge: rack picker ignores spaces ("00  MIDI bass") and only looks one le
   live.rack.props.name = '00 ALL bass';
   live.rack.children.chains = [live.obj({ name: 'c' }, { devices: [rack('00  MIDI bass', [rack('00 INST deep')])] })];
   const spec = (device) => ({ t: 'deviceSel', track: 'selected', device });
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'rescanRacks' })); // REFRESH
   b.live(JSON.stringify({ cmd: 'watchLive', targets: { midi: spec('00 MIDI'), inst: spec('00 INST') } }));
   const state = (k) => b.out.filter((x) => x[0] === 'liveState' && x[1].key === k).map((x) => x[1]).at(-1);
   assert.equal(state('midi').name, '00  MIDI bass');
   assert.equal(state('inst').ok, false); // two levels deep: ignored
+});
+
+test('bridge: racks are not searched until REFRESH', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  live.rack.props.name = '00 ALL bass';
+  const spec = { t: 'deviceSel', track: 'selected', device: '00 ALL' };
+  b.live(JSON.stringify({ cmd: 'watchLive', targets: { all: spec } }));
+  const state = () => b.out.filter((x) => x[0] === 'liveState' && x[1].key === 'all').map((x) => x[1]).at(-1);
+  assert.equal(state().ok, false); // nothing searched yet
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'rescanRacks' }));
+  assert.equal(state().ok, true);
 });

@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.55.0 – 2026-11-19
+Traženje samo na zahtjev: rackovi na REFRESH, drum grid na ●; ništa se ne traži samo od sebe.
+
 ## v0.54.3 – 2026-11-19
 Odabir racka ne gleda razmake i traži samo 2 razine (brže); clip slotovi s manje slušača – manje opterećenja u velikom setu.
 

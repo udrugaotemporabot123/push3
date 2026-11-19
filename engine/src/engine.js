@@ -296,7 +296,6 @@ class Engine {
     this.applyUserModeHardwareSettings();
     this.updateClock();
     this.emit('status');
-    this.autoFindBox();
   }
 
   exitUserMode(reason) {
@@ -850,7 +849,6 @@ class Engine {
     this.page = index;
     this.renderAll();
     this.emit('page', index);
-    this.autoFindBox();
   }
 
   // ---------------------------------------------------------------------------------------
@@ -954,11 +952,14 @@ class Engine {
     this.io.toLive({ cmd: 'liveCall', key: 'anchor', spec: { t: 'anchor', track: m.anchorTrack, clip: m.anchorClip }, fn: 'findAnchor' });
   }
 
-  // A page with a "find" button positions its box by itself when it is shown in User Mode.
+  // A page with a "find" button positions its box by itself the first time it is shown in User Mode;
+  // after that the box stays where it was found (the button searches again).
   autoFindBox() {
     if (this.mode !== 'user') return;
     const page = this.config.pages[this.page];
     if (!page) return;
+    if (!this.anchorFound) this.anchorFound = new Set();
+    if (this.anchorFound.has(page.uid)) return;
     const finder = Object.values(page.controls).find((m) => m && m.type === 'boxFind');
     if (finder) this.findBoxAnchor(finder);
   }
@@ -1288,6 +1289,8 @@ class Engine {
       const next = !(cur && cur.value);
       this.io.toLive({ cmd: 'liveSet', key: live.liveKey(spec), spec, value: next ? 1 : 0 });
       if (cur) cur.value = next ? 1 : 0; // optimistic, corrected by the observer
+    } else if (a === 'rescan') {
+      this.io.toLive({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'rescanRacks' });
     } else if (a === 'selectDevice') {
       this.io.toLive({ cmd: 'liveCall', spec, fn: 'selectDevice' });
     } else if (a === 'clip' || a === 'clipDelete') {
@@ -1351,6 +1354,8 @@ class Engine {
       const req = this.anchorReq;
       this.anchorReq = null;
       if (!msg.ok || !req || req.page !== this.page) return;
+      if (!this.anchorFound) this.anchorFound = new Set();
+      this.anchorFound.add(this.config.pages[this.page].uid);
       const o = this.boxOrigin();
       if (!o) return;
       const t0 = Math.max(1, (Number(msg.track) || 1) - (req.col - 1));
@@ -1401,6 +1406,7 @@ class Engine {
       return led && Number.isInteger(led.color) ? { color: Math.max(0, Math.min(127, led.color)), anim: led.anim | 0 } : { color: 0, anim: 0 };
     }
     if (m.type === 'live' && m.live.action === 'clip') return this.clipLed(m, held);
+    if (m.type === 'live' && m.live.action === 'rescan') return { color: this.pressed.has(ctl.id) ? m.colorOn : m.colorOff, anim: 0 };
     if (m.type === 'live' && m.live.action === 'selectDevice') {
       // Rack picker: off = not on this track, own colour = there, white = the one selected now.
       const v = this.liveValue(m);
