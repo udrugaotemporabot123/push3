@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.54.3 – 2026-11-19
+Odabir racka ne gleda razmake i traži samo 2 razine (brže); clip slotovi s manje slušača – manje opterećenja u velikom setu.
+
 ## v0.54.2 – 2026-11-19
 Editor: desni panel se više ne iscrtava iznova na svaku promjenu u Liveu (zato klik na predloške nije radio); greške editora idu u log.
 

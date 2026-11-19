@@ -548,3 +548,17 @@ test('bridge: findAnchor finds the group track by name, unfolds it and reports t
   assert.deepEqual([st.ok, st.track, st.scene], [true, 4, 5]);
   assert.equal(group.props.fold_state, 0); // unfolded
 });
+
+test('bridge: rack picker ignores spaces ("00  MIDI bass") and only looks one level inside racks', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  const rack = (name, devices = []) => live.obj({ name, can_have_chains: 1, variation_count: 2, selected_variation_index: 0 }, { chains: devices.length ? [live.obj({ name: 'c' }, { devices })] : [] });
+  live.rack.props.name = '00 ALL bass';
+  live.rack.children.chains = [live.obj({ name: 'c' }, { devices: [rack('00  MIDI bass', [rack('00 INST deep')])] })];
+  const spec = (device) => ({ t: 'deviceSel', track: 'selected', device });
+  b.live(JSON.stringify({ cmd: 'watchLive', targets: { midi: spec('00 MIDI'), inst: spec('00 INST') } }));
+  const state = (k) => b.out.filter((x) => x[0] === 'liveState' && x[1].key === k).map((x) => x[1]).at(-1);
+  assert.equal(state('midi').name, '00  MIDI bass');
+  assert.equal(state('inst').ok, false); // two levels deep: ignored
+});

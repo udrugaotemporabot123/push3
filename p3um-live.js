@@ -282,41 +282,63 @@ function reportAnchor(key, ok, track, scene, text) {
   outlet(0, 'liveState', JSON.stringify({ type: 'anchor', key: key, ok: ok, track: track, scene: scene }));
 }
 
-// A device on the track (also inside racks, a few levels deep) by name; "A1|A1 FX" = the first of these
-// names that exists. Case and surrounding spaces do not matter. A name may also be just the start of
-// the device name ("00 ALL" finds "00 ALL bass"), as long as a space or the end follows it.
+// A device on the track by name: the track's own devices and the devices one level inside its racks
+// (deeper levels are ignored on purpose: big racks would make this slow). "A1|A1 FX" = the first of
+// these names that exists. Case and spaces do not matter ("00 MIDI" finds "00  MIDI bass"), and a
+// name may be just the start of the device name as long as no letter/digit follows ("00 A1" is not
+// "00 A12"). The list per track is kept for 2 s so that several pads looking at once share one scan.
 function nameMatches(name, want) {
-  if (name === want) return true;
-  if (name.indexOf(want) !== 0) return false;
-  return !/[a-z0-9]/.test(name.charAt(want.length));
+  var i = 0;
+  var j = 0;
+  while (j < want.length) {
+    while (i < name.length && /\s/.test(name.charAt(i))) i++;
+    while (j < want.length && /\s/.test(want.charAt(j))) j++;
+    if (j >= want.length) break;
+    if (i >= name.length || name.charAt(i) !== want.charAt(j)) return false;
+    i++;
+    j++;
+  }
+  return !/[a-z0-9]/.test(name.charAt(i));
+}
+
+var deviceListCache = { trackId: 0, at: 0, list: null };
+
+function trackDevices(track) {
+  var now = new Date().getTime();
+  if (deviceListCache.list && deviceListCache.trackId == track.id && now - deviceListCache.at < 2000) return deviceListCache.list;
+  var list = [];
+  var n = track.getcount('devices');
+  for (var i = 0; i < n; i++) {
+    var path = track.unquotedpath + ' devices ' + i;
+    var d = new LiveAPI(path);
+    list.push({ name: str(d.get('name')).toLowerCase(), id: d.id });
+    if (num(d.get('can_have_chains')) !== 1) continue;
+    var chains = d.getcount('chains');
+    for (var c = 0; c < chains; c++) {
+      var cpath = path + ' chains ' + c;
+      var cn = new LiveAPI(cpath).getcount('devices');
+      for (var k = 0; k < cn; k++) {
+        var cd = new LiveAPI(cpath + ' devices ' + k);
+        list.push({ name: str(cd.get('name')).toLowerCase(), id: cd.id });
+      }
+    }
+  }
+  deviceListCache = { trackId: track.id, at: now, list: list };
+  return list;
 }
 
 function findDeviceByNames(track, names) {
   var wanted = String(names || '').split('|');
-  var all = [];
-  var queue = [track.unquotedpath];
-  for (var depth = 0; depth < 4 && queue.length; depth++) {
-    var next = [];
-    for (var q = 0; q < queue.length; q++) {
-      var parent = new LiveAPI(queue[q]);
-      var n = parent.getcount('devices');
-      for (var i = 0; i < n; i++) {
-        var path = queue[q] + ' devices ' + i;
-        var d = new LiveAPI(path);
-        all.push({ name: str(d.get('name')).toLowerCase().replace(/^\s+|\s+$/g, ''), api: d });
-        if (num(d.get('can_have_chains')) === 1) {
-          var chains = d.getcount('chains');
-          for (var c = 0; c < chains; c++) next.push(path + ' chains ' + c);
-        }
+  var all = trackDevices(track);
+  for (var w = 0; w < wanted.length; w++) {
+    var want = wanted[w].toLowerCase();
+    if (!/\S/.test(want)) continue;
+    for (var k = 0; k < all.length; k++) {
+      if (nameMatches(all[k].name, want)) {
+        var api = new LiveAPI('id ' + all[k].id);
+        return api.id && api.id != 0 ? api : null;
       }
     }
-    queue = next;
-  }
-  for (var w = 0; w < wanted.length; w++) {
-    var want = wanted[w].toLowerCase().replace(/^\s+|\s+$/g, '');
-    if (!want) continue;
-    for (var k = 0; k < all.length; k++) if (all[k].name === want) return all[k].api; // exact name first
-    for (var k2 = 0; k2 < all.length; k2++) if (nameMatches(all[k2].name, want)) return all[k2].api;
   }
   return null;
 }
@@ -555,7 +577,7 @@ function resolveLive(key) {
     wcount.property = 'clip_slots';
     lt.watchers.push(wcount);
   } else if (info.slot) {
-    var props = ['has_clip', 'playing_status', 'is_recording', 'is_triggered', 'color'];
+    var props = ['has_clip', 'playing_status', 'is_recording']; // colour is read when these change
     for (var pi = 0; pi < props.length; pi++) {
       var ws = new LiveAPI(cb, info.path);
       ws.property = props[pi];
