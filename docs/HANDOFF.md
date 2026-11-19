@@ -40,7 +40,7 @@ then `docs/PROGRESS.md` (full version history and findings).
 - Rebuilding the editor side panel on every Live update swallowed clicks → only refresh it throttled (v0.54.2).
 - A saved display-takeover setting froze Live at load; it is forced off at startup.
 
-## Open at the time of writing (v0.56.0 → next)
+## Open at the time of writing (v0.57.0 done: items 1-2 below implemented, needs his test)
 1. CPU: he still feels the whole set slow down, and he toggles User Mode on/off a lot. Plan: make Lite almost
    observer-free — rack picker state computed in node from a rack map sent once on "Rackovi"; drum grid slot colours
    read once (on Drum / box move) instead of 64 slot observers; only selected-track + selected-rack variation observers remain.

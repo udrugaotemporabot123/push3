@@ -820,11 +820,13 @@ test('clip box: D-pad moves every box mapping of the page, never below track 1 /
     e.handlePushMessage([0xb0, 44, 127]);
   }
   assert.equal(e.config.pages[0].controls['pad.7.0'].live.track, '1');
-  // The pads now watch the moved slots.
+  // Moving reads the box's slots once (no observers for clip-box pads).
+  const read = out.live.filter((c) => c.fn === 'readSlots').at(-1);
+  assert.ok(read.spec.items.some((it) => it.track === 1 && it.scene === 101));
   clear();
   e.syncVariationTargets();
   const watch = out.live.find((c) => c.cmd === 'watchLive');
-  assert.ok(Object.values(watch.targets).some((s) => s.t === 'slot' && s.track === '1' && s.scene === 101));
+  assert.ok(!Object.values(watch.targets).some((sp) => sp.t === 'slot'));
 });
 
 test('clip box find: the anchor clip lands on row 2, column 2 (group column + empty stop row)', () => {
@@ -865,4 +867,29 @@ test('track buttons follow the visible tracks read on refresh; Page arrows move 
   clear();
   e.handlePushMessage([0xb0, 24, 127]); // lower.5 = nothing (only 11 tracks)
   assert.equal(out.live.length, 0);
+});
+
+test('Lite static rack row: picker and variation colours from the rack map, white = in use, no observers', () => {
+  const { e, out, clear } = setup((c) => {
+    const ctl = c.pages[0].controls;
+    ctl['pad.4.0'] = { type: 'live', colorOff: 45, live: { action: 'selectDevice', track: 'selected', device: '00 ALL' } };
+    ctl['pad.4.1'] = { type: 'live', colorOff: 5, live: { action: 'selectDevice', track: 'selected', device: '00 MIDI' } };
+    for (let i = 0; i < 3; i++) ctl[`pad.7.${i}`] = { type: 'variation', target: { track: 'selected', device: 'selected' }, index: i, action: 'recall', colorOn: 21, colorOff: i === 0 ? 2 : 45 };
+  });
+  e.handlePushMessage(SYSEX_USER);
+  e.syncVariationTargets();
+  const watch = out.live.filter((c) => c.cmd === 'watchLive').at(-1);
+  assert.ok(!Object.values(watch.targets).some((sp) => sp.t === 'deviceSel'));
+  e.handleLiveState({ type: 'trackSelected', selected: 7 });
+  e.handleLiveState({ type: 'rackMap', tracks: { 7: [{ name: '00 all bass', id: 70 }, { name: '00  midi bass', id: 71 }] } });
+  e.handleLiveState({ type: 'variations', key: 'selected|selected', ok: true, count: 3, selected: 2, name: '00 MIDI bass', id: 71 });
+  const led = (id) => e.ledFor(require('../src/push3').byId.get(id)).color;
+  assert.equal(led('pad.4.1'), 3); // MIDI is in use: white
+  assert.equal(led('pad.4.0'), 45); // ALL exists: its colour
+  assert.equal(led('pad.7.2'), 3); // active variation: white
+  assert.equal(led('pad.7.1'), 5); // other variations: colour of the rack in use (MIDI = red)
+  assert.equal(led('pad.7.0'), 2); // reset keeps its own colour
+  clear();
+  e.handlePushMessage([0x90, 36 + 4 * 8, 100]); // pad.4.0 = ALL
+  assert.deepEqual(out.live.at(-1), { cmd: 'liveCall', spec: { t: 'song', id: 70 }, fn: 'selectDeviceId' });
 });

@@ -111,6 +111,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.54.3 Rack picker: spaces ignored in names, search limited to the track's devices + one level inside racks, one shared scan per track (2 s cache) instead of one per pad; clip slots watch 3 properties instead of 5 (less load in big sets)
 - [x] v0.55.0 Search only on demand (user's wish, for CPU): racks are found only when REFRESH is pressed (all tracks once, remembered; track switches search nothing), drum grid only on ●; no automatic search on User Mode / page switch; rack pads have no name observers
 - [x] v0.56.0 Device buttons Rackovi (rescan racks + visible tracks) and Drum (find the drum grid anchor on whichever page has it); lower buttons select visible tracks (Session view order, folded groups hide their tracks), Page arrows bank by 8, track colours; all read only on refresh
+- [x] v0.57.0 Lite CPU: rack row and clip box have no Live observers any more (rack map sent once on Rackovi, picker/variation colours computed in node; clip box colours read once on Drum / box move); colours: white = in use / active, variations take the rack's colour (ALL blue, MIDI red, INST green, A1 purple, A2 pink, PRE FX orange, Looper grey), reset grey. docs/HANDOFF.md added for whoever continues
 
 ## Next (roadmap, highest value first)
 - [ ] Full device: load the editor web view (jweb) only when the window is opened (it runs inside Live and costs CPU even when closed).

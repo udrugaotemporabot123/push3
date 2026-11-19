@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.57.0 – 2026-11-19
+Lite: rackovi i drum grid bez praćenja Livea (manje CPU-a); bijelo = u upotrebi, varijacije u boji racka (ALL plavi, MIDI crveni, INST zeleni, A1/A2 dvije boje).
+
 ## v0.56.0 – 2026-11-19
 Gumbi Rackovi i Drum na deviceu (traži samo tada); donji gumbi biraju trackove kao u Liveu, Page ◀ ▶ za 8.
 

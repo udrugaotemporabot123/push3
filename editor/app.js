@@ -1166,20 +1166,20 @@ const TEMPLATES = {
   },
   rackControl: {
     name: 'Rack kontrola: varijacije 1–24 + odabir racka',
-    help: 'Gornja 3 reda = varijacije 1–24 odabranog racka (prva = reset, crvena; zeleno = aktivna, plavo = postoji). 4. red = odabir racka na odabranom tracku po početku imena: 00 ALL, 00 MIDI, 00 INST, 00 A1, 00 A2, PRE FX A1, Looper (siv) – ostatak imena (bass, keys…) je nebitan; odabrani svijetli bijelo, nepostojeći je ugašen. Zadnji pad u redu = REFRESH (isto što gumb Rackovi na deviceu): tek tada se rackovi potraže na svim trackovima. Gumbi ispod ekrana = trackovi kako ih Live pokazuje (grupe samo ako su raširene), Page ◀ ▶ = sljedećih 8. Imena možeš promijeniti u editoru (klik na pad). Donja 4 reda ostaju kakva jesu.',
+    help: 'Gornja 3 reda = varijacije 1–24 racka u upotrebi: bijelo = aktivna, boja racka = postoji, ugašeno = nema je; prva = reset (siva). 4. red = odabir racka na odabranom tracku po početku imena: 00 ALL, 00 MIDI, 00 INST, 00 A1, 00 A2, PRE FX A1, Looper (siv) – ostatak imena (bass, keys…) je nebitan; odabrani svijetli bijelo, nepostojeći je ugašen. Zadnji pad u redu = REFRESH (isto što gumb Rackovi na deviceu): tek tada se rackovi potraže na svim trackovima. Gumbi ispod ekrana = trackovi kako ih Live pokazuje (grupe samo ako su raširene), Page ◀ ▶ = sljedećih 8. Imena možeš promijeniti u editoru (klik na pad). Donja 4 reda ostaju kakva jesu.',
     apply() {
       const r = {};
       for (let i = 0; i < 24; i++) {
         const row = 7 - Math.floor(i / 8);
-        r[`pad.${row}.${i % 8}`] = { type: 'variation', target: { track: 'selected', device: 'selected' }, index: i, action: 'recall', colorOn: 21, colorOff: i === 0 ? 5 : 45, anim: 'none', label: i === 0 ? 'Reset' : `Var ${i + 1}` };
+        r[`pad.${row}.${i % 8}`] = { type: 'variation', target: { track: 'selected', device: 'selected' }, index: i, action: 'recall', colorOn: 3, colorOff: i === 0 ? 2 : 45, anim: 'none', label: i === 0 ? 'Reset' : `Var ${i + 1}` };
       }
       const pick = [
-        ['ALL', '00 ALL', 57],
-        ['MIDI', '00 MIDI', 49],
-        ['INST', '00 INST', 9],
-        ['A1', '00 A1', 21],
-        ['A2', '00 A2', 13],
-        ['PRE FX', 'PRE FX A1', 5],
+        ['ALL', '00 ALL', 45],
+        ['MIDI', '00 MIDI', 5],
+        ['INST', '00 INST', 21],
+        ['A1', '00 A1', 49],
+        ['A2', '00 A2', 57],
+        ['PRE FX', 'PRE FX A1', 9],
         ['LOOPER', 'Looper', 118],
       ];
       pick.forEach(([label, device, color], col) => {

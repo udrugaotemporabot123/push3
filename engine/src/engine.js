@@ -38,6 +38,23 @@ function noteSignature(m, chan) {
   return JSON.stringify([m.type, m.number, chan, m.behavior, (m.extra || []).filter((x) => x.type === 'note')]);
 }
 
+// Same rule as the bridge: case and spaces do not matter, a name may be the start of the device name
+// as long as no letter/digit follows ("00 A1" is not "00 A12").
+function nameMatches(name, want) {
+  let i = 0;
+  let j = 0;
+  name = String(name || '').toLowerCase();
+  while (j < want.length) {
+    while (i < name.length && /\s/.test(name[i])) i++;
+    while (j < want.length && /\s/.test(want[j])) j++;
+    if (j >= want.length) break;
+    if (i >= name.length || name[i] !== want[j]) return false;
+    i++;
+    j++;
+  }
+  return !/[a-z0-9]/.test(name[i] || '');
+}
+
 // What a snapshot value means for an encoder: its type and mode (7-bit, 14-bit or a Live parameter).
 function snapshotKind(m) {
   return m.type === 'live' ? 'live' : `${m.type}:${m.mode}`;
@@ -60,6 +77,8 @@ class Engine {
     this.accent = null; // { id, latch } while pads play at full velocity
     this.snapshots = null; // page uid -> slot -> { encoder id: value }, loaded lazily
     this.lastSnapshot = new Map(); // page uid -> slot recalled last
+    this.rackMap = {}; // track id -> [{ name, id }] of its devices (read on Rackovi)
+    this.slotSnap = new Map(); // "track|scene" -> { has, color } of the clip box (read on Drum / box move)
     this.visTracks = { list: [], selected: 0 }; // tracks as Live shows them (read on REFRESH)
     this.trackBank = 0; // which 8 of them the track buttons show
     this.repeat = null; // active note repeat: { id, ticks, latch }
@@ -966,6 +985,47 @@ class Engine {
     if (finder) this.findBoxAnchor(finder);
   }
 
+  // Rack picker helpers (all from the map read on Rackovi; nothing asks Live).
+  pickerDevice(m) {
+    const list = this.rackMap[String(this.visTracks.selected)] || [];
+    for (const want of String(m.live.device || '').split('|')) {
+      if (!/\S/.test(want)) continue;
+      const w = want.toLowerCase();
+      const hit = list.find((d) => nameMatches(d.name, w));
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  selectedRackId() {
+    const v = this.liveState.variations['selected|selected'];
+    return v && v.ok ? Number(v.id) || 0 : 0;
+  }
+
+  // Colour of the rack in use = the colour of its pad in the rack row of the current page.
+  rackColor(rackId, fallback) {
+    if (!rackId) return fallback;
+    const page = this.config.pages[this.page];
+    for (const m of Object.values(page.controls)) {
+      if (m && m.type === 'live' && m.live && m.live.action === 'selectDevice') {
+        const d = this.pickerDevice(m);
+        if (d && d.id === rackId) return m.colorOff;
+      }
+    }
+    return fallback;
+  }
+
+  // Read the clip box's slots once (has clip + colour).
+  readBoxSlots(pageIndex = this.page) {
+    const page = this.config.pages[pageIndex];
+    if (!page) return;
+    const items = [];
+    for (const m of Object.values(page.controls)) {
+      if (m && m.type === 'live' && m.live && m.live.box && m.live.action === 'clip') items.push({ track: Number(m.live.track), scene: m.live.scene });
+    }
+    if (items.length) this.io.toLive({ cmd: 'liveCall', spec: { t: 'song', items }, fn: 'readSlots' });
+  }
+
   // The two refresh buttons on the device: find the racks (and the visible tracks), and put the drum grid
   // on its clip (whichever page has the grid). Nothing is searched otherwise.
   refreshRacks() {
@@ -1003,6 +1063,7 @@ class Engine {
       if (['clip', 'clipDelete', 'scene'].includes(l.action) && l.scene > 0) l.scene += ddy;
     }
     this.setConfig(cfg);
+    this.readBoxSlots(pageIndex);
     const t0 = tMin + ddx;
     const s0 = sMin + ddy;
     this.emit('notice', { text: `Box: track ${t0}–${t0 + 7}, scena ${s0}–${s0 + 7}` });
@@ -1144,7 +1205,9 @@ class Engine {
         for (const m of [base, base.shift]) {
           if (!m) continue;
           if (m.type === 'variation') targets[variationKey(m.target)] = m.target;
-          const spec = this.liveSpec(m);
+          // Rack pads and clip-box pads are not observed: they work from what Rackovi / Drum read once.
+          const staticLive = m.type === 'live' && m.live && (m.live.action === 'selectDevice' || ((m.live.action === 'clip' || m.live.action === 'clipDelete') && m.live.box));
+          const spec = staticLive ? null : this.liveSpec(m);
           if (spec) liveTargets[live.liveKey(spec)] = spec;
           if (m.pressure === 'live' && m.pressureLive) {
             const ps = live.specForEncoder(m.pressureLive);
@@ -1319,7 +1382,9 @@ class Engine {
     } else if (a === 'rescan') {
       this.io.toLive({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'rescanRacks' });
     } else if (a === 'selectDevice') {
-      this.io.toLive({ cmd: 'liveCall', spec, fn: 'selectDevice' });
+      const dev = this.pickerDevice(m);
+      if (dev) this.io.toLive({ cmd: 'liveCall', spec: { t: 'song', id: dev.id }, fn: 'selectDeviceId' });
+      else this.emit('notice', { text: Object.keys(this.rackMap).length ? `"${m.live.device}" nije na ovom tracku` : 'Klikni Rackovi na deviceu' });
     } else if (a === 'clip' || a === 'clipDelete') {
       this.io.toLive({ cmd: 'liveCall', spec, fn: a === 'clip' ? 'fireSlot' : 'deleteSlot' });
     } else if (/^(track|scene|device)(Prev|Next)$/.test(a)) {
@@ -1374,8 +1439,9 @@ class Engine {
         count: Number(msg.count) || 0,
         selected: Number.isInteger(msg.selected) ? msg.selected : -1,
         name: typeof msg.name === 'string' ? msg.name : '',
+        id: Number(msg.id) || 0, // the rack itself (the rack row lights the one in use)
       };
-      this.renderWhere((m) => m.type === 'variation' && variationKey(m.target) === msg.key);
+      this.renderWhere((m) => (m.type === 'variation' && variationKey(m.target) === msg.key) || (m.type === 'live' && m.live && m.live.action === 'selectDevice'));
       this.emit('live', msg);
     } else if (msg.type === 'visibleTracks' && Array.isArray(msg.tracks)) {
       this.visTracks = { list: msg.tracks.filter((t) => t && t.id), selected: msg.selected || 0 };
@@ -1383,7 +1449,13 @@ class Engine {
       this.renderWhere((x) => x.type === 'live' && x.live && (x.live.action === 'trackSlot' || x.live.action === 'trackBank'));
     } else if (msg.type === 'trackSelected') {
       this.visTracks.selected = msg.selected || 0;
-      this.renderWhere((x) => x.type === 'live' && x.live && x.live.action === 'trackSlot');
+      this.renderWhere((x) => x.type === 'live' && x.live && (x.live.action === 'trackSlot' || x.live.action === 'selectDevice'));
+    } else if (msg.type === 'rackMap' && msg.tracks && typeof msg.tracks === 'object') {
+      this.rackMap = msg.tracks;
+      this.renderWhere((x) => (x.type === 'live' && x.live && x.live.action === 'selectDevice') || x.type === 'variation');
+    } else if (msg.type === 'slotSnap' && Array.isArray(msg.items)) {
+      for (const it of msg.items) this.slotSnap.set(`${it.track}|${it.scene}`, { has: !!it.has, color: it.color });
+      this.renderWhere((x) => x.type === 'live' && x.live && x.live.box);
     } else if (msg.type === 'anchor') {
       const req = this.anchorReq;
       this.anchorReq = null;
@@ -1393,6 +1465,7 @@ class Engine {
       const t0 = Math.max(1, (Number(msg.track) || 1) - (req.col - 1));
       const s0 = Math.max(1, (Number(msg.scene) || 1) - (req.row - 1));
       if (t0 !== o.track || s0 !== o.scene) this.moveBox(t0 - o.track, s0 - o.scene, req.page);
+      else this.readBoxSlots(req.page);
     } else if (msg.type === 'notice' && typeof msg.text === 'string') {
       this.io.log('info', msg.text);
       this.emit('notice', { text: msg.text.slice(0, 80) });
@@ -1451,11 +1524,17 @@ class Engine {
     }
     if (m.type === 'live' && m.live.action === 'rescan') return { color: this.pressed.has(ctl.id) ? m.colorOn : m.colorOff, anim: 0 };
     if (m.type === 'live' && m.live.action === 'selectDevice') {
-      // Rack picker: off = not on this track, own colour = there, white = the one selected now.
-      const v = this.liveValue(m);
+      // Rack picker: off = not on this track, own colour = there, white = the rack in use now.
+      const dev = this.pickerDevice(m);
       if (held) return { color: 3, anim: 0 };
-      if (!v || !v.ok) return { color: 0, anim: 0 };
-      return { color: v.value >= 2 ? m.colorOn : m.colorOff, anim: 0 };
+      if (!dev) return { color: 0, anim: 0 };
+      return { color: dev.id === this.selectedRackId() ? 3 : m.colorOff, anim: 0 };
+    }
+    if (m.type === 'live' && m.live.box && (m.live.action === 'clip' || m.live.action === 'clipDelete')) {
+      // Clip box: colours read once (Drum / moving the box), no observers.
+      const s = this.slotSnap.get(`${m.live.track}|${m.live.scene}`);
+      if (held) return { color: 3, anim: 0 };
+      return { color: s && s.has ? live.nearestPaletteIndex(s.color, this.palette) : 0, anim: 0 };
     }
     if (m.type === 'live') {
       const v = this.liveValue(m);
@@ -1463,6 +1542,15 @@ class Engine {
       if (!on) return { color: v && v.ok ? m.colorOff : 0, anim: 0 };
       const color = m.live.trackColor && v && v.color ? live.nearestPaletteIndex(v.color, this.palette) : m.colorOn;
       return { color, anim: v && v.value ? push3.ANIMATIONS[m.anim] || 0 : 0 };
+    }
+    if (m.type === 'variation' && m.target && m.target.device === 'selected') {
+      // Variations of the rack in use: white = active, the rack's own colour (from its pad) = exists,
+      // the reset slot (1) keeps its own colour, off = no such variation.
+      const v = this.liveState.variations[variationKey(m.target)];
+      if (held) return { color: 3, anim: 0 };
+      if (!v || !v.ok || m.index >= v.count) return { color: 0, anim: 0 };
+      if (m.index === v.selected) return { color: 3, anim: 0 };
+      return { color: m.index === 0 ? m.colorOff : this.rackColor(v.id, m.colorOff), anim: 0 };
     }
     if (m.type === 'variation') {
       const v = this.liveState.variations[variationKey(m.target)];

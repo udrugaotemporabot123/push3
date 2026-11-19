@@ -189,7 +189,8 @@ function sendState(key) {
 }
 
 function report(key, ok, count, selected, name) {
-  outlet(0, 'liveState', JSON.stringify({ type: 'variations', key: key, ok: ok, count: count, selected: selected, name: name }));
+  var t = targets[key];
+  outlet(0, 'liveState', JSON.stringify({ type: 'variations', key: key, ok: ok, count: count, selected: selected, name: name, id: t && t.rackId ? Number(t.rackId) : 0 }));
 }
 
 // ---------------------------------------------------------------------------------------
@@ -244,10 +245,10 @@ function scanVisibleTracks() {
     var t = new LiveAPI('live_set tracks ' + i);
     if (num(t.get('is_grouped')) === 1 && hiddenByFold(t)) continue;
     var c = num(t.get('color'));
-    list.push({ id: t.id, name: str(t.get('name')), color: [(c >> 16) & 255, (c >> 8) & 255, c & 255] });
+    list.push({ id: Number(t.id), name: str(t.get('name')), color: [(c >> 16) & 255, (c >> 8) & 255, c & 255] });
   }
   var sel = new LiveAPI('live_set view selected_track');
-  outlet(0, 'liveState', JSON.stringify({ type: 'visibleTracks', tracks: list, selected: sel.id || 0 }));
+  outlet(0, 'liveState', JSON.stringify({ type: 'visibleTracks', tracks: list, selected: Number(sel.id) || 0 }));
 }
 
 function hiddenByFold(track) {
@@ -261,7 +262,7 @@ function hiddenByFold(track) {
 
 function reportSelectedTrack() {
   var sel = new LiveAPI('live_set view selected_track');
-  outlet(0, 'liveState', JSON.stringify({ type: 'trackSelected', selected: sel.id || 0 }));
+  outlet(0, 'liveState', JSON.stringify({ type: 'trackSelected', selected: Number(sel.id) || 0 }));
 }
 
 // Clip box anchor: the group track by name (unfolded if folded), then the clip by name in it or in its
@@ -347,7 +348,7 @@ function scanTrackDevices(track) {
   for (var i = 0; i < n; i++) {
     var path = track.unquotedpath + ' devices ' + i;
     var d = new LiveAPI(path);
-    list.push({ name: str(d.get('name')).toLowerCase(), id: d.id });
+    list.push({ name: str(d.get('name')).toLowerCase(), id: Number(d.id) });
     if (num(d.get('can_have_chains')) !== 1) continue;
     var chains = d.getcount('chains');
     for (var c = 0; c < chains; c++) {
@@ -355,7 +356,7 @@ function scanTrackDevices(track) {
       var cn = new LiveAPI(cpath).getcount('devices');
       for (var k = 0; k < cn; k++) {
         var cd = new LiveAPI(cpath + ' devices ' + k);
-        list.push({ name: str(cd.get('name')).toLowerCase(), id: cd.id });
+        list.push({ name: str(cd.get('name')).toLowerCase(), id: Number(cd.id) });
       }
     }
   }
@@ -831,7 +832,35 @@ function liveCall(msg) {
     rackMapReady = true;
     for (var lk in liveTargets) if (liveTargets[lk].spec.t === 'deviceSel') resolveLiveLater(lk);
     scanVisibleTracks();
+    // The engine works from this map from now on: no observers and no searching while playing.
+    var map = {};
+    for (var tid in rackMap) map[tid] = rackMap[tid];
+    outlet(0, 'liveState', JSON.stringify({ type: 'rackMap', tracks: map }));
     notice('Rackovi pronađeni na ' + nt + ' trackova');
+    return;
+  }
+  if (msg.fn === 'selectDeviceId') {
+    var dsel = new LiveAPI('id ' + (spec.id | 0));
+    if (dsel.id && dsel.id != 0) new LiveAPI('live_set view').call('select_device', 'id', dsel.id);
+    return;
+  }
+  if (msg.fn === 'readSlots') {
+    // One-off read of the clip box (has clip + colour), no observers: done on Drum / when the box moves.
+    var items = spec.items || [];
+    var res = [];
+    for (var si = 0; si < items.length && si < 128; si++) {
+      var it = items[si];
+      var sp = 'live_set tracks ' + ((it.track | 0) - 1) + ' clip_slots ' + ((it.scene | 0) - 1);
+      var slot = new LiveAPI(sp);
+      if (!slot.id || slot.id == 0) {
+        res.push({ track: it.track, scene: it.scene, has: 0 });
+        continue;
+      }
+      var has = num(slot.get('has_clip'));
+      var col = has ? num(new LiveAPI(sp + ' clip').get('color')) : 0;
+      res.push({ track: it.track, scene: it.scene, has: has, color: [(col >> 16) & 255, (col >> 8) & 255, col & 255] });
+    }
+    outlet(0, 'liveState', JSON.stringify({ type: 'slotSnap', items: res }));
     return;
   }
   if (msg.fn === 'selectTrackId') {
