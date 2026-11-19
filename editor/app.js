@@ -15,7 +15,7 @@ const el = (tag, attrs = {}, ...kids) => {
 };
 
 const T = {
-  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)', transpose: 'Transpozicija padova (Oct −/+)', repeat: 'Note repeat', accent: 'Accent (puna jačina)', snapshot: 'Snapshot enkodera' },
+  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)', transpose: 'Transpozicija padova (Oct −/+)', repeat: 'Note repeat', accent: 'Accent (puna jačina)', snapshot: 'Snapshot enkodera', boxMove: 'Pomakni clip box' },
   liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka', trackPrev: '◀ Prethodni track', trackNext: 'Sljedeći track ▶', scenePrev: '▲ Prethodna scena', sceneNext: 'Sljedeća scena ▼', devicePrev: '◀ Prethodni device', deviceNext: 'Sljedeći device ▶' },
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
   liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', padParam: 'Parametar odabranog drum pada (Simpler)', tempo: 'Tempo' },
@@ -329,6 +329,7 @@ function mappingSummary(c, m) {
     case 'variation':
       return `Var ${m.index + 1}${m.action !== 'recall' ? ` ${m.action}` : ''}`;
     case 'live':
+      if (m.live && (m.live.action === 'clip' || m.live.action === 'clipDelete')) return `${m.live.action === 'clip' ? '▶' : '✕'} T${m.live.track} S${m.live.scene || '·'}`;
       return `⚡${(T.liveActions[m.live && m.live.action] || 'Live').replace(' tracka', '')}${m.live && m.live.track && m.live.track !== 'selected' && ['mute', 'solo', 'arm', 'select'].includes(m.live.action) ? ` ${m.live.track}` : ''}`;
     case 'addon': {
       const a = ((S.meta && S.meta.addons) || []).find((x) => m.addon && x.id === m.addon.id);
@@ -339,6 +340,8 @@ function mappingSummary(c, m) {
       return 'PANIC';
     case 'repeat':
       return `Repeat ${m.rate}`;
+    case 'boxMove':
+      return `Box ${m.dx > 0 ? '▶' : m.dx < 0 ? '◀' : ''}${m.dy > 0 ? '▼' : m.dy < 0 ? '▲' : ''}${Math.max(Math.abs(m.dx), Math.abs(m.dy)) > 1 ? ` ${Math.max(Math.abs(m.dx), Math.abs(m.dy))}` : ''}`;
     case 'accent':
       return 'Accent';
     case 'snapshot':
@@ -650,6 +653,9 @@ function renderButtonInspector(box, ctls, maps) {
   } else if (type === 'accent') {
     box.append(field('Ponašanje', selectEl({ momentary: 'Dok držiš', toggle: 'Uključi/isključi (latch)' }, common(maps, 'behavior'), (v) => setAll('behavior', v))));
     box.append(el('p', { class: 'muted small' }, 'Padovi s dinamičkom jačinom sviraju punom jačinom (127).'));
+  } else if (type === 'boxMove') {
+    box.append(field('Pomak', el('div', { class: 'inline' }, numEl(common(maps, 'dx'), -64, 64, (v) => setAll('dx', v)), numEl(common(maps, 'dy'), -64, 64, (v) => setAll('dy', v))), 'Trackova (− lijevo, + desno) / scena (− gore, + dolje)'));
+    box.append(el('p', { class: 'muted small' }, 'Pomiče sve Live kontrole ove stranice koje su dio clip boxa (predložak Clip box 8×8). Pozicija se pamti.'));
   } else if (type === 'snapshot') {
     box.append(field('Mjesto', numEl(common(maps, 'slot'), 1, 16, (v) => setAll('slot', v))));
     box.append(el('p', { class: 'muted small' }, 'Prazno mjesto: pritisak sprema vrijednosti svih enkodera ove stranice (CC, 14-bit, Live parametri). Puno: pritisak ih vraća. Shift + pritisak = spremi ponovno.'));
@@ -1086,21 +1092,47 @@ function simplerButtons(target) {
 }
 
 // Lite device: plain MIDI only.
-const LITE_TYPES = { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', variation: 'Rack varijacija', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', transpose: 'Transpozicija padova (Oct −/+)', panic: 'Panic (all notes off)' };
+const LITE_TYPES = { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', variation: 'Rack varijacija', live: 'Live (klipovi, scene…)', boxMove: 'Pomakni clip box', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', transpose: 'Transpozicija padova (Oct −/+)', panic: 'Panic (all notes off)' };
 
-const LITE_TEMPLATE_GROUPS = [['Rack varijacije', ['varSelected']]];
+const LITE_TEMPLATE_GROUPS = [['Rack varijacije', ['varSelected']], ['Klipovi', ['clipBox']]];
 
 const TEMPLATE_GROUPS = [
   ['Live sampling i looper', ['samplerPads', 'sampler', 'slicer', 'looper']],
   ['Sekvenceri', ['seqDrum', 'seq8', 'seq16']],
   ['Sviranje', ['keys']],
   ['Efekti', ['fxPerform', 'xyfx', 'device', 'variations', 'varSelected']],
-  ['Mikser i Live', ['mixer', 'selected', 'sends', 'clips', 'transport']],
+  ['Mikser i Live', ['mixer', 'selected', 'sends', 'clipBox', 'clips', 'transport']],
 ];
 
 const SEQ_SLOTS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 const TEMPLATES = {
+  clipBox: {
+    name: 'Clip box 8×8 (kao Launchpad)',
+    help: 'Padovi sviraju klipove u kvadratu 8 trackova × 8 scena (gornji red = prva scena kvadrata). Strelice (D-pad) pomiču kvadrat za 1, Shift + strelica za 8; pozicija se pamti. Scene gumbi = scene u kvadratu, Shift + pad = obriši clip. Boje padova = boje klipova, svira = treperi (uz Sync).',
+    ask: [
+      { key: 'track', label: 'Prvi track kvadrata (broj, 1 = prvi track)', default: '1' },
+      { key: 'scene', label: 'Prva scena kvadrata (broj, npr. 100)', default: '1' },
+    ],
+    apply(a) {
+      const t0 = Math.max(1, parseInt(a.track, 10) || 1);
+      const s0 = Math.max(1, parseInt(a.scene, 10) || 1);
+      const r = {};
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          const live = { action: 'clip', track: String(t0 + col), scene: s0 + (7 - row), box: true };
+          r[`pad.${row}.${col}`] = { type: 'live', colorOn: 21, colorOff: 0, live, shift: { type: 'live', colorOn: 5, colorOff: 7, live: { ...live, action: 'clipDelete' } } };
+        }
+      }
+      for (let i = 0; i < 8; i++) r[`scene.${i + 1}`] = { type: 'live', colorOn: 21, colorOff: 23, live: { action: 'scene', scene: s0 + i, box: true } };
+      const mv = (dx, dy) => ({ type: 'boxMove', dx, dy, colorOn: 3, colorOff: 1, shift: { type: 'boxMove', dx: dx * 8, dy: dy * 8, colorOn: 3, colorOff: 1 } });
+      r.up = mv(0, -1);
+      r.down = mv(0, 1);
+      r.left = mv(-1, 0);
+      r.right = mv(1, 0);
+      return r;
+    },
+  },
   varSelected: {
     name: 'Varijacije 9–24 odabranog racka (gornja 2 reda)',
     help: 'Gornji red padova = varijacije 9–16, drugi red = 17–24 racka koji je odabran u Liveu (klikni glavni rack ili rack unutar njega, na bilo kojem tracku). Prvih 8 imaš na Pushu u Live modu. Zeleno = aktivna, plavo = postoji, ugašeno = ne postoji. Ostali padovi ostaju kakvi jesu.',

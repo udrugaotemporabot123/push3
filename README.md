@@ -36,6 +36,8 @@ U istoj mapi je i **`Push3UserModeLite.amxd`**: samo MIDI kontroler.
 
 **Rack varijacije u Lite verziji (v0.51):** *Predlošci → Rack varijacije → Varijacije 9–24 odabranog racka*. Gornji red padova = varijacije 9–16, drugi red = 17–24 **racka koji je odabran u Liveu**: klikni glavni rack na tracku ili rack unutar njega, i padovi odmah prate taj rack (klikneš li običan device u racku, uzima se rack u kojem je). Prvih 8 varijacija i dalje imaš na Pushu u Live modu. Lite za to koristi minimalan Live API most: prati samo odabrani track, odabrani device i varijacije tog racka.
 
+**Clip box 8×8 (v0.52, kao Launchpad):** *Predlošci → Klipovi → Clip box 8×8*: upišeš prvi track i prvu scenu (npr. 5 i 100), padovi sviraju klipove u tom kvadratu (gornji red = prva scena), boje padova = boje klipova. **Strelice (D-pad)** pomiču kvadrat za 1 track/scenu, **Shift + strelica** za 8; pozicija se pamti. Scene gumbi pokreću scene kvadrata, Shift + pad briše clip. (Liveov crveni okvir Max for Live ne može nacrtati; poziciju vidiš po padovima i u editoru.)
+
 Koristi **ili** Lite **ili** puni device, ne oba odjednom. Postavke i mapiranja su zajednički.
 
 ## Instalacija (jednom)

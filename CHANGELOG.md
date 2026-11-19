@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.52.0 – 2026-11-19
+Clip box 8×8 kao Launchpad: padovi sviraju klipove u kvadratu, strelice ga pomiču (Shift = za 8), pozicija se pamti. Radi i u Lite verziji.
+
 ## v0.51.1 – 2026-11-19
 Popravak rušenja s varijacijama: reakcije na promjene u Liveu se izvršavaju trenutak kasnije (Task), a ne usred Liveove obavijesti.
 

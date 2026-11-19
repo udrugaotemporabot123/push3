@@ -792,3 +792,37 @@ test('review fixes: transposed aftertouch, no empty snapshots, morph reaches B i
   e.handlePushMessage([0x90, 36, 40]);
   assert.ok(out.host[0][2] < 127);
 });
+
+test('clip box: D-pad moves every box mapping of the page, never below track 1 / scene 1, and saves', () => {
+  const { e, out, clear } = setup((c) => {
+    const ctl = c.pages[0].controls;
+    for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) ctl[`pad.${row}.${col}`] = { type: 'live', live: { action: 'clip', track: String(1 + col), scene: 100 + (7 - row), box: true } };
+    ctl['scene.1'] = { type: 'live', live: { action: 'scene', scene: 100, box: true } };
+    ctl.down = { type: 'boxMove', dx: 0, dy: 1 };
+    ctl.left = { type: 'boxMove', dx: -1, dy: 0 };
+    ctl.right = { type: 'boxMove', dx: 8, dy: 0 };
+  });
+  let persisted = 0;
+  e.onChange((w) => w === 'persist' && persisted++);
+  e.handlePushMessage(SYSEX_USER);
+  e.handlePushMessage([0xb0, 47, 127]); // down: scenes 101-108
+  e.handlePushMessage([0xb0, 47, 0]);
+  e.handlePushMessage([0xb0, 45, 127]); // right by 8: tracks 9-16
+  e.handlePushMessage([0xb0, 45, 0]);
+  e.handlePushMessage([0xb0, 44, 127]); // left by 1: tracks 8-15
+  const top = e.config.pages[0].controls['pad.7.0'].live;
+  assert.deepEqual([top.track, top.scene], ['8', 101]);
+  assert.equal(e.config.pages[0].controls['scene.1'].live.scene, 101);
+  assert.equal(persisted, 3);
+  // Left far past track 1 stops at track 1.
+  for (let i = 0; i < 20; i++) {
+    e.handlePushMessage([0xb0, 44, 0]);
+    e.handlePushMessage([0xb0, 44, 127]);
+  }
+  assert.equal(e.config.pages[0].controls['pad.7.0'].live.track, '1');
+  // The pads now watch the moved slots.
+  clear();
+  e.syncVariationTargets();
+  const watch = out.live.find((c) => c.cmd === 'watchLive');
+  assert.ok(Object.values(watch.targets).some((s) => s.t === 'slot' && s.track === '1' && s.scene === 101));
+});

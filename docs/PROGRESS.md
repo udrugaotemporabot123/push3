@@ -102,6 +102,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.50.0 Lite device (Push3UserModeLite.amxd + p3um-lite.js) for heavy sets: plain MIDI controller, no Live API bridge/js, no add-ons, no display rendering/preview, no animation clock, no jweb inside Live (editor opens in the system browser); editor hides non-MIDI options. Shared config
 - [x] v0.51.0 Rack variations follow the selected rack (target device "selected": selected device if it is a rack, else its enclosing rack; re-resolves on selection), Lite gets the minimal bridge (variations only, no transport watch), template Varijacije 9-24 odabranog racka
 - [x] v0.51.1 Crash fix attempt (v0.51.0 crashed Live right away, v0.50.0 fine): every re-resolve triggered from a Live notification (selected track/device, device list, slots, view, retries, vanished objects) now runs a moment later in a Task, coalesced per target, instead of dropping/recreating observers inside the notification that called it
+- [x] v0.52.0 Clip box 8x8 (Launchpad-style session box): live clip/scene mappings marked box, boxMove button type (D-pad 1, Shift 8, clamped at track/scene 1, position saved), template in Lite and full; editor shows T/S on clip pads
 
 ## Next (roadmap, highest value first)
 - [ ] Full device: load the editor web view (jweb) only when the window is opened (it runs inside Live and costs CPU even when closed).

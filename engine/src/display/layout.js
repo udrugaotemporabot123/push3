@@ -52,6 +52,8 @@ function summary(ctl, m) {
       return '← Page';
     case 'repeat':
       return `Repeat ${m.rate}`;
+    case 'boxMove':
+      return 'Box';
     case 'accent':
       return 'Accent';
     case 'snapshot':

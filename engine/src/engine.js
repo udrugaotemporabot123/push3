@@ -527,6 +527,10 @@ class Engine {
       case 'snapshot':
         this.snapshotPress(m.slot, this.pressed.has('shift'));
         return;
+      case 'boxMove':
+        this.moveBox(m.dx, m.dy);
+        this.renderControl(ctl);
+        return;
       case 'repeat': {
         const ticks = REPEAT_RATES[m.rate] || 6;
         if (m.behavior === 'toggle') this.repeat = this.repeatOn() ? null : { id: ctl.id, ticks, latch: true, uid: this.pageUid() };
@@ -922,6 +926,35 @@ class Engine {
 
   repeatOn() {
     return !!this.repeat && this.repeat.uid === this.pageUid();
+  }
+
+  // Clip box (like a Launchpad's session box): every Live mapping on this page marked "box" moves by
+  // dx tracks / dy scenes; it never goes below track 1 / scene 1. The new position is saved.
+  moveBox(dx, dy) {
+    const cfg = JSON.parse(JSON.stringify(this.config));
+    const page = cfg.pages[this.page];
+    const items = [];
+    for (const base of Object.values(page.controls)) {
+      for (const m of [base, base && base.shift]) if (m && m.type === 'live' && m.live && m.live.box) items.push(m.live);
+    }
+    const tracks = items.map((l) => Number(l.track)).filter((n) => Number.isInteger(n) && n > 0);
+    const scenes = items.filter((l) => ['clip', 'clipDelete', 'scene'].includes(l.action) && l.scene > 0).map((l) => l.scene);
+    if (!tracks.length && !scenes.length) return;
+    const tMin = tracks.length ? Math.min(...tracks) : 1;
+    const sMin = scenes.length ? Math.min(...scenes) : 1;
+    const ddx = Math.max(dx, 1 - tMin);
+    const ddy = Math.max(dy, 1 - sMin);
+    if (!ddx && !ddy) return;
+    for (const l of items) {
+      const t = Number(l.track);
+      if (Number.isInteger(t) && t > 0) l.track = String(t + ddx);
+      if (['clip', 'clipDelete', 'scene'].includes(l.action) && l.scene > 0) l.scene += ddy;
+    }
+    this.setConfig(cfg);
+    const t0 = tMin + ddx;
+    const s0 = sMin + ddy;
+    this.emit('notice', { text: `Box: track ${t0}–${t0 + 7}, scena ${s0}–${s0 + 7}` });
+    this.emit('persist');
   }
 
   // Snapshots: the values of this page's encoders (CC, 14-bit and Live parameters), per slot.
@@ -1337,6 +1370,7 @@ class Engine {
       if (m.index >= v.count) return { color: 0, anim: 0 };
       return m.index === v.selected ? { color: m.colorOn, anim: push3.ANIMATIONS[m.anim] || 0 } : { color: m.colorOff, anim: 0 };
     }
+    if (m.type === 'boxMove') return { color: held ? m.colorOn : m.colorOff, anim: 0 };
     if (m.type === 'accent') return { color: held || this.accentOn() ? m.colorOn : m.colorOff, anim: 0 };
     if (m.type === 'snapshot') {
       const uid = this.config.pages[this.page].uid;

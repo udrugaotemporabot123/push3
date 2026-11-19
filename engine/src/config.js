@@ -12,7 +12,7 @@ const MAX_PAGES = 16;
 
 const PAGE_COLORS = [COLORS.mint, COLORS.blue, COLORS.orange, COLORS.pink, COLORS.yellow, COLORS.purple, COLORS.cyan, COLORS.red];
 
-const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live', 'addon', 'panic', 'transpose', 'repeat', 'accent', 'snapshot'];
+const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live', 'addon', 'panic', 'transpose', 'repeat', 'accent', 'snapshot', 'boxMove'];
 const REPEAT_RATES = { '1/4': 24, '1/8': 12, '1/8T': 8, '1/16': 6, '1/16T': 4, '1/32': 3 };
 const BEHAVIORS = ['momentary', 'toggle', 'trigger'];
 const ENCODER_TYPES = ['none', 'cc', 'live'];
@@ -196,6 +196,11 @@ function normalizeButton(m, page, ctl, isShift = false) {
       param: str(l.param, '1', 64) || '1', // parameter name or number (1 = first parameter after "Device On")
       mode: oneOf(l.mode, live.PARAM_MODES, 'toggle'),
     };
+    if (l.box === true) out.live.box = true; // part of the page's clip box (moved by boxMove buttons)
+  }
+  if (out.type === 'boxMove') {
+    out.dx = clampInt(m.dx, -64, 64, 0);
+    out.dy = clampInt(m.dy, -64, 64, 0);
   }
   if (out.type === 'addon') {
     const a = m.addon && typeof m.addon === 'object' ? m.addon : {};
