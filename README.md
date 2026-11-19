@@ -27,6 +27,14 @@ Max for Live device + editor koji od Push 3 **User moda** radi potpuno podesiv M
 - **Izvoz/uvoz .json** (Preseti ▾) i **kopiraj/zalijepi** kontrola (Cmd+C / Cmd+V, radi i između stranica)
 - **preseti**, undo/redo, MIDI monitor, popis nepoznatih kontrola (za provjeru na hardveru)
 
+## Lite v0.60: Push 3 ekran + player na tabletu
+
+**Stabilna verzija bez laga je v0.59.0** (grana `stable/v0.59.0`, ZIP: https://github.com/udrugaotemporabot123/push3/archive/refs/heads/stable/v0.59.0.zip). Ako nešto u novijoj verziji smeta, vrati tu.
+
+- **Rack kontrola, novi raspored:** gornji red padova = **trackovi** (kako ih Live pokazuje, boja tracka, bijelo = odabran; Page ◀ ▶ = sljedećih 8), drugi red = **rackovi**, ispod 3 reda = **varijacije 1–24**. Gumbi ispod ekrana su slobodni. Ponovno primijeni predložak *Rack kontrola*.
+- **Push 3 ekran (eksperimentalno): `Push3Ekran.amxd`** (u istoj mapi). Stavi ga na bilo koji track (npr. Main, uz Lite). U User Modeu crta na Push ekran gdje si: track, rack u upotrebi i broj varijacije, red rackova i 24 varijacije u boji racka. Radi preko Liveovog objekta `live.push` (nedokumentirana poruka, otkrio projekt push3-max-lab), pa **nije sigurno da radi u User Modeu i na Maxu koji dolazi s Liveom**. Prvi test: uključi **Test** na deviceu, odaberi taj device na Pushu (u Live Modeu) i pogledaj ekran, pa pritisni User. Preview na deviceu pokazuje što se šalje. Isključiš ga gumbom *Ekran* ili brisanjem devicea.
+- **Player na tabletu:** u editoru *Postavke → Pristup s tableta → Uključen*, pa na tabletu otvori link **Player** (ili skeniraj QR). Pokazuje gdje si (track, rack, varijacija, User/Live Mode), trackove, rackove, **makroe racka u upotrebi** (povuci prstom gore/dolje), sve varijacije (dodir = pozovi), **Spremi kao novu varijaciju**, Random makroi i Obriši odabranu (dvaput dodirni). Live ne može prepisati postojeću varijaciju: spremi novu pa obriši staru. Makroi se čitaju iz Livea samo dok je player otvoren i samo nakon radnje (ništa se ne prati stalno); promijeniš li makro mišem, ↻ Osvježi ga pokaže. Na računalu: http://127.0.0.1:47391/player.html
+
 ## Lite verzija (za teške projekte)
 
 U istoj mapi je i **`Push3UserModeLite.amxd`**: samo MIDI kontroler.

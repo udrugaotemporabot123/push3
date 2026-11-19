@@ -55,13 +55,23 @@ def build(lite):
 
     # ---- Engine ----------------------------------------------------------------------------
     box("node", "newobj", [200, 200, 330, 22], f"node.script {MAIN} @autostart 1 @watch 0", 1, 2, ["", ""])
-    box("route", "newobj", [200, 240, 330, 22], "route live status needsInstall editorUrl", 1, 5)
+    box("route", "newobj", [200, 240, 330, 22], "route live status needsInstall editorUrl screen" if lite else "route live status needsInstall editorUrl", 1, 6 if lite else 5)
     box("prep_live", "newobj", [200, 280, 80, 22], "prepend live", 1, 1)
     line("node", 0, "route", 0)
     box("js", "newobj", [200, 320, 140, 22], "js p3um-live.js", 1, 1)
     line("route", 0, "prep_live", 0)
     line("prep_live", 0, "js", 0)
     line("js", 0, "node", 0)
+
+    if lite:
+        # Push screen: the separate Push3Ekran device listens on p3um_screen and asks for a fresh copy
+        # on p3um_screen_req when it loads (Max send/receive work across devices in one Live set).
+        box("s_screen", "newobj", [560, 280, 110, 22], "s p3um_screen", 1, 0)
+        line("route", 4, "s_screen", 0)
+        box("r_screen_req", "newobj", [560, 200, 130, 22], "r p3um_screen_req", 0, 1)
+        box("msg_screen_req", "message", [560, 230, 100, 22], "screenRequest", 2, 1)
+        line("r_screen_req", 0, "msg_screen_req", 0)
+        line("msg_screen_req", 0, "node", 0)
 
     # Live API is only usable after live.thisdevice has fired.
     box("thisdev", "newobj", [400, 20, 100, 22], "live.thisdevice", 1, 3, ["bang", "int", "int"])

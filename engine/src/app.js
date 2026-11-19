@@ -11,7 +11,7 @@ const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 const { loadAddons } = require('../../addons');
 
-const VERSION = '0.59.0';
+const VERSION = '0.60.0';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -105,6 +105,14 @@ function start(opts = {}) {
         onPreview: (png, transport) => server && server.broadcast({ t: 'display', png, transport }, (c) => c.display),
       });
   const updatePreviewWanted = () => display && display.setPreview(!!server && server.some((c) => c.display));
+  // Macros of the rack in use are read (once per action) only while a tablet player is open.
+  let playersOpen = false;
+  const updatePlayers = () => {
+    const open = !!server && server.some((c) => c.player);
+    if (open === playersOpen) return;
+    playersOpen = open;
+    io.toLive({ cmd: 'macros', on: open });
+  };
 
   // ---- Max device UI status -----------------------------------------------------------
   let lastStatus = '';
@@ -115,6 +123,32 @@ function start(opts = {}) {
     if (text === lastStatus) return; // redrawing the device in Live only when the text changes
     lastStatus = text;
     max.outlet('status', text).catch(() => {});
+  }
+
+  // Lite: the Push screen device (Push3Ekran) gets a small summary whenever it changes (debounced,
+  // only when different); it draws with live.push. Nothing here asks Live for anything.
+  let screenTimer = null;
+  let lastScreen = '';
+  function sendScreen(force) {
+    const st = engine.screenState();
+    const json = JSON.stringify(st);
+    if (!force && json === lastScreen) return;
+    lastScreen = json;
+    if (server) server.broadcast({ t: 'screen', screen: st }, (c) => c.player);
+    if (!max || !lite) return;
+    const { tracks, selectedTrack, ...forPush } = st; // the Push screen does not need the track list
+    max.outlet('screen', JSON.stringify(forPush)).catch(() => {});
+  }
+  {
+    engine.onChange(() => {
+      if (screenTimer) return;
+      screenTimer = setTimeout(() => {
+        screenTimer = null;
+        sendScreen(false);
+      }, 60);
+      if (screenTimer.unref) screenTimer.unref();
+    });
+    if (max) max.addHandler('screenRequest', () => sendScreen(true));
   }
 
   let liveBroadcastTimer = null;
@@ -149,6 +183,13 @@ function start(opts = {}) {
         break;
       case 'notice':
         server.broadcast({ t: 'log', level: 'info', msg: data.text });
+        server.broadcast({ t: 'notice', text: data.text }, (c) => c.player);
+        break;
+      case 'macros':
+        server.broadcast({ t: 'macros', macros: data }, (c) => c.player);
+        break;
+      case 'macro':
+        server.broadcast({ t: 'macro', ...data }, (c) => c.player);
         break;
 
       case 'status':
@@ -219,6 +260,16 @@ function start(opts = {}) {
       }
       case 'monitor':
         client.monitor = !!msg.on;
+        break;
+      case 'player':
+        // Tablet player page: gets the screen summary and the macros of the rack in use.
+        client.player = true;
+        updatePlayers();
+        server.send(client, { t: 'screen', screen: engine.screenState() });
+        if (engine.macros) server.send(client, { t: 'macros', macros: engine.macros });
+        break;
+      case 'pAction':
+        if (client.player) engine.playerAction(msg);
         break;
       case 'lan':
         if (client.lan) break;
@@ -302,7 +353,10 @@ function start(opts = {}) {
     getHello: hello,
     log,
     onReady: (ok) => bootMidi(ok),
-    onClientGone: () => updatePreviewWanted(),
+    onClientGone: () => {
+      updatePreviewWanted();
+      updatePlayers();
+    },
   });
 
   function bootMidi(ok) {
@@ -353,6 +407,7 @@ function start(opts = {}) {
       if (first) {
         log('info', 'Live API bridge ready');
         engine.syncVariationTargets(true);
+        if (playersOpen) io.toLive({ cmd: 'macros', on: true });
       }
     });
     // Ask the bridge until it answers (its own "ready" can arrive before Node listens).

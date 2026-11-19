@@ -938,3 +938,26 @@ test('Lite v0.59.0: quiet bridge, one refresh on User Mode, nothing re-sent when
   e.handlePushMessage(SYSEX_USER);
   assert.deepEqual(out.live.filter((c) => c.cmd === 'refresh'), [{ cmd: 'refresh' }]);
 });
+
+test('player actions: variations (recall, store at the end, delete), rack by position, track, macro', () => {
+  const { e, out, clear } = setup((c) => {
+    c.pages[0].controls['pad.6.0'] = { type: 'live', colorOff: 45, live: { action: 'selectDevice', track: 'selected', device: '00 ALL' } };
+    c.pages[0].controls['pad.6.1'] = { type: 'live', colorOff: 5, live: { action: 'selectDevice', track: 'selected', device: '00 MIDI' } };
+  });
+  e.handleLiveState({ type: 'visibleTracks', tracks: [{ id: 7, name: 'Bass' }], selected: 7 });
+  e.handleLiveState({ type: 'rackMap', tracks: { 7: [{ name: '00 all', id: 70 }, { name: '00 midi', id: 71 }] } });
+  e.handleLiveState({ type: 'variations', key: 'selected|selected', ok: true, count: 5, selected: 1, name: '00 ALL', id: 70 });
+  e.handleLiveState({ type: 'macros', rackId: 70, name: '00 ALL', items: [{ i: 1, name: 'sound', value: 0.2, text: '25' }] });
+  clear();
+  e.playerAction({ a: 'variation', index: 3 });
+  e.playerAction({ a: 'store' });
+  e.playerAction({ a: 'variation', action: 'delete', index: 1 });
+  e.playerAction({ a: 'rack', i: 1 });
+  e.playerAction({ a: 'track', id: 7 });
+  e.playerAction({ a: 'track', id: 999 }); // not a visible track: ignored
+  e.playerAction({ a: 'macro', index: 1, value: 0.9 });
+  assert.deepEqual(out.live.map((m) => m.action || m.fn || m.cmd), ['recall', 'store', 'delete', 'selectDeviceId', 'selectTrackId', 'macroSet']);
+  assert.equal(out.live[1].index, 5); // store appends after the last one
+  assert.equal(out.live[3].spec.id, 71);
+  assert.deepEqual([out.live[5].rackId, out.live[5].index, out.live[5].value], [70, 1, 0.9]);
+});

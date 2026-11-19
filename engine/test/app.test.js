@@ -143,3 +143,32 @@ test('Lite entry point: plain MIDI controller, no add-ons, no display preview', 
     await new Promise((r) => child.on('exit', r));
   }
 });
+
+test('Lite player page: served, gets the screen summary, its actions reach the engine', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'p3um-'));
+  const port = 40000 + Math.floor(Math.random() * 20000);
+  const child = spawn(process.execPath, ['p3um-lite.js'], { cwd: ROOT, env: { ...process.env, P3UM_DIR: dir, P3UM_PORT: String(port) }, stdio: 'pipe' });
+  try {
+    await waitFor(() => get(port, '/player.html').then((r) => r.status === 200));
+    const js = await get(port, '/player.js');
+    assert.equal(js.status, 200);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    const screen = await new Promise((resolve, reject) => {
+      ws.on('message', (m) => {
+        const msg = JSON.parse(m.toString());
+        if (msg.t === 'hello') ws.send(JSON.stringify({ t: 'player' }));
+        if (msg.t === 'screen') resolve(msg.screen);
+      });
+      ws.on('error', reject);
+    });
+    assert.equal(screen.mode, 'live');
+    assert.ok(Array.isArray(screen.racks) && Array.isArray(screen.tracks));
+    ws.send(JSON.stringify({ t: 'pAction', a: 'refresh' })); // no Live here: must not crash
+    await new Promise((r) => setTimeout(r, 300));
+    assert.equal(child.exitCode, null);
+    ws.close();
+  } finally {
+    child.kill('SIGTERM');
+    await new Promise((r) => child.on('exit', r));
+  }
+});

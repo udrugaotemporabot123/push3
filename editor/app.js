@@ -1182,11 +1182,13 @@ const TEMPLATES = {
     },
   },
   rackControl: {
-    name: 'Rack kontrola: odabir racka + varijacije 1–24',
-    help: 'Gornji red = odabir racka na odabranom tracku po početku imena: 00 ALL (plavo), 00 MIDI (crveno), 00 INST (zeleno), 00 A1 (roza), 00 A2 (narančasto), PRE FX A1, Looper (sivo) – ostatak imena je nebitan; bijelo = rack u upotrebi, ugašeno = nema ga na tracku; zadnji pad = REFRESH (isto što gumb Rackovi na deviceu). Ispod 3 reda = varijacije 1–24 racka u upotrebi: bijelo = aktivna, boja racka = postoji, ugašeno = nema je; prva = reset (iste boje kao ostale). Gumbi ispod ekrana = trackovi kako ih Live pokazuje, Page ◀ ▶ = sljedećih 8. Imena mijenjaš klikom na pad.',
+    name: 'Rack kontrola: trackovi + odabir racka + varijacije 1–24',
+    help: 'Gornji red = trackovi kako ih Live pokazuje (grupe; trackovi u grupi samo ako je raširena), boja tracka, bijelo = odabran; Page ◀ ▶ = sljedećih 8. Drugi red = odabir racka na odabranom tracku po početku imena: 00 ALL (plavo), 00 MIDI (crveno), 00 INST (zeleno), 00 A1 (roza), 00 A2 (narančasto), PRE FX A1, Looper (sivo) – ostatak imena je nebitan; bijelo = rack u upotrebi, ugašeno = nema ga na tracku; zadnji pad = REFRESH (isto što gumb Rackovi na deviceu). Ispod 3 reda = varijacije 1–24 racka u upotrebi: bijelo = aktivna, boja racka = postoji, ugašeno = nema je; prva = reset. Gumbi ispod ekrana su slobodni. Imena mijenjaš klikom na pad.',
     apply() {
       const r = {};
       const white = pcol('ffffff');
+      // Row 7 (top) = tracks, row 6 = rack picker, rows 5-3 = variations 1-24 (v0.60.0 layout).
+      for (let i = 1; i <= 8; i++) r[`pad.7.${i - 1}`] = { type: 'live', label: `Track ${i}`, colorOn: white, colorOff: 1, live: { action: 'trackSlot', index: i } };
       const pick = [
         ['ALL', '00 ALL', '0050ff'],
         ['MIDI', '00 MIDI', 'ff0000'],
@@ -1197,14 +1199,14 @@ const TEMPLATES = {
         ['LOOPER', 'Looper', '7f7f7f'],
       ];
       pick.forEach(([label, device, rgb], col) => {
-        r[`pad.7.${col}`] = { type: 'live', label, colorOn: white, colorOff: pcol(rgb), live: { action: 'selectDevice', track: 'selected', device } };
+        r[`pad.6.${col}`] = { type: 'live', label, colorOn: white, colorOff: pcol(rgb), live: { action: 'selectDevice', track: 'selected', device } };
       });
-      r['pad.7.7'] = { type: 'live', label: 'REFRESH', colorOn: white, colorOff: pcol('ffb000'), live: { action: 'rescan' } };
+      r['pad.6.7'] = { type: 'live', label: 'REFRESH', colorOn: white, colorOff: pcol('ffb000'), live: { action: 'rescan' } };
       for (let i = 0; i < 24; i++) {
-        const row = 6 - Math.floor(i / 8);
+        const row = 5 - Math.floor(i / 8);
         r[`pad.${row}.${i % 8}`] = { type: 'variation', target: { track: 'selected', device: 'selected' }, index: i, action: 'recall', colorOn: white, colorOff: pcol('0050ff'), anim: 'none', label: i === 0 ? 'Reset' : `Var ${i + 1}` };
       }
-      for (let i = 1; i <= 8; i++) r[`lower.${i}`] = { type: 'live', label: `Track ${i}`, colorOn: white, colorOff: 1, live: { action: 'trackSlot', index: i } };
+      for (let i = 1; i <= 8; i++) r[`lower.${i}`] = { type: 'none', label: '' };
       r.pageLeft = { type: 'live', label: 'Trackovi ◀', colorOn: white, colorOff: pcol('7f7f7f'), live: { action: 'trackBank', dir: -1 } };
       r.pageRight = { type: 'live', label: 'Trackovi ▶', colorOn: white, colorOff: pcol('7f7f7f'), live: { action: 'trackBank', dir: 1 } };
       return r;
@@ -1719,8 +1721,9 @@ function renderLan() {
   );
   if (lan.enabled) {
     if (!lan.urls.length) box.append(el('p', { class: 'muted' }, 'Računalo nije spojeno ni na jednu mrežu.'));
-    for (const u of lan.urls) {
-      box.append(el('p', {}, el('code', { style: 'user-select:all;word-break:break-all' }, u)));
+    // Player first (the tablet page for playing: where you are, macros, variations), then the editor.
+    for (const [what, u] of [...(lan.playerUrls || []).map((x) => ['Player', x]), ...lan.urls.map((x) => ['Editor', x])]) {
+      box.append(el('p', {}, el('b', {}, `${what}: `), el('code', { style: 'user-select:all;word-break:break-all' }, u)));
       // Scan with the tablet's camera instead of typing the link.
       if (typeof qrcode === 'function') {
         try {

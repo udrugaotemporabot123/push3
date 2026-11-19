@@ -188,6 +188,7 @@ function createServer({ port, lanPort, onClientMessage, getHello, log, onReady, 
     return {
       enabled: !!lanServer,
       urls: lanServer && lanToken ? lanAddresses().map((ip) => `http://${ip}:${lanPort}/?k=${lanToken}`) : [],
+      playerUrls: lanServer && lanToken ? lanAddresses().map((ip) => `http://${ip}:${lanPort}/player.html?k=${lanToken}`) : [],
     };
   }
 

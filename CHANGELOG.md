@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.60.0 – 2026-11-19
+Rack kontrola: gore trackovi, pa rackovi, pa 3 reda varijacija (gumbi ispod ekrana slobodni); Push3Ekran device crta na Push 3 ekran (eksperimentalno, live.push); player na tabletu s makroima i varijacijama. Stabilna bez laga ostaje v0.59.0.
+
 ## v0.59.0 – 2026-11-19
 Lite puno lakši za Live: ništa ne prati u Liveu (čita samo na tvoj pritisak, ulaz u User Mode i Rackovi), Drum clips maknut; reset varijacija u boji racka, A1 roza, A2 narančasta.
 

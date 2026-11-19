@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Push 3 Player</title>
+<style>
+  :root { --bg: #0b0c0e; --panel: #16181c; --line: #2a2d33; --text: #eef0f3; --muted: #8a909a; --accent: #ff7a1a; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.3 -apple-system, "Helvetica Neue", Arial, sans-serif; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  body { padding: 12px 16px 24px; }
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .chip { padding: 4px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+  .chip.user { color: #0b0c0e; background: var(--accent); border-color: var(--accent); }
+  .chip.off { color: #ff6b6b; }
+  #track { font-size: 30px; font-weight: 700; display: flex; align-items: center; gap: 10px; min-width: 0; }
+  #track i { width: 14px; height: 34px; border-radius: 3px; display: inline-block; flex: none; }
+  #rack { font-size: 24px; font-weight: 600; }
+  #var { font-size: 24px; margin-left: auto; font-variant-numeric: tabular-nums; }
+  button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+  button:active { filter: brightness(1.4); }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; font-weight: 600; }
+  .row { display: grid; gap: 8px; }
+  #tracks { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+  #tracks button { flex: none; border-left-width: 6px; white-space: nowrap; }
+  #tracks button.sel { background: #fff; color: #000; }
+  #racks { grid-template-columns: repeat(8, 1fr); }
+  #racks button { min-height: 64px; font-weight: 700; color: #000; border: none; }
+  #racks button.absent { background: transparent !important; color: var(--muted); border: 1px dashed var(--line); }
+  #racks button.inuse { background: #fff !important; outline: 3px solid #fff; outline-offset: 2px; }
+  #macros { grid-template-columns: repeat(8, 1fr); }
+  .knob { position: relative; height: 150px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); overflow: hidden; touch-action: none; }
+  .knob .fill { position: absolute; left: 0; right: 0; bottom: 0; opacity: .85; }
+  .knob .lbl { position: absolute; left: 8px; right: 8px; top: 8px; font-weight: 700; font-size: 15px; text-shadow: 0 1px 2px #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .knob .val { position: absolute; left: 8px; right: 8px; bottom: 8px; font-size: 20px; font-weight: 700; text-shadow: 0 1px 3px #000; font-variant-numeric: tabular-nums; }
+  #vars { grid-template-columns: repeat(8, 1fr); }
+  #vars button { min-height: 58px; font-weight: 700; font-size: 18px; color: #000; border: none; }
+  #vars button.none { background: transparent !important; color: #444; border: 1px solid var(--line); }
+  #vars button.sel { background: #fff !important; }
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .tools button.danger { color: #ff8a8a; }
+  #notice { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #000c; border: 1px solid var(--line); padding: 10px 16px; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #notice.on { opacity: 1; }
+  .muted { color: var(--muted); }
+  @media (max-width: 900px) { #racks, #macros, #vars { grid-template-columns: repeat(4, 1fr); } .knob { height: 120px; } }
+</style>
+</head>
+<body>
+<header>
+  <div id="track"><i></i><span>…</span></div>
+  <div id="rack"></div>
+  <div id="var"></div>
+  <span id="mode" class="chip">…</span>
+  <button id="btnRefresh" title="Pročitaj stanje iz Livea">↻ Osvježi</button>
+  <button id="btnRescan" title="Isto što gumb Rackovi na deviceu">Rackovi</button>
+</header>
+
+<h2>Trackovi</h2>
+<div id="tracks"></div>
+
+<h2>Rack</h2>
+<div id="racks" class="row"></div>
+
+<h2>Makroi <span id="macroRack" class="muted"></span></h2>
+<div id="macros" class="row"></div>
+
+<h2>Varijacije</h2>
+<div id="vars" class="row"></div>
+<div class="tools">
+  <button id="btnStore">＋ Spremi kao novu varijaciju</button>
+  <button id="btnRandom">Random makroi</button>
+  <button id="btnDelete" class="danger">Obriši odabranu</button>
+</div>
+
+<div id="notice"></div>
+<script src="player.js"></script>
+</body>
+</html>

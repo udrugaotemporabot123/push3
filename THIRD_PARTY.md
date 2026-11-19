@@ -8,6 +8,9 @@
   protocol reference for MIDI modes, LEDs, sysex and display frames.
 - **QR Code Generator for JavaScript** by Kazuhiko Arase (MIT), vendored as `editor/vendor/qrcode.js`
   for the tablet link. "QR Code" is a registered trademark of DENSO WAVE INCORPORATED.
+- **push3-max-lab** by Cardamien (github.com/Cardamien/push3-max-lab, MIT / CC BY 4.0): the finding that a
+  Max for Live device can draw on the Push 3 screen by sending `jit_matrix` to `live.push` (used by
+  `p3um-screen.js`; no code copied).
 - Runtime npm dependencies: `@julusian/midi` (MIT, RtMidi), `ws` (MIT), `usb` (MIT, optional).
 
 Ableton, Push and Live are trademarks of Ableton AG. This project is not affiliated with Ableton.

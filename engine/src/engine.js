@@ -1049,6 +1049,82 @@ class Engine {
     return fallback;
   }
 
+  // Tablet player: the same actions as the pads, plus macros and storing variations.
+  playerAction(msg) {
+    const key = 'selected|selected';
+    const target = { track: 'selected', device: 'selected' };
+    const v = this.liveState.variations[key];
+    switch (msg && msg.a) {
+      case 'variation': {
+        const action = ['recall', 'delete'].includes(msg.action) ? msg.action : 'recall';
+        const index = Math.max(0, Math.min(127, Number(msg.index) | 0));
+        this.io.toLive({ cmd: 'variation', key, target, action, index });
+        break;
+      }
+      case 'store':
+        // Live appends a new variation at the end (it cannot overwrite one).
+        this.io.toLive({ cmd: 'variation', key, target, action: 'store', index: v && v.ok ? v.count : 0 });
+        break;
+      case 'randomize':
+        this.io.toLive({ cmd: 'variation', key, target, action: 'randomize', index: 0 });
+        break;
+      case 'rack': {
+        const page = this.config.pages[this.page];
+        const pickers = push3.controls.map((c) => page && page.controls[c.id]).filter((m) => m && m.type === 'live' && m.live && m.live.action === 'selectDevice');
+        const dev = pickers[Number(msg.i) | 0] ? this.pickerDevice(pickers[Number(msg.i) | 0]) : null;
+        if (dev) this.io.toLive({ cmd: 'liveCall', spec: { t: 'song', id: dev.id }, fn: 'selectDeviceId' });
+        break;
+      }
+      case 'track':
+        if (this.visTracks.list.some((t) => t.id === Number(msg.id))) this.io.toLive({ cmd: 'liveCall', spec: { t: 'song', id: Number(msg.id) }, fn: 'selectTrackId' });
+        break;
+      case 'macro':
+        if (this.macros && this.macros.rackId) this.io.toLive({ cmd: 'macroSet', rackId: this.macros.rackId, index: Math.max(1, Math.min(16, Number(msg.index) | 0)), value: Math.max(0, Math.min(1, Number(msg.value) || 0)) });
+        break;
+      case 'refresh':
+        this.io.toLive({ cmd: 'refresh' });
+        break;
+      case 'rescan':
+        this.refreshRacks();
+        break;
+      default:
+        break;
+    }
+  }
+
+  // What the Push screen (Push3Ekran device, live.push) and the tablet player show: where you are.
+  // Built only from what the engine already knows; nothing is asked from Live.
+  screenState() {
+    const hex = (i) => {
+      const h = (this.palette && this.palette[i]) || '000000';
+      return [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0];
+    };
+    const page = this.config.pages[this.page];
+    const track = this.visTracks.list.find((t) => t.id === this.visTracks.selected);
+    const v = this.liveState.variations['selected|selected'];
+    const inUse = this.selectedRackId();
+    const racks = [];
+    let rack = null;
+    for (const ctl of push3.controls) {
+      const m = page && page.controls[ctl.id];
+      if (!m || m.type !== 'live' || !m.live || m.live.action !== 'selectDevice') continue;
+      const dev = this.pickerDevice(m);
+      const r = { label: m.label || String(m.live.device || '').split('|')[0], rgb: hex(m.colorOff), present: !!dev, inUse: !!dev && dev.id === inUse };
+      racks.push(r);
+      if (r.inUse) rack = r;
+    }
+    return {
+      mode: this.mode,
+      page: page ? page.name : '',
+      track: track ? { name: track.name, rgb: track.color || [128, 128, 128] } : null,
+      rack: v && v.ok ? { name: v.name, rgb: rack ? rack.rgb : [0, 80, 255] } : null,
+      vars: v && v.ok ? { count: v.count, selected: v.selected } : { count: 0, selected: -1 },
+      racks: racks.slice(0, 8),
+      tracks: this.visTracks.list.map((t) => ({ id: t.id, name: t.name, rgb: t.color || [128, 128, 128] })),
+      selectedTrack: this.visTracks.selected,
+    };
+  }
+
   // Read the clip box's slots once (has clip + colour).
   readBoxSlots(pageIndex = this.page) {
     const page = this.config.pages[pageIndex];
@@ -1513,6 +1589,13 @@ class Engine {
       const s0 = Math.max(1, (Number(msg.scene) || 1) - (req.row - 1));
       if (t0 !== o.track || s0 !== o.scene) this.moveBox(t0 - o.track, s0 - o.scene, req.page);
       else this.readBoxSlots(req.page);
+    } else if (msg.type === 'macros' && Array.isArray(msg.items)) {
+      this.macros = { rackId: Number(msg.rackId) || 0, name: String(msg.name || ''), items: msg.items.slice(0, 16) };
+      this.emit('macros', this.macros);
+    } else if (msg.type === 'macro' && msg.item && this.macros && Number(msg.rackId) === this.macros.rackId) {
+      const i = this.macros.items.findIndex((x) => x.i === msg.item.i);
+      if (i >= 0) this.macros.items[i] = msg.item;
+      this.emit('macro', { rackId: this.macros.rackId, item: msg.item });
     } else if (msg.type === 'notice' && typeof msg.text === 'string') {
       this.io.log('info', msg.text);
       this.emit('notice', { text: msg.text.slice(0, 80) });

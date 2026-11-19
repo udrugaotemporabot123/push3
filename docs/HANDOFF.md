@@ -68,6 +68,15 @@ then `docs/PROGRESS.md` (full version history and findings).
   new A1/A2 colours. Asked him to test: device on in Live Mode / User Mode with editor closed / open / variations
   clicked with the mouse without the device, to see whether the lag is ours at all.
 - Open: PRE FX A1 is orange too (same as A2 now) – ask him for another colour.
+- **v0.59.0 confirmed by him (2026-11-19): no lag, stable, also with the editor open.** Kept as branch
+  `stable/v0.59.0` – the fallback whenever a newer version misbehaves.
+- v0.60.0: Rack kontrola layout = row 1 tracks (trackSlot), row 2 rack picker, rows 3-5 variations; lower buttons
+  free (his wish). Push screen: separate device `Push3Ekran.amxd` (`tools/build_screen.py`, `p3um-screen.js`) via
+  `live.push` jit_matrix – research and alternatives in `docs/PUSH3-SCREEN.md`; untested on his hardware (User Mode?
+  bundled Max 9.1?). Tablet player `editor/player.html` (+ LAN Player link): screen summary, tracks, racks, macros
+  of the rack in use (bridge `readMacros`/`macroSet`, read only while a player is open and only after actions),
+  variations recall/store/delete/randomize. His TouchOSC project (MIDI only, 2560x1600 Android-size tablet,
+  pages MAIN/MACROS/SETLIST/…) can stay as is; an OSC bridge is possible later.
 - Older: bass track "00 MIDI" not found because of a space → he renames it himself.
 - He works with Lite only; full device is ignored.
 

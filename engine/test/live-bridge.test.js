@@ -635,3 +635,22 @@ test('bridge quiet (Lite): no observers in Live; state read after own actions an
   assert.deepEqual(observed, []); // not a single Live observer
   assert.ok(b); // the normal bridge still loads
 });
+
+test('bridge: macros of the rack in use are read for the tablet player (after actions) and set by id', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.live(JSON.stringify({ cmd: 'watch', targets: { 'selected|selected': { track: 'selected', device: 'selected' } }, quiet: true }));
+  b.init();
+  new live.LiveAPI('live_set tracks 1 view').set('selected_device', 'id', live.rack.id);
+  b.live(JSON.stringify({ cmd: 'macros', on: true }));
+  const macros = () => states(b.out).filter((x) => x.type === 'macros').at(-1);
+  assert.equal(macros().name, 'FX Rack');
+  assert.deepEqual(macros().items.map((m) => [m.i, m.name, m.value]), [[1, 'Macro 1', 0.5 / 127]]);
+  const before = macros();
+  b.live(JSON.stringify({ cmd: 'variation', key: 'selected|selected', target: { track: 'selected', device: 'selected' }, action: 'recall', index: 1 }));
+  assert.notEqual(macros(), before); // re-read after a variation recall
+  b.live(JSON.stringify({ cmd: 'macroSet', rackId: live.rack.id, index: 1, value: 1 }));
+  assert.equal(live.rack.children.parameters[1].props.value, 127);
+  const one = states(b.out).filter((x) => x.type === 'macro').at(-1);
+  assert.deepEqual([one.rackId, one.item.i, one.item.value], [live.rack.id, 1, 1]);
+});

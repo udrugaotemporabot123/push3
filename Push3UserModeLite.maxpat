@@ -82,7 +82,7 @@
      "id": "route",
      "maxclass": "newobj",
      "numinlets": 1,
-     "numoutlets": 5,
+     "numoutlets": 6,
      "patching_rect": [
       200,
       240,
@@ -94,9 +94,10 @@
       "",
       "",
       "",
+      "",
       ""
      ],
-     "text": "route live status needsInstall editorUrl"
+     "text": "route live status needsInstall editorUrl screen"
     }
    },
    {
@@ -133,6 +134,57 @@
       ""
      ],
      "text": "js p3um-live.js"
+    }
+   },
+   {
+    "box": {
+     "id": "s_screen",
+     "maxclass": "newobj",
+     "numinlets": 1,
+     "numoutlets": 0,
+     "patching_rect": [
+      560,
+      280,
+      110,
+      22
+     ],
+     "text": "s p3um_screen"
+    }
+   },
+   {
+    "box": {
+     "id": "r_screen_req",
+     "maxclass": "newobj",
+     "numinlets": 0,
+     "numoutlets": 1,
+     "patching_rect": [
+      560,
+      200,
+      130,
+      22
+     ],
+     "outlettype": [
+      ""
+     ],
+     "text": "r p3um_screen_req"
+    }
+   },
+   {
+    "box": {
+     "id": "msg_screen_req",
+     "maxclass": "message",
+     "numinlets": 2,
+     "numoutlets": 1,
+     "patching_rect": [
+      560,
+      230,
+      100,
+      22
+     ],
+     "outlettype": [
+      ""
+     ],
+     "text": "screenRequest"
     }
    },
    {
@@ -786,6 +838,42 @@
     "patchline": {
      "source": [
       "js",
+      0
+     ],
+     "destination": [
+      "node",
+      0
+     ]
+    }
+   },
+   {
+    "patchline": {
+     "source": [
+      "route",
+      4
+     ],
+     "destination": [
+      "s_screen",
+      0
+     ]
+    }
+   },
+   {
+    "patchline": {
+     "source": [
+      "r_screen_req",
+      0
+     ],
+     "destination": [
+      "msg_screen_req",
+      0
+     ]
+    }
+   },
+   {
+    "patchline": {
+     "source": [
+      "msg_screen_req",
       0
      ],
      "destination": [

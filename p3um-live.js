@@ -20,6 +20,7 @@ var selectedTrackWatcher = null;
 var pendingLive = null;
 var liveTargets = {}; // key -> { spec, watchers: [], path }
 var quiet = false; // Lite: nothing is observed in Live (less work on Live's main thread)
+var macrosWanted = false; // a tablet player is open: report the macros of the rack in use after each action
 
 function init() {
   ready = true;
@@ -70,6 +71,7 @@ function refreshLater() {
 function refreshNow() {
   reportSelectedTrack();
   for (var key in targets) if (targets[key].target.track === 'selected') resolve(key);
+  if (macrosWanted) readMacros(null);
   for (var lk in liveTargets) {
     var sp = liveTargets[lk].spec;
     if (sp.track === 'selected' || sp.t === 'trackSelect' || sp.target === 'deviceParam') resolveLive(lk);
@@ -90,6 +92,11 @@ function live(json) {
     else watch(msg.targets);
   } else if (msg.cmd === 'refresh') {
     if (ready) refreshLater();
+  } else if (msg.cmd === 'macros') {
+    macrosWanted = !!msg.on;
+    if (ready && macrosWanted) refreshLater();
+  } else if (msg.cmd === 'macroSet') {
+    if (ready) macroSet(msg);
   } else if (msg.cmd === 'variation') {
     if (ready) variation(msg);
   } else if (msg.cmd === 'watchLive') {
@@ -517,6 +524,55 @@ function variation(msg) {
       break;
   }
   sendState(msg.key);
+  if (macrosWanted && t.target.track === 'selected') readMacros(rack);
+}
+
+// ---------------------------------------------------------------------------------------
+// Macros of the rack in use, for the tablet player: read once after an action (nothing observed).
+
+function selectedRackApi() {
+  var track = findTrack('selected');
+  return track ? selectedRack(track) : null;
+}
+
+function macroInfo(rack, i) {
+  var p = new LiveAPI(rack.unquotedpath + ' parameters ' + i);
+  if (!p.id || p.id == 0) return null;
+  var min = num(p.get('min'));
+  var max = num(p.get('max'));
+  var value = num(p.get('value'));
+  return { i: i, name: str(p.get('name')), value: max > min ? (value - min) / (max - min) : 0, text: str(p.call('str_for_value', value)) };
+}
+
+function readMacros(rack) {
+  rack = rack || selectedRackApi();
+  if (!rack || !rack.id || rack.id == 0) {
+    outlet(0, 'liveState', JSON.stringify({ type: 'macros', rackId: 0, name: '', items: [] }));
+    return;
+  }
+  var count = num(rack.get('visible_macro_count')) || 8;
+  var n = Math.min(16, count, rack.getcount('parameters') - 1);
+  var items = [];
+  for (var i = 1; i <= n; i++) {
+    var m = macroInfo(rack, i);
+    if (m) items.push(m);
+  }
+  outlet(0, 'liveState', JSON.stringify({ type: 'macros', rackId: Number(rack.id), name: str(rack.get('name')), items: items }));
+}
+
+// msg: { rackId, index (1-16), value 0..1 }
+function macroSet(msg) {
+  var rack = new LiveAPI('id ' + (msg.rackId | 0));
+  if (!rack.id || rack.id == 0) return;
+  var p = new LiveAPI(rack.unquotedpath + ' parameters ' + (msg.index | 0));
+  if (!p.id || p.id == 0) return;
+  var min = num(p.get('min'));
+  var max = num(p.get('max'));
+  var v = min + Math.max(0, Math.min(1, Number(msg.value) || 0)) * (max - min);
+  if (num(p.get('is_quantized')) === 1) v = Math.round(v);
+  p.set('value', v);
+  var m = macroInfo(rack, msg.index | 0);
+  if (m) outlet(0, 'liveState', JSON.stringify({ type: 'macro', rackId: Number(rack.id), item: m }));
 }
 
 function num(v) {
