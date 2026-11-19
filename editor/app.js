@@ -1706,7 +1706,54 @@ function renderSettings() {
 
 const isLocalEditor = () => ['127.0.0.1', 'localhost'].includes(location.hostname);
 
+// Header button "Tablet": on/off and ONE big QR code for the player (old tablets scan small codes badly).
+function bestUrl(urls) {
+  const list = urls || [];
+  return list.find((u) => /\/\/(192\.168|10\.|172\.)/.test(u)) || list.find((u) => !/\/\/169\.254/.test(u)) || list[0] || '';
+}
+
+function openTablet() {
+  const old = document.querySelector('.tablet-back');
+  if (old) old.remove();
+  const lan = S.lan || { enabled: false, urls: [], playerUrls: [] };
+  const close = () => overlay.remove();
+  const box = el('div', { class: 'modal', style: 'width:min(620px,94vw);text-align:center' }, el('h3', {}, 'Player na tabletu'));
+  if (!isLocalEditor()) {
+    box.append(el('p', { class: 'muted' }, 'Uključivanje je moguće samo na računalu.'));
+  } else {
+    box.append(
+      el('div', { class: 'btnrow', style: 'justify-content:center' },
+        el('button', { class: lan.enabled ? 'primary' : '', onclick: () => send({ t: 'lan', on: true }) }, 'ON'),
+        el('button', { class: lan.enabled ? '' : 'primary', onclick: () => send({ t: 'lan', on: false }) }, 'OFF'),
+      ),
+    );
+    const u = bestUrl(lan.playerUrls);
+    if (!lan.enabled) box.append(el('p', { class: 'muted' }, 'Isključeno: tablet se ne može spojiti.'));
+    else if (!u) box.append(el('p', { class: 'muted' }, 'Računalo nije spojeno ni na jednu mrežu.'));
+    else {
+      if (typeof qrcode === 'function') {
+        try {
+          const q = qrcode(0, 'L');
+          q.addData(u);
+          q.make();
+          const qr = el('div', { class: 'qr', style: 'background:#fff;padding:16px;border-radius:10px;display:inline-block;margin:12px auto' });
+          qr.innerHTML = q.createSvgTag(10, 4);
+          box.append(qr);
+        } catch (e) {
+          /* the link below still works */
+        }
+      }
+      box.append(el('p', {}, el('code', { style: 'user-select:all;word-break:break-all' }, u)));
+      box.append(el('p', { class: 'muted small' }, 'Skeniraj kamerom tableta (tablet i računalo na istoj Wi-Fi mreži). Za cijeli ekran na iPadu: Dijeli → Dodaj na početni zaslon, pa otvori ikonu.'));
+    }
+  }
+  box.append(el('div', { class: 'btnrow', style: 'justify-content:center' }, el('button', { onclick: close }, 'Zatvori')));
+  const overlay = el('div', { class: 'modal-back tablet-back', onclick: (e) => e.target === overlay && close() }, box);
+  document.body.append(overlay);
+}
+
 function renderLan() {
+  if (document.querySelector('.tablet-back')) openTablet(); // keep the open Tablet window up to date
   const box = $('#lanBox');
   if (!box) return;
   box.innerHTML = '';
@@ -1924,6 +1971,7 @@ function wireUi() {
   });
   $('#redoBtn').onclick = redo;
   $('#presetsBtn').onclick = () => $('#presetsMenu').classList.toggle('hidden');
+  $('#tabletBtn').onclick = () => openTablet();
   $('#settingsBtn').onclick = () => {
     $('#settings').classList.toggle('hidden');
     renderSettings();

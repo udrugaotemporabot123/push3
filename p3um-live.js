@@ -557,7 +557,33 @@ function readMacros(rack) {
     var m = macroInfo(rack, i);
     if (m) items.push(m);
   }
-  outlet(0, 'liveState', JSON.stringify({ type: 'macros', rackId: Number(rack.id), name: str(rack.get('name')), items: items }));
+  outlet(0, 'liveState', JSON.stringify({ type: 'macros', rackId: Number(rack.id), name: str(rack.get('name')), items: items, varNames: variationNames(rack) }));
+}
+
+// Variation names: not in the documented Live Object Model (Push shows them, through its own channel).
+// Look once at what this Live version offers (LiveAPI.info lists every property) and use a property with
+// "variation" and "name" in it if there is one; otherwise numbers only. The finding goes to the log once.
+var varNameProp = null; // null = not looked yet, '' = none
+function variationNames(rack) {
+  if (varNameProp === null) {
+    var info = String(rack.info || '');
+    var lines = info.split('\n');
+    var seen = [];
+    varNameProp = '';
+    for (var i = 0; i < lines.length; i++) {
+      if (!/variation/i.test(lines[i])) continue;
+      seen.push(lines[i].replace(/^\s+|\s+$/g, ''));
+      var m = /^\s*property\s+(\S*variation\S*name\S*)/i.exec(lines[i]);
+      if (m && !varNameProp) varNameProp = m[1];
+    }
+    notice('Varijacije u Liveu: ' + (seen.join(' | ') || 'ništa') + (varNameProp ? ' → imena: ' + varNameProp : ' → nema imena'));
+  }
+  if (!varNameProp) return [];
+  var raw = rack.get(varNameProp);
+  if (!Array.isArray(raw)) return [];
+  var out = [];
+  for (var k = 0; k < raw.length; k++) out.push(str(raw[k]));
+  return out;
 }
 
 // msg: { rackId, index (1-16), value 0..1 }

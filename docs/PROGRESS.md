@@ -115,6 +115,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.58.0 White/colours from the palette read from the Push (Push 3: index 3 is not white): engine colorIndex/whiteIndex, editor pcol(); rack row on top, variations rows 2-4; log line "Rack u upotrebi" (colour known or not); Lite posts only warnings/errors to the Max console and redraws the device status only on change (less work on Live's main thread)
 - [x] v0.59.0 Lite efficiency: quiet Live API bridge (no observers at all; state read after own actions, on User Mode entry and on Rackovi), clip box / Drum clips removed from Lite, watch targets sent only when changed, editor "Prati Push" off by default, [js] autowatch off; reset variation pad takes the rack colour, A1 pink, A2 orange
 - [x] v0.60.0 Rack kontrola layout (tracks row 1, racks row 2, variations rows 3-5, lower buttons free); Push3Ekran.amxd (Push 3 screen via live.push, docs/PUSH3-SCREEN.md); tablet player page (macros of the rack in use, variations store/delete/randomize, tracks, racks)
+- [x] v0.61.0 Tablet: editor button Tablet (ON/OFF, default on, one big QR), compact player (16 fixed macro slots, variation names if Live gives them, + to store/overwrite, tap feedback, fullscreen)
 
 ## Next (roadmap, highest value first)
 - [ ] Full device: load the editor web view (jweb) only when the window is opened (it runs inside Live and costs CPU even when closed).

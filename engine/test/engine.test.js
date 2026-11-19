@@ -957,7 +957,20 @@ test('player actions: variations (recall, store at the end, delete), rack by pos
   e.playerAction({ a: 'track', id: 999 }); // not a visible track: ignored
   e.playerAction({ a: 'macro', index: 1, value: 0.9 });
   assert.deepEqual(out.live.map((m) => m.action || m.fn || m.cmd), ['recall', 'store', 'delete', 'selectDeviceId', 'selectTrackId', 'macroSet']);
-  assert.equal(out.live[1].index, 5); // store appends after the last one
+  assert.equal(out.live[1].index, 127); // store always appends after the last one
   assert.equal(out.live[3].spec.id, 71);
   assert.deepEqual([out.live[5].rackId, out.live[5].index, out.live[5].value], [70, 1, 0.9]);
+});
+
+test('player overwrite: delete the old variation, store the current macros as a new one; empty slot = new', () => {
+  const { e, out, clear } = setup();
+  e.handleLiveState({ type: 'variations', key: 'selected|selected', ok: true, count: 5, selected: 1, name: 'R', id: 70 });
+  clear();
+  e.playerAction({ a: 'overwrite', index: 2 });
+  assert.deepEqual(out.live.map((m) => [m.action, m.index]), [['delete', 2], ['store', 127]]);
+  clear();
+  e.playerAction({ a: 'overwrite', index: 9 });
+  assert.deepEqual(out.live.map((m) => [m.action, m.index]), [['store', 127]]);
+  e.handleLiveState({ type: 'macros', rackId: 70, name: 'R', items: [], varNames: ['reset', 'minima ?'] });
+  assert.deepEqual(e.macros.varNames, ['reset', 'minima ?']);
 });

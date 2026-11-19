@@ -128,8 +128,14 @@ function saveAddonState(id, data) {
 const LAN_FILE = path.join(DIR, 'lan.json');
 
 function loadLan() {
-  const v = readJson(LAN_FILE);
-  return v && typeof v === 'object' ? { enabled: v.enabled === true, token: typeof v.token === 'string' && /^[\w-]{12,64}$/.test(v.token) ? v.token : null } : { enabled: false, token: null };
+  let v = null;
+  try {
+    v = readJson(LAN_FILE);
+  } catch (e) {
+    v = null; // no file yet (first run): defaults below
+  }
+  // Tablet access is on by default (the owner's wish, v0.61); the link still needs the secret token.
+  return v && typeof v === 'object' ? { enabled: v.enabled !== false, token: typeof v.token === 'string' && /^[\w-]{12,64}$/.test(v.token) ? v.token : null } : { enabled: true, token: null };
 }
 
 function saveLan(lan) {

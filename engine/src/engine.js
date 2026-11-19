@@ -1063,8 +1063,19 @@ class Engine {
       }
       case 'store':
         // Live appends a new variation at the end (it cannot overwrite one).
-        this.io.toLive({ cmd: 'variation', key, target, action: 'store', index: v && v.ok ? v.count : 0 });
+        this.io.toLive({ cmd: 'variation', key, target, action: 'store', index: 127 });
         break;
+      case 'overwrite': {
+        // Live has no "overwrite": the old one is deleted and the current macros are stored as a new one (at the end).
+        const index = Math.max(0, Math.min(127, Number(msg.index) | 0));
+        if (!v || !v.ok || index >= v.count) {
+          this.io.toLive({ cmd: 'variation', key, target, action: 'store', index: 127 });
+          break;
+        }
+        this.io.toLive({ cmd: 'variation', key, target, action: 'delete', index });
+        this.io.toLive({ cmd: 'variation', key, target, action: 'store', index: 127 });
+        break;
+      }
       case 'randomize':
         this.io.toLive({ cmd: 'variation', key, target, action: 'randomize', index: 0 });
         break;
@@ -1590,7 +1601,7 @@ class Engine {
       if (t0 !== o.track || s0 !== o.scene) this.moveBox(t0 - o.track, s0 - o.scene, req.page);
       else this.readBoxSlots(req.page);
     } else if (msg.type === 'macros' && Array.isArray(msg.items)) {
-      this.macros = { rackId: Number(msg.rackId) || 0, name: String(msg.name || ''), items: msg.items.slice(0, 16) };
+      this.macros = { rackId: Number(msg.rackId) || 0, name: String(msg.name || ''), items: msg.items.slice(0, 16), varNames: Array.isArray(msg.varNames) ? msg.varNames.slice(0, 128).map(String) : [] };
       this.emit('macros', this.macros);
     } else if (msg.type === 'macro' && msg.item && this.macros && Number(msg.rackId) === this.macros.rackId) {
       const i = this.macros.items.findIndex((x) => x.i === msg.item.i);

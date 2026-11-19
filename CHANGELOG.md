@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.61.0 – 2026-11-19
+Tablet: gumb Tablet u editoru (ON/OFF, zadano uključeno, jedan veliki QR), kompaktniji player (16 stalnih mjesta za makroe, veća slova, imena varijacija ako ih Live da, + za novu ili prepisivanje, dodir se odmah vidi, cijeli ekran).
+
 ## v0.60.0 – 2026-11-19
 Rack kontrola: gore trackovi, pa rackovi, pa 3 reda varijacija (gumbi ispod ekrana slobodni); Push3Ekran device crta na Push 3 ekran (eksperimentalno, live.push); player na tabletu s makroima i varijacijama. Stabilna bez laga ostaje v0.59.0.
 

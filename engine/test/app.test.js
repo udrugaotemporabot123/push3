@@ -68,9 +68,9 @@ test('app starts, serves the editor, accepts a config and saves it', async () =>
     const foreign = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { Origin: 'http://evil.example' } });
     await assert.rejects(new Promise((resolve, reject) => (foreign.on('open', resolve), foreign.on('error', reject))));
 
-    // LAN access is off until switched on from the computer; then it needs the token.
+    // LAN access (tablet) is on by default since v0.61 (the owner's wish), but always needs the token.
     const lanPort = port + 1;
-    await assert.rejects(get(lanPort, '/'));
+    await waitFor(() => get(lanPort, '/').then((r) => r.status === 401));
     const lanMsg = new Promise((resolve) => ws.on('message', (m) => JSON.parse(m.toString()).t === 'lan' && resolve(JSON.parse(m.toString()).lan)));
     ws.send(JSON.stringify({ t: 'lan', on: true }));
     assert.equal((await lanMsg).enabled, true);

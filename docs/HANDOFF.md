@@ -88,3 +88,15 @@ then `docs/PROGRESS.md` (full version history and findings).
 - `editor/app.js` web editor (templates `rackControl`, `drumClips`, `clipBox`; `LITE_TYPES`, `LITE_TEMPLATE_GROUPS`)
 - `tools/build_device.py` builds both .amxd files (Lite = no jweb, node + js bridge, buttons Rackovi/Drum)
 - `engine/test/*.test.js` tests; `docs/PROGRESS.md` history; user notes also in his Google Doc "DOPUNE UPUTA" (append only).
+
+## Status after his test of v0.60.0 (2026-11-19 night)
+- Push3Ekran: NOTHING on the Push screen (Live/User, Ekran on/off, Test). The device shows on the Push as a generic
+  device with its on/off parameter. Unknown whether the in-device preview showed the picture. Next: ask him (a) did
+  the preview draw, (b) which Max Live uses (Preferences), (c) try push3-max-lab's own PushVizProbe (known good on
+  Max 9.2). If PushVizProbe fails too → bundled Max lacks it (fix: Max 9.2 standalone chosen in Live) or route 2
+  (claim the screen before Live, docs/PUSH3-SCREEN.md).
+- Tablet player works ("super"). v0.61.0: header button Tablet (ON/OFF, LAN on by default, one big QR for the
+  player), compact player (small where-line, smaller tracks, 16 fixed macro slots with big labels, variation names if
+  Live exposes a property with "variation"+"name" (probed once via LiveAPI.info, logged as "Varijacije u Liveu: …"),
+  "+" in the next free slot: + then a variation = overwrite (delete + store at the end, confirm by second tap),
+  + then nothing 4 s = new), instant tap feedback, fullscreen button. Variation numbers 0-based like the Push.
