@@ -40,13 +40,22 @@ then `docs/PROGRESS.md` (full version history and findings).
 - Rebuilding the editor side panel on every Live update swallowed clicks → only refresh it throttled (v0.54.2).
 - A saved display-takeover setting froze Live at load; it is forced off at startup.
 
-## Open at the time of writing (v0.57.0 done: items 1-2 below implemented, needs his test)
-1. CPU: he still feels the whole set slow down, and he toggles User Mode on/off a lot. Plan: make Lite almost
-   observer-free — rack picker state computed in node from a rack map sent once on "Rackovi"; drum grid slot colours
-   read once (on Drum / box move) instead of 64 slot observers; only selected-track + selected-rack variation observers remain.
-2. Colours: white = selected (variation and current rack); variations take the colour of the current rack;
-   ALL blue, MIDI red, INST green, A1/A2 two different shades; empty = off. Drum grid colours fixed/read once.
-3. Bass track "00 MIDI" not found because of a space: he will rename it himself.
+## Status after his test of v0.57.0 (2026-11-19 evening)
+- Done in v0.57.0: Lite rack row and clip box have no Live observers (rack map sent once on "Rackovi", colours computed
+  in node; clip box colours read once on "Drum" / box move). Only selected-track + selected-rack variation observers remain.
+- His report on v0.57.0:
+  1. Live's CPU meter is the same with and without the device → NOT an audio-CPU problem. But Live's UI/visuals on his
+     MacBook get noticeably laggy while the device is in use (User Mode + playing). Suspects: anything on Live's/Max's
+     main thread (Max [js] LiveAPI work, Max console posts, device status text redraws) and the editor tab in Chrome
+     re-rendering on every Push input (GPU shared with Live). Ask him to test with the editor tab closed.
+  2. "Selected" shows ORANGE, must be WHITE: palette index 3 is not white on his Push 3 (our DEFAULT_PALETTE assumption
+     is wrong). Use the palette read from the Push: nearest index to the wanted RGB (engine `whiteIndex()`, editor
+     template colours picked from S.palette by RGB).
+  3. Variation pads still do not take the colour of the rack in use → add a log line with the rack in use and check
+     the id matching (variations report `id`, rack map ids, selected track id).
+  4. Layout wish: rack row FIRST (top row), then the 3 rows of variations under it.
+- Older: bass track "00 MIDI" not found because of a space → he renames it himself.
+- He works with Lite only; full device is ignored.
 
 ## Where things live
 - `engine/src/engine.js` core (pages, LEDs, live mappings, clip box: `moveBox`, `boxOrigin`, `findBoxAnchor`, rack/track buttons)
