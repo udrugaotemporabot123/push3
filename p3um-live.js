@@ -291,6 +291,11 @@ function findRack(track, spec) {
     return null;
   }
   var wanted = str0 !== 'first' ? str0.toLowerCase() : null;
+  if (wanted && rackMapReady) {
+    // By the start of the name ("00 INST" finds "00 INST keys"), from the map read on Rackovi: no scanning.
+    var hit = findDeviceByNames(track, str0);
+    if (hit && num(hit.get('can_have_chains')) === 1) return hit;
+  }
   return searchDevices(track.unquotedpath, wanted, 0);
 }
 
@@ -461,7 +466,7 @@ function searchDevices(path, wanted, depth) {
   for (i = 0; i < n; i++) {
     d = new LiveAPI(path + ' devices ' + i);
     if (num(d.get('can_have_chains')) === 1) {
-      if (!wanted || str(d.get('name')).toLowerCase() === wanted) return d;
+      if (!wanted || nameMatches(str(d.get('name')).toLowerCase(), wanted)) return d;
     }
   }
   if (!wanted || depth > 0) return null;

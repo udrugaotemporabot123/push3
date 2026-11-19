@@ -654,3 +654,23 @@ test('bridge: macros of the rack in use are read for the tablet player (after ac
   const one = states(b.out).filter((x) => x.type === 'macro').at(-1);
   assert.deepEqual([one.rackId, one.item.i, one.item.value], [live.rack.id, 1, 1]);
 });
+
+test('bridge quiet: variations of a rack by the start of its name on the selected track (INST and ALL template)', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  const rack = (name, count) => live.obj({ name, can_have_chains: 1, variation_count: count, selected_variation_index: 0 }, { chains: [] });
+  const inst = rack('00 INST keys', 24);
+  live.rack.props.name = '00 ALL keys';
+  live.rack.props.variation_count = 16;
+  live.rack.children.chains = [live.obj({ name: 'c' }, { devices: [inst] })];
+  const targets = { 'selected|00 INST': { track: 'selected', device: '00 INST' }, 'selected|00 ALL': { track: 'selected', device: '00 ALL' } };
+  b.live(JSON.stringify({ cmd: 'watch', targets, quiet: true }));
+  b.init();
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'rescanRacks' }));
+  const last = (k) => states(b.out).filter((x) => x.type === 'variations' && x.key === k).at(-1);
+  assert.deepEqual([last('selected|00 INST').name, last('selected|00 INST').count], ['00 INST keys', 24]);
+  assert.deepEqual([last('selected|00 ALL').name, last('selected|00 ALL').count], ['00 ALL keys', 16]);
+  b.live(JSON.stringify({ cmd: 'variation', key: 'selected|00 INST', target: targets['selected|00 INST'], action: 'recall', index: 20 }));
+  assert.equal(inst.props.selected_variation_index, 20);
+  assert.equal(last('selected|00 INST').selected, 20);
+});

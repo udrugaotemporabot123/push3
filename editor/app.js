@@ -1155,13 +1155,13 @@ function pcol(hex) {
   return best;
 }
 
-const LITE_TEMPLATE_GROUPS = [['Rack varijacije', ['rackControl', 'varSelected']]]; // Lite: no clip box (v0.59.0)
+const LITE_TEMPLATE_GROUPS = [['Rack varijacije', ['rackControl', 'instAll', 'varSelected']]]; // Lite: no clip box (v0.59.0)
 
 const TEMPLATE_GROUPS = [
   ['Live sampling i looper', ['samplerPads', 'sampler', 'slicer', 'looper']],
   ['Sekvenceri', ['seqDrum', 'seq8', 'seq16']],
   ['Sviranje', ['keys']],
-  ['Efekti', ['fxPerform', 'xyfx', 'device', 'variations', 'rackControl', 'varSelected']],
+  ['Efekti', ['fxPerform', 'xyfx', 'device', 'variations', 'rackControl', 'instAll', 'varSelected']],
   ['Mikser i Live', ['mixer', 'selected', 'sends', 'drumClips', 'clipBox', 'clips', 'transport']],
 ];
 
@@ -1236,6 +1236,27 @@ const TEMPLATES = {
       r.down = mv(0, 1);
       r.left = mv(-1, 0);
       r.right = mv(1, 0);
+      return r;
+    },
+  },
+  instAll: {
+    name: 'Trackovi + INST i ALL varijacije',
+    help: 'Gornji red = trackovi (kako ih Live pokazuje, boja tracka, bijelo = odabran; Page ◀ ▶ = sljedećih 8). Drugi red prazan. Treći do peti red = 24 varijacije racka 00 INST odabranog tracka (zvuk instrumenta). Šesti red prazan. Donja dva reda = 16 varijacija racka 00 ALL odabranog tracka. Bijelo = aktivna, boja = postoji, ugašeno = nema je. Rackovi se traže po početku imena (00 INST keys, 00 ALL bass…). Primijeni ga na zasebnu stranicu (+ Nova) ako želiš zadržati Rack kontrolu.',
+    apply() {
+      const r = {};
+      const white = pcol('ffffff');
+      const none = { type: 'none', label: '' };
+      const vari = (device, index, rgb) => ({ type: 'variation', target: { track: 'selected', device }, index, action: 'recall', colorOn: white, colorOff: pcol(rgb), anim: 'none', label: `${device.replace(/^00\s*/, '')} ${index}` });
+      for (let col = 0; col < 8; col++) {
+        r[`pad.7.${col}`] = { type: 'live', label: `Track ${col + 1}`, colorOn: white, colorOff: 1, live: { action: 'trackSlot', index: col + 1 } };
+        r[`pad.6.${col}`] = { ...none };
+        r[`pad.2.${col}`] = { ...none };
+      }
+      for (let i = 0; i < 24; i++) r[`pad.${5 - Math.floor(i / 8)}.${i % 8}`] = vari('00 INST', i, '00ff00');
+      for (let i = 0; i < 16; i++) r[`pad.${1 - Math.floor(i / 8)}.${i % 8}`] = vari('00 ALL', i, '0050ff');
+      for (let i = 1; i <= 8; i++) r[`lower.${i}`] = { ...none };
+      r.pageLeft = { type: 'live', label: 'Trackovi ◀', colorOn: white, colorOff: pcol('7f7f7f'), live: { action: 'trackBank', dir: -1 } };
+      r.pageRight = { type: 'live', label: 'Trackovi ▶', colorOn: white, colorOff: pcol('7f7f7f'), live: { action: 'trackBank', dir: 1 } };
       return r;
     },
   },

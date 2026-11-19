@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.62.0 – 2026-11-19
+Novi predložak: gore trackovi, pa 24 varijacije INST racka, pa 16 varijacija ALL racka odabranog tracka; upute za test Push ekrana na Macu (docs/MAC-SCREEN-TEST.md).
+
 ## v0.61.0 – 2026-11-19
 Tablet: gumb Tablet u editoru (ON/OFF, zadano uključeno, jedan veliki QR), kompaktniji player (16 stalnih mjesta za makroe, veća slova, imena varijacija ako ih Live da, + za novu ili prepisivanje, dodir se odmah vidi, cijeli ekran).
 

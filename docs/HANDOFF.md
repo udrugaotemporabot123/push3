@@ -1,102 +1,94 @@
 # Handoff: where we are (for whoever continues)
 
 Owner: SVEBOR (Croatian; answer him in Croatian, short and clear). Read `CLAUDE.md` first, then this file,
-then `docs/PROGRESS.md` (full version history and findings).
+then `docs/PROGRESS.md` (version history) and `docs/PUSH3-SCREEN.md` (Push screen research).
+Last update: 2026-11-19 night, v0.62.0.
 
 ## Repository and versions
 - GitHub: https://github.com/udrugaotemporabot123/push3 (public). Work on `main`.
 - Every finished version is a branch `release/vX.Y.Z` (tags are blocked by the git proxy). Make one with
   `tools/release.sh X.Y.Z "Croatian one-line summary"` (runs tests, bumps package.json, CHANGELOG, pushes main + branch).
-- Download link pattern for the user: `https://github.com/udrugaotemporabot123/push3/archive/refs/heads/release/vX.Y.Z.zip`
-- Tests: `npm test` (node --test; ~120 tests incl. a fake Live Object Model for the Max bridge and fuzz tests).
+- Download link for the user: `https://github.com/udrugaotemporabot123/push3/archive/refs/heads/release/vX.Y.Z.zip`
+- **Stable fallback: `stable/v0.59.0`** (he confirmed: no lag, stable, also with the editor open). If a newer version
+  misbehaves, he goes back to https://github.com/udrugaotemporabot123/push3/archive/refs/heads/stable/v0.59.0.zip
+- Tests: `npm test` (node --test, 130 tests: engine, fake Live Object Model for the Max bridge, screen script, app
+  start-up incl. the Lite entry point and the player page, fuzz). Device files are generated: `python3 tools/build_device.py`
+  (both .amxd) and `python3 tools/build_screen.py` (Push3Ekran.amxd). Never hand-edit .amxd/.maxpat.
 
-## What the user uses NOW: only the Lite device
-- `Push3UserModeLite.amxd` (built by `tools/build_device.py`, entry `p3um-lite.js` → `engine/src/app.js start({lite:true})`).
-- The full device (`Push3UserMode.amxd`, templates/add-ons/display) is NOT being looked at. Change Lite only.
-- His Mac: macOS 26, Live 12.4.16 Suite, Push 3 tethered. Big set (~77 % CPU already) → CPU is the top concern.
+## What he uses: only the Lite device (+ tablet player)
+- `Push3UserModeLite.amxd` (entry `p3um-lite.js` → `engine/src/app.js start({lite:true})`) on the Main track.
+  The full device (`Push3UserMode.amxd`) is NOT used; change Lite only, keep the full device building and tests green.
+- His Mac: macOS 26, Live 12.4.16 Suite, Push 3 tethered, MacBook. Big set (~77 % CPU). Max = the one bundled with Live
+  (unverified which exact version). Claude on his Mac: Claude desktop app with computer use + Claude in Chrome +
+  SVEBOR connector (no `claude` CLI there).
 - Install: unzip into `~/Music/Ableton/User Library/Presets/Audio Effects/Max Audio Effect/`, drop Lite on Main.
-  First run does `npm install` (only @julusian/midi + ws; usb is optional). Editor: device button "Editor" → browser 127.0.0.1:47391.
-  Settings are stored in `~/Documents/Push3UserMode/config.json` (shared by both devices).
+  First run does `npm install` (@julusian/midi + ws). Editor: device button "Editor" → browser http://127.0.0.1:47391/.
+  Settings: `~/Documents/Push3UserMode/config.json` (+ `lan.json` for tablet access).
 
-## His setup (confirmed)
+## His set (confirmed)
 - Each track: main rack whose name starts with `00 ALL`, inside it subracks `00 MIDI`, `00 INST`, `00 A1`, `00 A2`
-  (rest of the name is irrelevant). Tracks 1–2: `PRE FX A1`, a Looper device, `00 A1`, `00 A2` (not grouped).
-- Drum group track named exactly `9 - DRUM CLIPS` with 7 tracks inside; clip `first kick` must land on row 2, column 2
-  of the 8x8 grid (column 1 = the group track = launches whole rows, top row = empty slots = stop).
+  (rest of the name is free, e.g. "00 INST keys"). Tracks 1–2 also `PRE FX A1`, a Looper. Names match by START
+  (spaces ignored, next char must not be a letter/digit).
+- Track names like "1 - PERC ws", "2 - VIO + MIC L", "4 - MIC", "5 - BASS", "6 - CHORDS", "7 - LEADS", "8 - drums",
+  "9 - DRUM CL…". Variations have names on the Push screen ("0 reset", "1 minima ?", "2 arp #2"…; numbered from 0).
 
-## Lite features in use (editor → Predlošci)
-- Page 1 "Rack kontrola": top 3 pad rows = rack variations 1–24 of the selected rack (index 0 = reset),
-  4th row = rack picker by name (00 ALL / 00 MIDI / 00 INST / 00 A1 / 00 A2 / PRE FX A1 / Looper) + REFRESH,
-  buttons under the display = tracks as Live shows them (folded groups hide their tracks), Page ◀ ▶ = bank of 8.
-- Page 2 "Drum clips": 8x8 clip box (box mappings), D-pad moves it, ● = find `first kick`.
-- Device buttons "Rackovi" (rescan racks + visible tracks) and "Drum" (find drum anchor). Nothing is searched otherwise.
+## Lite as it is now (v0.62.0)
+- **Quiet bridge** (`p3um-live.js`, quiet mode): not a single Live observer. State is read only right after our own
+  actions (variation press resolves the rack at that moment; track/rack/nav presses → `refreshLater`), on entering
+  User Mode (`{cmd:'refresh'}`) and on Rackovi. This is what killed the lag; keep it. Mouse changes in Live show on the
+  Push only after the next press.
+- Device buttons: **Rackovi** (scan racks of all tracks once → rack map; visible tracks). No Drum button (clip box
+  removed from Lite in v0.59; `stripClipBox` drops such pages on load).
+- Templates (editor → Predlošci → Rack varijacije):
+  - **Rack kontrola**: row 1 (top) = tracks (`trackSlot`, Page ◀ ▶ = bank of 8), row 2 = rack picker 00 ALL /
+    MIDI / INST / A1 (pink) / A2 (orange) / PRE FX A1 / Looper + REFRESH, rows 3–5 = 24 variations of the rack in use
+    (white = active, rack colour = exists, reset same colour as the others). Lower buttons free.
+  - **Trackovi + INST i ALL varijacije** (v0.62, his wish): row 1 tracks, row 2 empty, rows 3–5 = 24 variations of
+    `00 INST` on the selected track, row 6 empty, rows 7–8 = 16 variations of `00 ALL` on the selected track.
+    Meant for its own page (he puts it on page 2). Variation targets with a name use the rack map (Rackovi) and
+    match by name start (`findRack` → `findDeviceByNames`, fallback `searchDevices` with `nameMatches`).
+- **Tablet player** (`editor/player.html` + `player.js`): editor header button **Tablet** = ON/OFF (LAN on by default,
+  token-protected) + one big QR. Shows a small "track · rack · variation" line, tracks, racks, 16 fixed macro slots of
+  the rack in use (drag up/down), variations (names if Live gives them, 0-based like the Push), "+" in the next free
+  slot (+ then a variation = overwrite = delete + store at the end, confirmed by a second tap; + then nothing 4 s =
+  new), Random, Delete (double tap), instant tap feedback, fullscreen. Macros are read (`readMacros`) only while a
+  player is connected and only after actions; `macroSet` sets by rack id. He says the tablet "works super".
+- **Push3Ekran.amxd** (`p3um-screen.js`, jit.lcd → jit.op alpha → `live.push` "jit_matrix"): **does NOT work on his
+  Mac** (nothing on the Push in Live or User Mode, Test on or off; the Push just shows it as a device with an on/off
+  parameter). Cause unknown. Next step is the Mac test in `docs/MAC-SCREEN-TEST.md` (run by Claude on his Mac).
 
 ## Hard facts learned on his hardware (do not retry)
-- Push display in User Mode is impossible: Live's helper `Live.app/Contents/Helpers/Push3.app` owns it exclusively
-  (claimInterface 0xe00002c5); killing that helper resets the whole Push. Editor/tablet preview only.
+- Our own USB screen takeover from inside Live raced Live's helper (`Live.app/Contents/Helpers/Push3.app`) and hung Live
+  (v0.49). Killing the helper resets the whole Push. (Claiming the screen BEFORE Live starts is a different, known-working
+  route: docs/PUSH3-SCREEN.md, route 2.)
 - Changing Live (set/call) or dropping/recreating observers inside a LiveAPI notification crashed Live (v0.51.0).
-  All re-resolves from notifications go through `resolveLater`/`resolveLiveLater` (Task). Keep it that way.
-- Browser `confirm/prompt` were blocked on his Mac → editor uses in-page dialogs (`dialog()`/`askConfirm()`).
-- Rebuilding the editor side panel on every Live update swallowed clicks → only refresh it throttled (v0.54.2).
-- A saved display-takeover setting froze Live at load; it is forced off at startup.
+  Everything triggered from Live goes through `Task` (`resolveLater`, `refreshLater`).
+- Live observers + editor re-rendering made Live's UI lag in his big set (v0.57/0.58). v0.59 quiet bridge fixed it.
+- Browser `confirm/prompt` are blocked on his Mac → in-page dialogs only (editor `dialog()`, player double tap).
+- Palette index 3 is not white on his Push 3 → colours always via the palette read from the Push (`colorIndex`).
+- Live's API cannot overwrite a variation in place and has no documented variation names
+  (docs.cycling74.com/apiref/lom/rackdevice). The bridge probes `LiveAPI.info` once for a property with
+  "variation"+"name" and logs "Varijacije u Liveu: …" – ask him for that line.
 
-## Status after his test of v0.57.0 (2026-11-19 evening)
-- Done in v0.57.0: Lite rack row and clip box have no Live observers (rack map sent once on "Rackovi", colours computed
-  in node; clip box colours read once on "Drum" / box move). Only selected-track + selected-rack variation observers remain.
-- His report on v0.57.0:
-  1. Live's CPU meter is the same with and without the device → NOT an audio-CPU problem. But Live's UI/visuals on his
-     MacBook get noticeably laggy while the device is in use (User Mode + playing). Suspects: anything on Live's/Max's
-     main thread (Max [js] LiveAPI work, Max console posts, device status text redraws) and the editor tab in Chrome
-     re-rendering on every Push input (GPU shared with Live). Ask him to test with the editor tab closed.
-  2. "Selected" shows ORANGE, must be WHITE: palette index 3 is not white on his Push 3 (our DEFAULT_PALETTE assumption
-     is wrong). Use the palette read from the Push: nearest index to the wanted RGB (engine `whiteIndex()`, editor
-     template colours picked from S.palette by RGB).
-  3. Variation pads still do not take the colour of the rack in use → add a log line with the rack in use and check
-     the id matching (variations report `id`, rack map ids, selected track id).
-  4. Layout wish: rack row FIRST (top row), then the 3 rows of variations under it.
-- v0.58.0 answers items 2 and 4 (palette-correct white/colours, rack row on top), adds the log line for item 3 and trims
-  Max-main-thread work for item 1. Next: his test, especially the UI lag with the editor tab closed vs open.
-- His report on v0.58.0 (2026-11-19 night): reset pad (variation 1) looked white → must be the rack colour like the
-  others; A1 = pink, A2 = orange; Live still NOTICEABLY laggy → "much more efficient", functions may be cut, Drum clips
-  can go completely.
-- v0.59.0 (Lite only): quiet bridge = not a single Live observer (no selected track/device/variation watchers); the
-  bridge reads state only right after our own actions (variation press looks up the rack in use at that moment, track /
-  rack / nav presses read once) and on entering User Mode (`refresh`). Trade-off: changes made with the MOUSE while in
-  User Mode show on the Push only after the next press. Clip box / Drum clips removed from Lite (config pages stripped
-  on load, Drum button and templates gone). Watch targets are not re-sent when unchanged. Editor "Prati Push" off by
-  default (it rebuilt the panel on every press). [js] autowatch 0. He must re-apply template "Rack kontrola" for the
-  new A1/A2 colours. Asked him to test: device on in Live Mode / User Mode with editor closed / open / variations
-  clicked with the mouse without the device, to see whether the lag is ours at all.
-- Open: PRE FX A1 is orange too (same as A2 now) – ask him for another colour.
-- **v0.59.0 confirmed by him (2026-11-19): no lag, stable, also with the editor open.** Kept as branch
-  `stable/v0.59.0` – the fallback whenever a newer version misbehaves.
-- v0.60.0: Rack kontrola layout = row 1 tracks (trackSlot), row 2 rack picker, rows 3-5 variations; lower buttons
-  free (his wish). Push screen: separate device `Push3Ekran.amxd` (`tools/build_screen.py`, `p3um-screen.js`) via
-  `live.push` jit_matrix – research and alternatives in `docs/PUSH3-SCREEN.md`; untested on his hardware (User Mode?
-  bundled Max 9.1?). Tablet player `editor/player.html` (+ LAN Player link): screen summary, tracks, racks, macros
-  of the rack in use (bridge `readMacros`/`macroSet`, read only while a player is open and only after actions),
-  variations recall/store/delete/randomize. His TouchOSC project (MIDI only, 2560x1600 Android-size tablet,
-  pages MAIN/MACROS/SETLIST/…) can stay as is; an OSC bridge is possible later.
-- Older: bass track "00 MIDI" not found because of a space → he renames it himself.
-- He works with Lite only; full device is ignored.
+## Open / next
+1. Push screen: run `docs/MAC-SCREEN-TEST.md` on his Mac (PushVizProbe from push3-max-lab on an empty set; Max version;
+   User Mode). Then fix Push3Ekran (port to their v8 + JitterMatrix way) or switch to Max 9.2 or route 2.
+2. Ask for the "Varijacije u Liveu: …" log line (are variation names readable?).
+3. PRE FX A1 is orange like A2 – ask him for a colour.
+4. Later: TouchOSC/OSC mirror (his TouchOSC project is MIDI only, 2560x1600, pages MAIN/MACROS/SETLIST/AUDIENCE/…).
 
 ## Where things live
-- `engine/src/engine.js` core (pages, LEDs, live mappings, clip box: `moveBox`, `boxOrigin`, `findBoxAnchor`, rack/track buttons)
-- `engine/src/config.js` normalisation of every mapping type; `engine/src/live.js` Live action → spec
-- `p3um-live.js` Max [js] Live API bridge (ES5 only; a test enforces it): `findDeviceByNames`, `scanTrackDevices`,
-  `rescanRacks`, `scanVisibleTracks`, `findAnchor`, variations (`resolve`, `selectedRack`)
-- `editor/app.js` web editor (templates `rackControl`, `drumClips`, `clipBox`; `LITE_TYPES`, `LITE_TEMPLATE_GROUPS`)
-- `tools/build_device.py` builds both .amxd files (Lite = no jweb, node + js bridge, buttons Rackovi/Drum)
-- `engine/test/*.test.js` tests; `docs/PROGRESS.md` history; user notes also in his Google Doc "DOPUNE UPUTA" (append only).
-
-## Status after his test of v0.60.0 (2026-11-19 night)
-- Push3Ekran: NOTHING on the Push screen (Live/User, Ekran on/off, Test). The device shows on the Push as a generic
-  device with its on/off parameter. Unknown whether the in-device preview showed the picture. Next: ask him (a) did
-  the preview draw, (b) which Max Live uses (Preferences), (c) try push3-max-lab's own PushVizProbe (known good on
-  Max 9.2). If PushVizProbe fails too → bundled Max lacks it (fix: Max 9.2 standalone chosen in Live) or route 2
-  (claim the screen before Live, docs/PUSH3-SCREEN.md).
-- Tablet player works ("super"). v0.61.0: header button Tablet (ON/OFF, LAN on by default, one big QR for the
-  player), compact player (small where-line, smaller tracks, 16 fixed macro slots with big labels, variation names if
-  Live exposes a property with "variation"+"name" (probed once via LiveAPI.info, logged as "Varijacije u Liveu: …"),
-  "+" in the next free slot: + then a variation = overwrite (delete + store at the end, confirm by second tap),
-  + then nothing 4 s = new), instant tap feedback, fullscreen button. Variation numbers 0-based like the Push.
+- `engine/src/engine.js` core: pages, LEDs, live mappings, rack/track buttons, `screenState()` (summary for the
+  screen device and player), `playerAction()`, `syncVariationTargets()` (sends watch only when changed; `quiet` in Lite).
+- `engine/src/app.js` wiring: Max outlets (`live`, `status`, `screen`), editor server, player clients (`updatePlayers`
+  → bridge `{cmd:'macros'}`), LAN.
+- `engine/src/config.js` normalisation (+ `stripClipBox`); `engine/src/live.js` Live action → spec;
+  `engine/src/server.js` HTTP/WS (LAN with token, `playerUrls`); `engine/src/store.js` files.
+- `p3um-live.js` Max [js] bridge, ES5 only (test enforces): quiet mode, `findDeviceByNames`, `scanTrackDevices`,
+  `rescanRacks`, `scanVisibleTracks`, variations (`resolve`, `selectedRack`, `variation`), `readMacros`, `macroSet`,
+  `variationNames`.
+- `p3um-screen.js` + `tools/build_screen.py`: Push3Ekran device. `tools/build_device.py`: Lite + full device
+  (Lite route has `screen` → `[s p3um_screen]`, `[r p3um_screen_req]` → `screenRequest`).
+- `editor/app.js` editor (templates `rackControl`, `instAll`, `varSelected`; `LITE_TYPES`, `LITE_TEMPLATE_GROUPS`,
+  `openTablet()`), `editor/player.*` tablet player.
+- He also keeps notes in his Google Doc "DOPUNE UPUTA" (append only).
