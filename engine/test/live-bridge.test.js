@@ -494,3 +494,25 @@ test('bridge: variations of the selected rack, also a rack inside the main rack,
   b.live(JSON.stringify({ cmd: 'variation', key: 'v', target: { track: 'selected', device: 'selected' }, action: 'recall', index: 17 }));
   assert.equal(inner.props.selected_variation_index, 17);
 });
+
+test('bridge: rack picker finds racks by name inside the main rack, selects them, and shows which one is selected', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  const rack = (name) => live.obj({ name, can_have_chains: 1, variation_count: 5, selected_variation_index: 0 }, { chains: [] });
+  const mid = rack('MID');
+  const a1 = rack('A1 FX');
+  live.rack.props.name = 'ALL';
+  live.rack.children.chains = [live.obj({ name: 'c' }, { devices: [mid, rack('INST'), a1] })];
+  const spec = (device) => ({ t: 'deviceSel', track: 'selected', device });
+  b.live(JSON.stringify({ cmd: 'watchLive', targets: { all: spec('ALL'), mid: spec('MID'), a1: spec('A1|A1 FX'), a2: spec('A2|A2 FX') } }));
+  const state = (k) => b.out.filter((x) => x[0] === 'liveState' && x[1].key === k).map((x) => x[1]).at(-1);
+  assert.equal(state('a2').ok, false); // no A2 on this track: pad stays dark
+  assert.equal(state('a1').ok, true); // "A1 FX" matched the second name
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: spec('MID'), fn: 'selectDevice' }));
+  assert.ok(live.calls.some((c) => c[1] === 'select_device'));
+  // Live then selects it (the fake does not do that by itself):
+  new live.LiveAPI('live_set tracks 1 view').set('selected_device', 'id', mid.id);
+  assert.equal(state('mid').value, 2);
+  assert.equal(state('all').value, 1);
+});

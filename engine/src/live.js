@@ -2,7 +2,7 @@
 // Live-aware mappings: controls that act on Live directly through the Live API bridge
 // (p3um-live.js) instead of sending MIDI, with real state/feedback coming back.
 
-const BUTTON_ACTIONS = ['mute', 'solo', 'arm', 'select', 'scene', 'play', 'stop', 'record', 'metronome', 'overdub', 'tap', 'undo', 'redo', 'capture', 'param', 'clip', 'clipDelete', 'stopTrack', 'trackPrev', 'trackNext', 'scenePrev', 'sceneNext', 'devicePrev', 'deviceNext'];
+const BUTTON_ACTIONS = ['mute', 'solo', 'arm', 'select', 'scene', 'play', 'stop', 'record', 'metronome', 'overdub', 'tap', 'undo', 'redo', 'capture', 'param', 'clip', 'clipDelete', 'stopTrack', 'trackPrev', 'trackNext', 'scenePrev', 'sceneNext', 'devicePrev', 'deviceNext', 'selectDevice'];
 const PARAM_MODES = ['toggle', 'momentary', 'trigger'];
 const ENCODER_TARGETS = ['volume', 'pan', 'send', 'macro', 'deviceParam', 'named', 'padParam', 'tempo'];
 
@@ -29,6 +29,9 @@ function specForButton(live) {
     case 'clip':
     case 'clipDelete':
       return { t: 'slot', track: live.track, scene: live.scene };
+    case 'selectDevice':
+      // device = one or more names separated by "|" (the first that exists on the track is used)
+      return { t: 'deviceSel', track: live.track, device: live.device };
     default:
       return null;
   }

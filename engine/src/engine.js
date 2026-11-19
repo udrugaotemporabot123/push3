@@ -1253,6 +1253,8 @@ class Engine {
       const next = !(cur && cur.value);
       this.io.toLive({ cmd: 'liveSet', key: live.liveKey(spec), spec, value: next ? 1 : 0 });
       if (cur) cur.value = next ? 1 : 0; // optimistic, corrected by the observer
+    } else if (a === 'selectDevice') {
+      this.io.toLive({ cmd: 'liveCall', spec, fn: 'selectDevice' });
     } else if (a === 'clip' || a === 'clipDelete') {
       this.io.toLive({ cmd: 'liveCall', spec, fn: a === 'clip' ? 'fireSlot' : 'deleteSlot' });
     } else if (/^(track|scene|device)(Prev|Next)$/.test(a)) {
@@ -1355,6 +1357,13 @@ class Engine {
       return led && Number.isInteger(led.color) ? { color: Math.max(0, Math.min(127, led.color)), anim: led.anim | 0 } : { color: 0, anim: 0 };
     }
     if (m.type === 'live' && m.live.action === 'clip') return this.clipLed(m, held);
+    if (m.type === 'live' && m.live.action === 'selectDevice') {
+      // Rack picker: off = not on this track, own colour = there, white = the one selected now.
+      const v = this.liveValue(m);
+      if (held) return { color: 3, anim: 0 };
+      if (!v || !v.ok) return { color: 0, anim: 0 };
+      return { color: v.value >= 2 ? m.colorOn : m.colorOff, anim: 0 };
+    }
     if (m.type === 'live') {
       const v = this.liveValue(m);
       const on = held || !!(v && v.ok && v.value >= 0.5);

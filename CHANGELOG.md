@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.53.0 – 2026-11-19
+Rack kontrola: varijacije 1–24 (reset crveni) + red za odabir racka (ALL, MID, INST, A1, A2, PRE FX, LOOPER).
+
 ## v0.52.0 – 2026-11-19
 Clip box 8×8 kao Launchpad: padovi sviraju klipove u kvadratu, strelice ga pomiču (Shift = za 8), pozicija se pamti. Radi i u Lite verziji.
 

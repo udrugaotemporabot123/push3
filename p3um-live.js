@@ -233,6 +233,37 @@ function findRack(track, spec) {
   return searchDevices(track.unquotedpath, wanted, 0);
 }
 
+// A device on the track (also inside racks, a few levels deep) by name; "A1|A1 FX" = the first of these
+// names that exists. Case and surrounding spaces do not matter.
+function findDeviceByNames(track, names) {
+  var wanted = String(names || '').split('|');
+  var all = [];
+  var queue = [track.unquotedpath];
+  for (var depth = 0; depth < 4 && queue.length; depth++) {
+    var next = [];
+    for (var q = 0; q < queue.length; q++) {
+      var parent = new LiveAPI(queue[q]);
+      var n = parent.getcount('devices');
+      for (var i = 0; i < n; i++) {
+        var path = queue[q] + ' devices ' + i;
+        var d = new LiveAPI(path);
+        all.push({ name: str(d.get('name')).toLowerCase().replace(/^\s+|\s+$/g, ''), api: d });
+        if (num(d.get('can_have_chains')) === 1) {
+          var chains = d.getcount('chains');
+          for (var c = 0; c < chains; c++) next.push(path + ' chains ' + c);
+        }
+      }
+    }
+    queue = next;
+  }
+  for (var w = 0; w < wanted.length; w++) {
+    var want = wanted[w].toLowerCase().replace(/^\s+|\s+$/g, '');
+    if (!want) continue;
+    for (var k = 0; k < all.length; k++) if (all[k].name === want) return all[k].api;
+  }
+  return null;
+}
+
 // The rack the user is looking at on that track: the selected device if it is a rack, otherwise the
 // rack it sits in (a device inside a chain: "... devices 0 chains 1 devices 2" -> "... devices 0").
 function selectedRack(track) {
@@ -362,6 +393,12 @@ function trackApi(spec) {
 function livePath(spec) {
   var tr;
   if (spec.t === 'song') return { path: 'live_set', prop: spec.prop };
+  if (spec.t === 'deviceSel') {
+    tr = trackApi(spec.track);
+    var found = tr ? findDeviceByNames(tr, spec.device) : null;
+    if (!found) return null;
+    return { path: found.unquotedpath, prop: 'name', deviceSel: true, deviceId: found.id, viewPath: tr.unquotedpath + ' view', viewProp: 'selected_device', viewKeep: true };
+  }
   if (spec.t === 'trackProp' || spec.t === 'trackSelect') {
     tr = trackApi(spec.track);
     if (!tr) return null;
@@ -490,7 +527,8 @@ function resolveLive(key) {
         first = false;
         return;
       }
-      resolveLiveLater(key);
+      if (info.viewKeep) sendLive(key); // only the "selected" state changed
+      else resolveLiveLater(key);
     }, info.viewPath);
     wd.property = info.viewProp || 'selected_device';
     lt.watchers.push(wd);
@@ -554,6 +592,11 @@ function sendLive(key) {
     else if (num(api.get('has_clip')) === 1) state = num(api.get('playing_status')) === 1 ? 2 : 1;
     var col = num(api.get('color'));
     reportLive(key, { ok: true, value: state, name: '', color: state ? [(col >> 16) & 255, (col >> 8) & 255, col & 255] : null });
+    return;
+  }
+  if (info.deviceSel) {
+    var selDev = new LiveAPI(info.viewPath + ' selected_device');
+    reportLive(key, { ok: true, value: selDev.id == info.deviceId ? 2 : 1, name: str(api.get('name')) });
     return;
   }
   if (spec.t === 'trackSelect') {
@@ -662,6 +705,13 @@ function liveCall(msg) {
   }
   if (msg.fn === 'clipToPad') {
     clipToPad(spec);
+    return;
+  }
+  if (msg.fn === 'selectDevice') {
+    var st = trackApi(spec.track);
+    var target = st ? findDeviceByNames(st, spec.device) : null;
+    if (!target) return notice('Rack "' + spec.device + '" nije na ovom tracku');
+    new LiveAPI('live_set view').call('select_device', 'id', target.id);
     return;
   }
   if (msg.fn === 'simpler') {
