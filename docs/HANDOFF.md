@@ -1,8 +1,9 @@
 # Handoff: where we are (for whoever continues)
 
 Owner: SVEBOR (Croatian; answer him in Croatian, short and clear). Read `CLAUDE.md` first, then this file,
-then `docs/PROGRESS.md` (version history) and `docs/PUSH3-SCREEN.md` (Push screen research).
-Last update: 2026-11-19 night, v0.62.0.
+then `docs/PROGRESS.md` (version history), `docs/PUSH3-SCREEN.md` (Push screen research) and
+`docs/MAC-SCREEN-RESULTS.md` (screen test on his Mac, 2026-11-19 evening: results + where everything is on his Mac).
+Last update: 2026-11-19 night, v0.62.0 + Mac screen test results (docs/MAC-SCREEN-RESULTS.md).
 
 ## Repository and versions
 - GitHub: https://github.com/udrugaotemporabot123/push3 (public). Work on `main`.
@@ -18,8 +19,10 @@ Last update: 2026-11-19 night, v0.62.0.
 ## What he uses: only the Lite device (+ tablet player)
 - `Push3UserModeLite.amxd` (entry `p3um-lite.js` → `engine/src/app.js start({lite:true})`) on the Main track.
   The full device (`Push3UserMode.amxd`) is NOT used; change Lite only, keep the full device building and tests green.
-- His Mac: macOS 26, Live 12.4.16 Suite, Push 3 tethered, MacBook. Big set (~77 % CPU). Max = the one bundled with Live
-  (unverified which exact version). Claude on his Mac: Claude desktop app with computer use + Claude in Chrome +
+- His Mac: macOS 26, Live 12.4.16 Suite, Push 3 tethered, MacBook. Big set (~77 % CPU). Max: bundled 9.1.5; since
+  2026-11-19 also standalone Max 9.2.1 in /Applications/Max.app, selected in Live (needed for the Push screen).
+  **His User Library is `~/Desktop/MAIN - STUDIO/USER LIBRARY`** (not ~/Music/Ableton/User Library).
+  No Xcode tools on his Mac: `python3`/`git`/`gh` pop up an installer dialog, do not call them (details in MAC-SCREEN-RESULTS.md). Claude on his Mac: Claude desktop app with computer use + Claude in Chrome +
   SVEBOR connector (no `claude` CLI there).
 - Install: unzip into `~/Music/Ableton/User Library/Presets/Audio Effects/Max Audio Effect/`, drop Lite on Main.
   First run does `npm install` (@julusian/midi + ws). Editor: device button "Editor" → browser http://127.0.0.1:47391/.
@@ -53,9 +56,11 @@ Last update: 2026-11-19 night, v0.62.0.
   slot (+ then a variation = overwrite = delete + store at the end, confirmed by a second tap; + then nothing 4 s =
   new), Random, Delete (double tap), instant tap feedback, fullscreen. Macros are read (`readMacros`) only while a
   player is connected and only after actions; `macroSet` sets by rack id. He says the tablet "works super".
-- **Push3Ekran.amxd** (`p3um-screen.js`, jit.lcd → jit.op alpha → `live.push` "jit_matrix"): **does NOT work on his
-  Mac** (nothing on the Push in Live or User Mode, Test on or off; the Push just shows it as a device with an on/off
-  parameter). Cause unknown. Next step is the Mac test in `docs/MAC-SCREEN-TEST.md` (run by Claude on his Mac).
+- **Push3Ekran.amxd** (`p3um-screen.js`, jit.lcd → jit.op alpha → `live.push` "jit_matrix"): **does NOT work with the
+  Max bundled in Live (9.1.5)**: `live.push` there does not know `jit_matrix`, and Max even refuses the
+  jit.op/jit.matrix → live.push patch cords at load ("error connecting outlet 1 to live.push inlet 1"), so no frame
+  is sent. With standalone **Max 9.2.1** selected in Live, push3-max-lab's PushVizProbe **shows red on the Push**
+  (Live Mode). Push3Ekran on 9.2.1 and User Mode are not tested yet. Full results: `docs/MAC-SCREEN-RESULTS.md`.
 
 ## Hard facts learned on his hardware (do not retry)
 - Our own USB screen takeover from inside Live raced Live's helper (`Live.app/Contents/Helpers/Push3.app`) and hung Live
@@ -71,8 +76,11 @@ Last update: 2026-11-19 night, v0.62.0.
   "variation"+"name" and logs "Varijacije u Liveu: …" – ask him for that line.
 
 ## Open / next
-1. Push screen: run `docs/MAC-SCREEN-TEST.md` on his Mac (PushVizProbe from push3-max-lab on an empty set; Max version;
-   User Mode). Then fix Push3Ekran (port to their v8 + JitterMatrix way) or switch to Max 9.2 or route 2.
+1. Push screen (see `docs/MAC-SCREEN-RESULTS.md`): bundled Max 9.1.5 cannot draw; Max 9.2.1 can (PushVizProbe red,
+   Live Mode). Next: ask him to test PushVizProbe in **User Mode** + Corners/Counter, and Push3Ekran on 9.2.1, and to
+   check Max → About Max = 9.2.1. Then port Push3Ekran to the v8 outlet + JitterMatrix way (no jit.op cord into
+   live.push) and document "standalone Max 9.2+ selected in Live" as a requirement. If User Mode hides the picture:
+   route 2 or Live Mode with our device selected.
 2. Ask for the "Varijacije u Liveu: …" log line (are variation names readable?).
 3. PRE FX A1 is orange like A2 – ask him for a colour.
 4. Later: TouchOSC/OSC mirror (his TouchOSC project is MIDI only, 2560x1600, pages MAIN/MACROS/SETLIST/AUDIENCE/…).
