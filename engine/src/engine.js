@@ -1078,8 +1078,8 @@ class Engine {
         }
       }
     }
-    // Always observe transport for the display (tempo, playing).
-    for (const spec of [{ t: 'song', prop: 'is_playing' }, { t: 'param', target: 'tempo' }]) liveTargets[live.liveKey(spec)] = spec;
+    // Observe transport for the display (tempo, playing); the Lite device has no display, so it skips it.
+    if (!this.io.lite) for (const spec of [{ t: 'song', prop: 'is_playing' }, { t: 'param', target: 'tempo' }]) liveTargets[live.liveKey(spec)] = spec;
     this.variationTargets = targets;
     this.liveTargets = liveTargets;
     this.io.toLive({ cmd: 'watch', targets });

@@ -467,3 +467,27 @@ test('bridge: ping answers bridgeReady, and starts the bridge if live.thisdevice
   b.live(JSON.stringify({ cmd: 'ping' }));
   assert.ok(b.out.some((x) => x[0] === 'bridgeReady'));
 });
+
+test('bridge: variations of the selected rack, also a rack inside the main rack, follow the selection', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  // Violin: Main Rack -> chain -> [Inner Rack, EQ]
+  const inner = live.obj({ name: 'Inner Rack', can_have_chains: 1, variation_count: 20, selected_variation_index: 0 }, { chains: [] });
+  const eq = live.obj({ name: 'EQ Eight', can_have_chains: 0 }, {});
+  const main = live.rack; // "FX Rack" on Violin, 3 variations
+  main.children.chains = [live.obj({ name: 'Chain' }, { devices: [inner, eq] })];
+  const view = new live.LiveAPI('live_set tracks 1 view');
+  view.set('selected_device', 'id', main.id);
+  const last = () => b.out.filter((x) => x[0] === 'liveState' && x[1].type === 'variations').map((x) => x[1]).at(-1);
+  b.live(JSON.stringify({ cmd: 'watch', targets: { v: { track: 'selected', device: 'selected' } } }));
+  assert.deepEqual([last().name, last().count], ['FX Rack', 3]);
+  view.set('selected_device', 'id', inner.id); // click the rack inside the main rack
+  assert.deepEqual([last().name, last().count], ['Inner Rack', 20]);
+  view.set('selected_device', 'id', eq.id); // a plain device inside: its rack (the main rack)
+  assert.equal(last().name, 'FX Rack');
+  // Recall variation 18 of the inner rack.
+  view.set('selected_device', 'id', inner.id);
+  b.live(JSON.stringify({ cmd: 'variation', key: 'v', target: { track: 'selected', device: 'selected' }, action: 'recall', index: 17 }));
+  assert.equal(inner.props.selected_variation_index, 17);
+});

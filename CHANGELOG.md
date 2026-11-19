@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.51.0 – 2026-11-19
+Lite: rack varijacije 9–24 odabranog racka (i racka u racku) na gornja dva reda padova.
+
 ## v0.50.0 – 2026-10-22
 Lite verzija (Push3UserModeLite.amxd): samo MIDI kontroler, minimalan CPU u Liveu.
 

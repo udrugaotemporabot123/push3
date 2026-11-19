@@ -119,6 +119,99 @@
    },
    {
     "box": {
+     "id": "js",
+     "maxclass": "newobj",
+     "numinlets": 1,
+     "numoutlets": 1,
+     "patching_rect": [
+      200,
+      320,
+      140,
+      22
+     ],
+     "outlettype": [
+      ""
+     ],
+     "text": "js p3um-live.js"
+    }
+   },
+   {
+    "box": {
+     "id": "thisdev",
+     "maxclass": "newobj",
+     "numinlets": 1,
+     "numoutlets": 3,
+     "patching_rect": [
+      400,
+      20,
+      100,
+      22
+     ],
+     "outlettype": [
+      "bang",
+      "int",
+      "int"
+     ],
+     "text": "live.thisdevice"
+    }
+   },
+   {
+    "box": {
+     "id": "trig",
+     "maxclass": "newobj",
+     "numinlets": 1,
+     "numoutlets": 2,
+     "patching_rect": [
+      400,
+      60,
+      50,
+      22
+     ],
+     "outlettype": [
+      "bang",
+      "bang"
+     ],
+     "text": "t b b"
+    }
+   },
+   {
+    "box": {
+     "id": "msg_init",
+     "maxclass": "message",
+     "numinlets": 2,
+     "numoutlets": 1,
+     "patching_rect": [
+      460,
+      100,
+      40,
+      22
+     ],
+     "outlettype": [
+      ""
+     ],
+     "text": "init"
+    }
+   },
+   {
+    "box": {
+     "id": "msg_ready",
+     "maxclass": "message",
+     "numinlets": 2,
+     "numoutlets": 1,
+     "patching_rect": [
+      400,
+      100,
+      80,
+      22
+     ],
+     "outlettype": [
+      ""
+     ],
+     "text": "bridgeReady"
+    }
+   },
+   {
+    "box": {
      "id": "prep_set",
      "maxclass": "newobj",
      "numinlets": 1,
@@ -585,6 +678,102 @@
     "patchline": {
      "source": [
       "route",
+      0
+     ],
+     "destination": [
+      "prep_live",
+      0
+     ]
+    }
+   },
+   {
+    "patchline": {
+     "source": [
+      "prep_live",
+      0
+     ],
+     "destination": [
+      "js",
+      0
+     ]
+    }
+   },
+   {
+    "patchline": {
+     "source": [
+      "js",
+      0
+     ],
+     "destination": [
+      "node",
+      0
+     ]
+    }
+   },
+   {
+    "patchline": {
+     "source": [
+      "thisdev",
+      0
+     ],
+     "destination": [
+      "trig",
+      0
+     ]
+    }
+   },
+   {
+    "patchline": {
+     "source": [
+      "trig",
+      1
+     ],
+     "destination": [
+      "msg_init",
+      0
+     ]
+    }
+   },
+   {
+    "patchline": {
+     "source": [
+      "msg_init",
+      0
+     ],
+     "destination": [
+      "js",
+      0
+     ]
+    }
+   },
+   {
+    "patchline": {
+     "source": [
+      "trig",
+      0
+     ],
+     "destination": [
+      "msg_ready",
+      0
+     ]
+    }
+   },
+   {
+    "patchline": {
+     "source": [
+      "msg_ready",
+      0
+     ],
+     "destination": [
+      "node",
+      0
+     ]
+    }
+   },
+   {
+    "patchline": {
+     "source": [
+      "route",
       1
      ],
      "destination": [
@@ -801,6 +990,11 @@
   "dependency_cache": [
    {
     "name": "p3um-lite.js",
+    "type": "TEXT",
+    "implicit": 1
+   },
+   {
+    "name": "p3um-live.js",
     "type": "TEXT",
     "implicit": 1
    }

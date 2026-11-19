@@ -108,6 +108,19 @@ function resolve(key) {
   var track = findTrack(t.target.track);
   var rack = track ? findRack(track, t.target.device) : null;
   t.rackId = rack ? rack.id : 0;
+  if (track && t.target.device === 'selected') {
+    // Follow the device selection on that track (clicking another rack, or a device inside one).
+    var firstSel = true;
+    var sw = new LiveAPI(function () {
+      if (firstSel) {
+        firstSel = false;
+        return;
+      }
+      resolve(key);
+    }, track.unquotedpath + ' view');
+    sw.property = 'selected_device';
+    t.watchers.push(sw);
+  }
   if (!rack) {
     report(key, false, 0, -1, '');
     // Watch the track's device list so the rack is found as soon as it is added.
@@ -177,6 +190,7 @@ function findTrack(spec) {
 // First rack on the track (or the rack with that name), searching one level into chains.
 function findRack(track, spec) {
   var str0 = spec ? String(spec) : 'first';
+  if (str0 === 'selected') return selectedRack(track);
   // "#2" = the second rack on the track (top level), counting only racks.
   var m = /^#([0-9]+)$/.exec(str0);
   if (m) {
@@ -191,6 +205,21 @@ function findRack(track, spec) {
   }
   var wanted = str0 !== 'first' ? str0.toLowerCase() : null;
   return searchDevices(track.unquotedpath, wanted, 0);
+}
+
+// The rack the user is looking at on that track: the selected device if it is a rack, otherwise the
+// rack it sits in (a device inside a chain: "... devices 0 chains 1 devices 2" -> "... devices 0").
+function selectedRack(track) {
+  var dev = new LiveAPI(track.unquotedpath + ' view selected_device');
+  if (!dev.id || dev.id == 0) return null;
+  var path = dev.unquotedpath;
+  for (var guard = 0; guard < 8 && path; guard++) {
+    var d = new LiveAPI(path);
+    if (d.id && d.id != 0 && num(d.get('can_have_chains')) === 1) return d;
+    var m = /^(.*) chains [0-9]+ devices [0-9]+$/.exec(path);
+    path = m ? m[1] : null;
+  }
+  return null;
 }
 
 function searchDevices(path, wanted, depth) {

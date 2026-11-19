@@ -862,7 +862,7 @@ function renderVariationFields(box, maps) {
   const setTrack = (v) => setAll((m) => (m.target = { ...m.target, track: v.trim() || 'selected' }));
   const setDevice = (v) => setAll((m) => (m.target = { ...m.target, device: v.trim() || 'first' }));
   box.append(field('Track', textEl(tr, setTrack, 'selected'), 'selected = trenutno odabrani track, ili točno ime tracka'));
-  box.append(field('Rack', textEl(dv, setDevice, 'first'), 'first = prvi rack, #2 = drugi rack na tracku, ili točno ime racka'));
+  box.append(field('Rack', textEl(dv, setDevice, 'first'), 'selected = rack koji si kliknuo u Liveu (i rack unutar racka), first = prvi rack, #2 = drugi rack na tracku, ili točno ime racka'));
   box.append(field('Varijacija', numEl(common(maps, (m) => m.index + 1), 1, 128, (v) => setAll('index', v - 1))));
   box.append(field('Radnja', selectEl(T.varActions, common(maps, 'action'), (v) => setAll('action', v))));
   const ls = S.snapshot.liveState && S.snapshot.liveState.variations;
@@ -1033,8 +1033,8 @@ function renderPageInspector(box) {
       S.config.pages.length > 1 ? el('button', { class: 'danger', onclick: () => deletePage(i) }, 'Obriši stranicu') : null,
     ),
   );
-  if (!S.lite) box.append(el('div', { class: 'sep', id: 'templatesAnchor' }), el('b', {}, 'Predlošci'), el('p', { class: 'muted small' }, `Predložak prepiše kontrole stranice "${p.name}". Za novi set kontrola najprije dodaj stranicu (+ Nova).`));
-  for (const [cat, keys] of S.lite ? [] : TEMPLATE_GROUPS) {
+  box.append(el('div', { class: 'sep', id: 'templatesAnchor' }), el('b', {}, 'Predlošci'), el('p', { class: 'muted small' }, `Predložak prepiše kontrole stranice "${p.name}". Za novi set kontrola najprije dodaj stranicu (+ Nova).`));
+  for (const [cat, keys] of S.lite ? LITE_TEMPLATE_GROUPS : TEMPLATE_GROUPS) {
     const d = el('details', { class: 'tgroup' }, el('summary', {}, cat));
     for (const key of keys) {
       const t = TEMPLATES[key];
@@ -1086,19 +1086,33 @@ function simplerButtons(target) {
 }
 
 // Lite device: plain MIDI only.
-const LITE_TYPES = { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', transpose: 'Transpozicija padova (Oct −/+)', panic: 'Panic (all notes off)' };
+const LITE_TYPES = { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', variation: 'Rack varijacija', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', transpose: 'Transpozicija padova (Oct −/+)', panic: 'Panic (all notes off)' };
+
+const LITE_TEMPLATE_GROUPS = [['Rack varijacije', ['varSelected']]];
 
 const TEMPLATE_GROUPS = [
   ['Live sampling i looper', ['samplerPads', 'sampler', 'slicer', 'looper']],
   ['Sekvenceri', ['seqDrum', 'seq8', 'seq16']],
   ['Sviranje', ['keys']],
-  ['Efekti', ['fxPerform', 'xyfx', 'device', 'variations']],
+  ['Efekti', ['fxPerform', 'xyfx', 'device', 'variations', 'varSelected']],
   ['Mikser i Live', ['mixer', 'selected', 'sends', 'clips', 'transport']],
 ];
 
 const SEQ_SLOTS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 const TEMPLATES = {
+  varSelected: {
+    name: 'Varijacije 9–24 odabranog racka (gornja 2 reda)',
+    help: 'Gornji red padova = varijacije 9–16, drugi red = 17–24 racka koji je odabran u Liveu (klikni glavni rack ili rack unutar njega, na bilo kojem tracku). Prvih 8 imaš na Pushu u Live modu. Zeleno = aktivna, plavo = postoji, ugašeno = ne postoji. Ostali padovi ostaju kakvi jesu.',
+    apply() {
+      const r = {};
+      for (let col = 0; col < 8; col++) {
+        r[`pad.7.${col}`] = { type: 'variation', target: { track: 'selected', device: 'selected' }, index: 8 + col, action: 'recall', colorOn: 21, colorOff: 45, anim: 'none', label: `Var ${9 + col}` };
+        r[`pad.6.${col}`] = { type: 'variation', target: { track: 'selected', device: 'selected' }, index: 16 + col, action: 'recall', colorOn: 21, colorOff: 45, anim: 'none', label: `Var ${17 + col}` };
+      }
+      return r;
+    },
+  },
   mixer: {
     name: 'Mixer (8 trackova)',
     help: 'Enkoderi = volumen trackova 1–8, donji red = mute (boja tracka), padovi gore: select / solo / arm, scene gumbi = scene 1–8.',
@@ -1629,7 +1643,7 @@ function renderHealth() {
   if (!box || !S.health) return;
   const h = S.health;
   const ago = (t) => (t ? (h.now - t) / 1000 : Infinity);
-  const rows = (S.lite ? (r) => r.filter((x) => !/Live API|MIDI clock/.test(x[1])) : (r) => r)([
+  const rows = (S.lite ? (r) => r.filter((x) => !/MIDI clock/.test(x[1])) : (r) => r)([
     [h.pushConnected, 'Push 3 User Port pronađen', 'Spoji Push 3 USB-om; u Liveu za Push 3 User Port isključi Track i Remote.'],
     [h.virtualPort, 'Virtualni port Push3 UM postoji', 'Restartaj device (gumb Restart).'],
     [h.inMax && h.bridgeReady, 'Live API most radi (varijacije, Live funkcije)', h.inMax ? 'Pričekaj par sekundi ili restartaj device.' : 'Radi samo unutar Max for Live devicea.'],

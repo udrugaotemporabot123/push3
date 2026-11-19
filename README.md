@@ -34,6 +34,8 @@ U istoj mapi je i **`Push3UserModeLite.amxd`**: samo MIDI kontroler.
 - **Nema:** predloške, add-one (sampler, looper, sekvencer, XY), Live funkcije bez mapiranja, pregled ekrana, animacije.
 - **Štedi CPU unutar Livea:** nema Live API mosta (ništa ne prati Live), nema ugrađenog web prozora u deviceu (*Editor* otvara običan preglednik), nema crtanja ekrana ni sata za animacije.
 
+**Rack varijacije u Lite verziji (v0.51):** *Predlošci → Rack varijacije → Varijacije 9–24 odabranog racka*. Gornji red padova = varijacije 9–16, drugi red = 17–24 **racka koji je odabran u Liveu**: klikni glavni rack na tracku ili rack unutar njega, i padovi odmah prate taj rack (klikneš li običan device u racku, uzima se rack u kojem je). Prvih 8 varijacija i dalje imaš na Pushu u Live modu. Lite za to koristi minimalan Live API most: prati samo odabrani track, odabrani device i varijacije tog racka.
+
 Koristi **ili** Lite **ili** puni device, ne oba odjednom. Postavke i mapiranja su zajednički.
 
 ## Instalacija (jednom)

@@ -58,23 +58,21 @@ def build(lite):
     box("route", "newobj", [200, 240, 330, 22], "route live status needsInstall editorUrl", 1, 5)
     box("prep_live", "newobj", [200, 280, 80, 22], "prepend live", 1, 1)
     line("node", 0, "route", 0)
-    if not lite:
-        box("js", "newobj", [200, 320, 140, 22], "js p3um-live.js", 1, 1)
-        line("route", 0, "prep_live", 0)
-        line("prep_live", 0, "js", 0)
-        line("js", 0, "node", 0)
+    box("js", "newobj", [200, 320, 140, 22], "js p3um-live.js", 1, 1)
+    line("route", 0, "prep_live", 0)
+    line("prep_live", 0, "js", 0)
+    line("js", 0, "node", 0)
 
-    if not lite:
-        # Live API is only usable after live.thisdevice has fired.
-        box("thisdev", "newobj", [400, 20, 100, 22], "live.thisdevice", 1, 3, ["bang", "int", "int"])
-        box("trig", "newobj", [400, 60, 50, 22], "t b b", 1, 2, ["bang", "bang"])
-        box("msg_init", "message", [460, 100, 40, 22], "init", 2, 1)
-        box("msg_ready", "message", [400, 100, 80, 22], "bridgeReady", 2, 1)
-        line("thisdev", 0, "trig", 0)
-        line("trig", 1, "msg_init", 0)
-        line("msg_init", 0, "js", 0)
-        line("trig", 0, "msg_ready", 0)
-        line("msg_ready", 0, "node", 0)
+    # Live API is only usable after live.thisdevice has fired.
+    box("thisdev", "newobj", [400, 20, 100, 22], "live.thisdevice", 1, 3, ["bang", "int", "int"])
+    box("trig", "newobj", [400, 60, 50, 22], "t b b", 1, 2, ["bang", "bang"])
+    box("msg_init", "message", [460, 100, 40, 22], "init", 2, 1)
+    box("msg_ready", "message", [400, 100, 80, 22], "bridgeReady", 2, 1)
+    line("thisdev", 0, "trig", 0)
+    line("trig", 1, "msg_init", 0)
+    line("msg_init", 0, "js", 0)
+    line("trig", 0, "msg_ready", 0)
+    line("msg_ready", 0, "node", 0)
 
     # Status text in the device UI.
     box("prep_set", "newobj", [290, 280, 80, 22], "prepend set", 1, 1)
@@ -165,7 +163,8 @@ def build(lite):
             "lines": lines,
             "dependency_cache": [
                 {"name": MAIN, "type": "TEXT", "implicit": 1},
-            ] + ([] if lite else [{"name": "p3um-live.js", "type": "TEXT", "implicit": 1}]),
+                {"name": "p3um-live.js", "type": "TEXT", "implicit": 1},
+        ],
             "autosave": 0,
         }
     }

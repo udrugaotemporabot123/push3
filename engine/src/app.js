@@ -11,7 +11,7 @@ const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 const { loadAddons } = require('../../addons');
 
-const VERSION = '0.50.0';
+const VERSION = '0.51.0';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -25,8 +25,8 @@ function tryRequire(name) {
 
 const max = tryRequire('max-api');
 
-// opts.lite: plain MIDI controller only (no Live API bridge, add-ons, display rendering or clock),
-// for heavy Live sets where every bit of CPU counts.
+// opts.lite: plain MIDI controller for heavy Live sets (no add-ons, display rendering or clock); the Live
+// API bridge only watches what is mapped (rack variations), never the transport.
 function start(opts = {}) {
   const lite = !!opts.lite;
   let server = null;
@@ -59,8 +59,9 @@ function start(opts = {}) {
       monitor('host-out', bytes);
     },
     toLive(obj) {
-      if (max && !lite) max.outlet('live', JSON.stringify(obj)).catch(() => {});
+      if (max) max.outlet('live', JSON.stringify(obj)).catch(() => {});
     },
+    lite,
     log,
     now: () => Date.now(),
     setTimer: (fn, ms) => setTimeout(fn, ms),
@@ -315,7 +316,7 @@ function start(opts = {}) {
   }
 
   // ---- Max handlers ------------------------------------------------------------------
-  if (max && !lite) {
+  if (max) {
     max.addHandler('liveState', (json) => {
       try {
         engine.handleLiveState(JSON.parse(json));
