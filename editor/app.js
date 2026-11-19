@@ -506,8 +506,10 @@ function selectPage(i) {
 }
 
 function renamePage(i) {
-  const name = prompt('Ime stranice', S.config.pages[i].name);
-  if (name) commit((c) => (c.pages[i].name = name.slice(0, 24)));
+  dialog('Ime stranice', '', [{ key: 'name', label: 'Ime', value: S.config.pages[i].name }], 'Spremi', (v) => {
+    const name = v.name.trim();
+    if (name) commit((c) => (c.pages[i].name = name.slice(0, 24)));
+  });
 }
 
 // ---------------------------------------------------------------------------------------
@@ -913,10 +915,13 @@ function readingOrder(a, b) {
 }
 
 function assignVariations(pads) {
-  const track = prompt('Track (selected = odabrani track, ili ime tracka)', 'selected');
-  if (track === null) return;
-  const device = prompt('Rack (first = prvi rack, ili ime racka)', 'first');
-  if (device === null) return;
+  dialog('Varijacije na padove', '', [
+    { key: 'track', label: 'Track (selected = odabrani track, ili ime tracka)', value: 'selected' },
+    { key: 'device', label: 'Rack (selected, first, ili ime racka)', value: 'first' },
+  ], 'Primijeni', ({ track, device }) => assignVariationsTo(pads, track, device));
+}
+
+function assignVariationsTo(pads, track, device) {
   const ordered = pads.slice().sort(readingOrder);
   commit((cfg) => {
     const page = cfg.pages[S.snapshot.page];
@@ -931,7 +936,10 @@ function dimColor(i) {
 }
 
 function numberSequence() {
-  const start = Number(prompt('Početni broj', '36'));
+  dialog('Brojevi redom', '', [{ key: 'start', label: 'Početni broj', value: '36' }], 'Primijeni', (v) => numberSequenceFrom(Number(v.start)));
+}
+
+function numberSequenceFrom(start) {
   if (!Number.isFinite(start)) return;
   const ctls = selectedControls().sort((a, b) => (a.kind === 'pad' && b.kind === 'pad' ? a.row - b.row || a.col - b.col : S.controls.indexOf(a) - S.controls.indexOf(b)));
   commit((cfg) => {
@@ -1517,18 +1525,51 @@ const TEMPLATES = {
   },
 };
 
+// In-page dialogs: browser confirm()/prompt() can be silently blocked (some browsers and web views
+// inside Live), which made buttons look dead. fields: [{ key, label, value }]; onOk(values).
+function dialog(title, text, fields, okLabel, onOk) {
+  const inputs = {};
+  const close = () => overlay.remove();
+  const ok = () => {
+    const values = {};
+    for (const f of fields) values[f.key] = inputs[f.key].value;
+    close();
+    onOk(values);
+  };
+  const form = el(
+    'div',
+    { class: 'modal' },
+    el('h3', {}, title),
+    text ? el('p', { class: 'muted small' }, text) : null,
+    ...fields.map((f) => {
+      inputs[f.key] = el('input', { type: 'text', value: f.value === undefined ? '' : String(f.value) });
+      return field(f.label, inputs[f.key]);
+    }),
+    el('div', { class: 'btnrow' }, el('button', { class: 'primary', onclick: ok }, okLabel || 'U redu'), el('button', { onclick: close }, 'Odustani')),
+  );
+  const overlay = el('div', { class: 'modal-back', onclick: (e) => e.target === overlay && close() }, form);
+  form.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') ok();
+    if (e.key === 'Escape') close();
+  });
+  document.body.append(overlay);
+  const first = form.querySelector('input') || form.querySelector('button.primary');
+  if (first) first.focus();
+}
+
+const askConfirm = (text, onYes, okLabel = 'Da') => dialog('Potvrdi', text, [], okLabel, onYes);
+
 function applyTemplate(key) {
   const t = TEMPLATES[key];
-  if (!confirm(`Primijeniti predložak "${t.name}" na stranicu "${curPage().name}"? Prepisat će te kontrole.`)) return;
-  const answers = {};
-  for (const q of t.ask || []) {
-    const v = prompt(q.label, q.default);
-    if (v === null) return;
-    answers[q.key] = v.trim() || q.default;
-  }
-  commit((cfg) => {
-    const page = cfg.pages[S.snapshot.page];
-    for (const [id, m] of Object.entries(t.apply(answers))) page.controls[id] = { ...page.controls[id], ...m, shift: m.shift || (page.controls[id] && page.controls[id].shift) };
+  const fields = (t.ask || []).map((q) => ({ key: q.key, label: q.label, value: q.default }));
+  dialog(t.name, `Prepisat će kontrole stranice "${curPage().name}". ${t.help || ''}`, fields, 'Primijeni', (v) => {
+    const answers = {};
+    for (const q of t.ask || []) answers[q.key] = String(v[q.key] || '').trim() || q.default;
+    commit((cfg) => {
+      const page = cfg.pages[S.snapshot.page];
+      for (const [id, m] of Object.entries(t.apply(answers))) page.controls[id] = { ...page.controls[id], ...m, shift: m.shift || (page.controls[id] && page.controls[id].shift) };
+    });
+    addEngineLog({ level: 'info', msg: `Predložak "${t.name}" primijenjen na stranicu "${curPage().name}"` });
   });
 }
 
@@ -1550,12 +1591,13 @@ function movePage(i, d) {
 }
 
 function deletePage(i) {
-  if (!confirm(`Obrisati stranicu "${S.config.pages[i].name}"?`)) return;
-  commit((c) => {
-    freezeChannels(c);
-    c.pages.splice(i, 1);
-  });
-  selectPage(Math.max(0, i - 1));
+  askConfirm(`Obrisati stranicu "${S.config.pages[i].name}"?`, () => {
+    commit((c) => {
+      freezeChannels(c);
+      c.pages.splice(i, 1);
+    });
+    selectPage(Math.max(0, i - 1));
+  }, 'Obriši');
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1585,7 +1627,7 @@ function renderSettings() {
     ...((S.meta && S.meta.addons) || []).map((a) =>
       field(a.name, selectEl({ true: 'Uključen', false: 'Isključen' }, String(!(s.addons && s.addons[a.id] === false)), (v) => commit((c) => (c.settings.addons = { ...(c.settings.addons || {}), [a.id]: v === 'true' }))), a.description),
     ),
-    el('div', { class: 'btnrow' }, el('button', { class: 'danger', onclick: () => confirm('Vratiti sve na tvorničke postavke?') && send({ t: 'resetConfig' }) }, 'Vrati na zadano')),
+    el('div', { class: 'btnrow' }, el('button', { class: 'danger', onclick: () => askConfirm('Vratiti sve stranice na tvorničke postavke?', () => send({ t: 'resetConfig' }), 'Vrati') }, 'Vrati na zadano')),
     el('p', { class: 'muted small' }, `Konfiguracija: ${S.meta ? S.meta.configFile : ''}`),
   );
   const vp = S.meta ? S.meta.virtualPort : 'Push3 UM';
@@ -1646,7 +1688,7 @@ function renderLan() {
         }
       }
     }
-    box.append(el('div', { class: 'btnrow' }, el('button', { onclick: () => confirm('Novi ključ: stari link prestaje raditi. Nastaviti?') && send({ t: 'lan', renew: true }) }, 'Novi ključ')));
+    box.append(el('div', { class: 'btnrow' }, el('button', { onclick: () => askConfirm('Novi ključ: stari link prestaje raditi. Nastaviti?', () => send({ t: 'lan', renew: true })) }, 'Novi ključ')));
   }
 }
 
@@ -1666,14 +1708,15 @@ function importConfig() {
     try {
       const cfg = JSON.parse(await f.text());
       if (!cfg || !Array.isArray(cfg.pages)) throw new Error('nije Push3 User Mode konfiguracija');
-      if (!confirm(`Učitati "${f.name}"? Trenutne postavke će biti zamijenjene (možeš poništiti s Ctrl+Z).`)) return;
-      commit((c) => {
-        c.version = cfg.version;
-        c.settings = cfg.settings;
-        c.pages = cfg.pages;
-      });
+      askConfirm(`Učitati "${f.name}"? Trenutne postavke će biti zamijenjene (možeš poništiti s Ctrl+Z).`, () =>
+        commit((c) => {
+          c.version = cfg.version;
+          c.settings = cfg.settings;
+          c.pages = cfg.pages;
+        }),
+      'Učitaj');
     } catch (e) {
-      alert(`Ne mogu učitati datoteku: ${e.message}`);
+      addEngineLog({ level: 'error', msg: `Ne mogu učitati datoteku: ${e.message}` });
     }
   });
   input.click();
@@ -1749,8 +1792,8 @@ function renderPresets() {
         'div',
         { class: 'row' },
         el('span', {}, p),
-        el('button', { onclick: () => confirm(`Učitati "${p}"? Trenutne postavke će biti zamijenjene.`) && send({ t: 'loadPreset', name: p }) }, 'Učitaj'),
-        el('button', { class: 'danger', onclick: () => confirm(`Obrisati "${p}"?`) && send({ t: 'deletePreset', name: p }) }, '×'),
+        el('button', { onclick: () => askConfirm(`Učitati "${p}"? Trenutne postavke će biti zamijenjene.`, () => send({ t: 'loadPreset', name: p }), 'Učitaj') }, 'Učitaj'),
+        el('button', { class: 'danger', onclick: () => askConfirm(`Obrisati preset "${p}"?`, () => send({ t: 'deletePreset', name: p }), 'Obriši') }, '×'),
       ),
     );
   }

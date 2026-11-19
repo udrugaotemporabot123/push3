@@ -112,3 +112,8 @@ code { background: #0f1113; padding: 1px 4px; border-radius: 4px; }
 
 /* Lite device: plain MIDI controller, no preview / templates */
 body.lite #display { display: none; }
+
+.modal-back { position: fixed; inset: 0; background: #000a; z-index: 100; display: flex; align-items: center; justify-content: center; }
+.modal { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; width: min(560px, 92vw); max-height: 86vh; overflow: auto; box-shadow: 0 20px 60px #000c; }
+.modal h3 { margin: 0 0 6px; }
+.modal input[type=text] { width: 100%; }

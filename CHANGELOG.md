@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.54.1 – 2026-11-19
+Editor: predlošci i potvrde u vlastitom prozoru editora (preglednik ih je blokirao, pa klik nije radio ništa).
+
 ## v0.54.0 – 2026-11-19
 Drum clips: clip box se sam namjesti na grupu 9 - DRUM CLIPS (raširi je, first kick na 2. red 2. polje).
 
