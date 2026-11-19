@@ -1138,6 +1138,23 @@ function simplerButtons(target) {
 // Lite device: plain MIDI only.
 const LITE_TYPES = { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', variation: 'Rack varijacija', live: 'Live (klipovi, scene…)', boxMove: 'Pomakni clip box', boxFind: 'Namjesti clip box na klip', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', transpose: 'Transpozicija padova (Oct −/+)', panic: 'Panic (all notes off)' };
 
+// Palette index nearest to a colour, from the palette read from this Push (Push 3's differs from Push 2's).
+function pcol(hex) {
+  const want = [0, 2, 4].map((k) => parseInt(hex.slice(k, k + 2), 16));
+  let best = 0;
+  let bestD = Infinity;
+  for (let i = 1; i < 128; i++) {
+    const h = S.palette && S.palette[i];
+    if (!h || h.length < 6) continue;
+    const d = [0, 2, 4].reduce((acc, k, j) => acc + (parseInt(h.slice(k, k + 2), 16) - want[j]) ** 2, 0);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
 const LITE_TEMPLATE_GROUPS = [['Rack varijacije', ['rackControl', 'varSelected']], ['Klipovi', ['drumClips', 'clipBox']]];
 
 const TEMPLATE_GROUPS = [
@@ -1165,34 +1182,35 @@ const TEMPLATES = {
     },
   },
   rackControl: {
-    name: 'Rack kontrola: varijacije 1–24 + odabir racka',
-    help: 'Gornja 3 reda = varijacije 1–24 racka u upotrebi: bijelo = aktivna, boja racka = postoji, ugašeno = nema je; prva = reset (siva). 4. red = odabir racka na odabranom tracku po početku imena: 00 ALL, 00 MIDI, 00 INST, 00 A1, 00 A2, PRE FX A1, Looper (siv) – ostatak imena (bass, keys…) je nebitan; odabrani svijetli bijelo, nepostojeći je ugašen. Zadnji pad u redu = REFRESH (isto što gumb Rackovi na deviceu): tek tada se rackovi potraže na svim trackovima. Gumbi ispod ekrana = trackovi kako ih Live pokazuje (grupe samo ako su raširene), Page ◀ ▶ = sljedećih 8. Imena možeš promijeniti u editoru (klik na pad). Donja 4 reda ostaju kakva jesu.',
+    name: 'Rack kontrola: odabir racka + varijacije 1–24',
+    help: 'Gornji red = odabir racka na odabranom tracku po početku imena: 00 ALL (plavo), 00 MIDI (crveno), 00 INST (zeleno), 00 A1, 00 A2, PRE FX A1, Looper (sivo) – ostatak imena je nebitan; bijelo = rack u upotrebi, ugašeno = nema ga na tracku; zadnji pad = REFRESH (isto što gumb Rackovi na deviceu). Ispod 3 reda = varijacije 1–24 racka u upotrebi: bijelo = aktivna, boja racka = postoji, ugašeno = nema je; prva = reset (siva). Gumbi ispod ekrana = trackovi kako ih Live pokazuje, Page ◀ ▶ = sljedećih 8. Imena mijenjaš klikom na pad.',
     apply() {
       const r = {};
-      for (let i = 0; i < 24; i++) {
-        const row = 7 - Math.floor(i / 8);
-        r[`pad.${row}.${i % 8}`] = { type: 'variation', target: { track: 'selected', device: 'selected' }, index: i, action: 'recall', colorOn: 3, colorOff: i === 0 ? 2 : 45, anim: 'none', label: i === 0 ? 'Reset' : `Var ${i + 1}` };
-      }
+      const white = pcol('ffffff');
       const pick = [
-        ['ALL', '00 ALL', 45],
-        ['MIDI', '00 MIDI', 5],
-        ['INST', '00 INST', 21],
-        ['A1', '00 A1', 49],
-        ['A2', '00 A2', 57],
-        ['PRE FX', 'PRE FX A1', 9],
-        ['LOOPER', 'Looper', 118],
+        ['ALL', '00 ALL', '0050ff'],
+        ['MIDI', '00 MIDI', 'ff0000'],
+        ['INST', '00 INST', '00ff00'],
+        ['A1', '00 A1', '9000ff'],
+        ['A2', '00 A2', 'ff3fb0'],
+        ['PRE FX', 'PRE FX A1', 'ff7000'],
+        ['LOOPER', 'Looper', '7f7f7f'],
       ];
-      pick.forEach(([label, device, color], col) => {
-        r[`pad.4.${col}`] = { type: 'live', label, colorOn: 3, colorOff: color, live: { action: 'selectDevice', track: 'selected', device } };
+      pick.forEach(([label, device, rgb], col) => {
+        r[`pad.7.${col}`] = { type: 'live', label, colorOn: white, colorOff: pcol(rgb), live: { action: 'selectDevice', track: 'selected', device } };
       });
-      r['pad.4.7'] = { type: 'live', label: 'REFRESH', colorOn: 3, colorOff: 61, live: { action: 'rescan' } };
-      // Buttons under the display = tracks as Live shows them (groups unfolded or not); Page ◀ ▶ = by 8.
-      for (let i = 1; i <= 8; i++) r[`lower.${i}`] = { type: 'live', label: `Track ${i}`, colorOn: 3, colorOff: 1, live: { action: 'trackSlot', index: i } };
-      r.pageLeft = { type: 'live', label: 'Trackovi ◀', colorOn: 3, colorOff: 2, live: { action: 'trackBank', dir: -1 } };
-      r.pageRight = { type: 'live', label: 'Trackovi ▶', colorOn: 3, colorOff: 2, live: { action: 'trackBank', dir: 1 } };
+      r['pad.7.7'] = { type: 'live', label: 'REFRESH', colorOn: white, colorOff: pcol('ffb000'), live: { action: 'rescan' } };
+      for (let i = 0; i < 24; i++) {
+        const row = 6 - Math.floor(i / 8);
+        r[`pad.${row}.${i % 8}`] = { type: 'variation', target: { track: 'selected', device: 'selected' }, index: i, action: 'recall', colorOn: white, colorOff: i === 0 ? pcol('a0a0a0') : pcol('0050ff'), anim: 'none', label: i === 0 ? 'Reset' : `Var ${i + 1}` };
+      }
+      for (let i = 1; i <= 8; i++) r[`lower.${i}`] = { type: 'live', label: `Track ${i}`, colorOn: white, colorOff: 1, live: { action: 'trackSlot', index: i } };
+      r.pageLeft = { type: 'live', label: 'Trackovi ◀', colorOn: white, colorOff: pcol('7f7f7f'), live: { action: 'trackBank', dir: -1 } };
+      r.pageRight = { type: 'live', label: 'Trackovi ▶', colorOn: white, colorOff: pcol('7f7f7f'), live: { action: 'trackBank', dir: 1 } };
       return r;
     },
   },
+
   clipBox: {
     name: 'Clip box 8×8 (kao Launchpad)',
     help: 'Padovi sviraju klipove u kvadratu 8 trackova × 8 scena (gornji red = prva scena kvadrata). Strelice (D-pad) pomiču kvadrat za 1, Shift + strelica za 8; pozicija se pamti. Scene gumbi = scene u kvadratu, Shift + pad = obriši clip. Boje padova = boje klipova, svira = treperi (uz Sync).',

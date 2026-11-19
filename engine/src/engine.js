@@ -985,6 +985,36 @@ class Engine {
     if (finder) this.findBoxAnchor(finder);
   }
 
+  // Palette index nearest to an RGB colour, using the palette read from this Push (Push 3 differs from
+  // Push 2: index 3 is not white there). Cached until the palette is read again.
+  colorIndex(rgb) {
+    if (!this.colorCache) this.colorCache = new Map();
+    const key = rgb.join(',');
+    if (this.colorCache.has(key)) return this.colorCache.get(key);
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 1; i < 128; i++) {
+      const h = this.palette && this.palette[i];
+      if (!h || h.length < 6) continue;
+      const d = (parseInt(h.slice(0, 2), 16) - rgb[0]) ** 2 + (parseInt(h.slice(2, 4), 16) - rgb[1]) ** 2 + (parseInt(h.slice(4, 6), 16) - rgb[2]) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    this.colorCache.set(key, best);
+    return best;
+  }
+
+  whiteIndex() {
+    return this.colorIndex([255, 255, 255]);
+  }
+
+  paletteUpdated() {
+    if (this.colorCache) this.colorCache.clear();
+    if (this.mode === 'user') this.renderAll();
+  }
+
   // Rack picker helpers (all from the map read on Rackovi; nothing asks Live).
   pickerDevice(m) {
     const list = this.rackMap[String(this.visTracks.selected)] || [];
@@ -1441,6 +1471,13 @@ class Engine {
         name: typeof msg.name === 'string' ? msg.name : '',
         id: Number(msg.id) || 0, // the rack itself (the rack row lights the one in use)
       };
+      if (msg.key === 'selected|selected' && msg.ok && Number(msg.id) !== this.lastRackLogged) {
+        // Visible in the editor log: which rack the variation pads follow, and whether its colour is known.
+        this.lastRackLogged = Number(msg.id);
+        const known = Object.keys(this.rackMap).length;
+        const coloured = this.rackColor(Number(msg.id), -1) !== -1;
+        this.io.log('info', `Rack u upotrebi: ${msg.name}${coloured ? '' : known ? ' (nije u popisu rackova ovog tracka – boja zadana)' : ' (klikni Rackovi na deviceu za boje)'}`);
+      }
       this.renderWhere((m) => (m.type === 'variation' && variationKey(m.target) === msg.key) || (m.type === 'live' && m.live && m.live.action === 'selectDevice'));
       this.emit('live', msg);
     } else if (msg.type === 'visibleTracks' && Array.isArray(msg.tracks)) {
@@ -1514,8 +1551,8 @@ class Engine {
     if (m.type === 'live' && m.live.action === 'trackSlot') {
       const t = this.visTracks.list[this.trackBank * 8 + m.live.index - 1];
       if (!t) return { color: 0, anim: 0 };
-      if (held || t.id === this.visTracks.selected) return { color: 3, anim: 0 };
-      return { color: live.nearestPaletteIndex(t.color, this.palette), anim: 0 };
+      if (held || t.id === this.visTracks.selected) return { color: this.whiteIndex(), anim: 0 };
+      return { color: this.colorIndex(t.color), anim: 0 };
     }
     if (m.type === 'live' && m.live.action === 'trackBank') {
       const banks = Math.ceil(this.visTracks.list.length / 8);
@@ -1526,15 +1563,15 @@ class Engine {
     if (m.type === 'live' && m.live.action === 'selectDevice') {
       // Rack picker: off = not on this track, own colour = there, white = the rack in use now.
       const dev = this.pickerDevice(m);
-      if (held) return { color: 3, anim: 0 };
+      if (held) return { color: this.whiteIndex(), anim: 0 };
       if (!dev) return { color: 0, anim: 0 };
-      return { color: dev.id === this.selectedRackId() ? 3 : m.colorOff, anim: 0 };
+      return { color: dev.id === this.selectedRackId() ? this.whiteIndex() : m.colorOff, anim: 0 };
     }
     if (m.type === 'live' && m.live.box && (m.live.action === 'clip' || m.live.action === 'clipDelete')) {
       // Clip box: colours read once (Drum / moving the box), no observers.
       const s = this.slotSnap.get(`${m.live.track}|${m.live.scene}`);
-      if (held) return { color: 3, anim: 0 };
-      return { color: s && s.has ? live.nearestPaletteIndex(s.color, this.palette) : 0, anim: 0 };
+      if (held) return { color: this.whiteIndex(), anim: 0 };
+      return { color: s && s.has ? this.colorIndex(s.color) : 0, anim: 0 };
     }
     if (m.type === 'live') {
       const v = this.liveValue(m);
@@ -1547,9 +1584,9 @@ class Engine {
       // Variations of the rack in use: white = active, the rack's own colour (from its pad) = exists,
       // the reset slot (1) keeps its own colour, off = no such variation.
       const v = this.liveState.variations[variationKey(m.target)];
-      if (held) return { color: 3, anim: 0 };
+      if (held) return { color: this.whiteIndex(), anim: 0 };
       if (!v || !v.ok || m.index >= v.count) return { color: 0, anim: 0 };
-      if (m.index === v.selected) return { color: 3, anim: 0 };
+      if (m.index === v.selected) return { color: this.whiteIndex(), anim: 0 };
       return { color: m.index === 0 ? m.colorOff : this.rackColor(v.id, m.colorOff), anim: 0 };
     }
     if (m.type === 'variation') {

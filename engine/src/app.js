@@ -11,7 +11,7 @@ const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 const { loadAddons } = require('../../addons');
 
-const VERSION = '0.57.0';
+const VERSION = '0.58.0';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -34,8 +34,11 @@ function start(opts = {}) {
 
   function log(level, msg) {
     const line = `[p3um] ${level}: ${msg}`;
-    if (max) max.post(line);
-    else console.log(line);
+    // Max console posts run on Live's main thread: the Lite device posts only warnings and errors there
+    // (everything is still in the editor log).
+    if (max) {
+      if (!lite || level === 'warn' || level === 'error') max.post(line);
+    } else console.log(line);
     recentLog.push({ level, msg, at: Date.now() });
     if (recentLog.length > 200) recentLog.shift();
     if (server) server.broadcast({ t: 'log', level, msg });
@@ -100,10 +103,13 @@ function start(opts = {}) {
   const updatePreviewWanted = () => display && display.setPreview(!!server && server.some((c) => c.display));
 
   // ---- Max device UI status -----------------------------------------------------------
+  let lastStatus = '';
   function deviceStatus() {
     if (!max) return;
     const s = engine.snapshot();
     const text = !s.pushConnected ? 'Push 3 not found' : s.mode === 'user' ? `USER MODE - ${engine.config.pages[s.page].name}` : 'Ready (Live Mode)';
+    if (text === lastStatus) return; // redrawing the device in Live only when the text changes
+    lastStatus = text;
     max.outlet('status', text).catch(() => {});
   }
 
@@ -276,6 +282,7 @@ function start(opts = {}) {
           index = -1;
           if (timer) clearTimeout(timer);
           if (server) server.broadcast({ t: 'palette', palette });
+          engine.paletteUpdated(); // white / colours by RGB follow this Push's real palette
           log('info', 'Read colour palette from Push');
         } else request();
       },

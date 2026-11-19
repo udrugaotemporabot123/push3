@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.58.0 – 2026-11-19
+Bijela i boje prema paleti tvog Pusha (odabir više nije narančast); red s rackovima gore, varijacije ispod; manje posla u Liveovoj glavnoj niti.
+
 ## v0.57.0 – 2026-11-19
 Lite: rackovi i drum grid bez praćenja Livea (manje CPU-a); bijelo = u upotrebi, varijacije u boji racka (ALL plavi, MIDI crveni, INST zeleni, A1/A2 dvije boje).
 

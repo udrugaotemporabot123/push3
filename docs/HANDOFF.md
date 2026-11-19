@@ -54,6 +54,8 @@ then `docs/PROGRESS.md` (full version history and findings).
   3. Variation pads still do not take the colour of the rack in use → add a log line with the rack in use and check
      the id matching (variations report `id`, rack map ids, selected track id).
   4. Layout wish: rack row FIRST (top row), then the 3 rows of variations under it.
+- v0.58.0 answers items 2 and 4 (palette-correct white/colours, rack row on top), adds the log line for item 3 and trims
+  Max-main-thread work for item 1. Next: his test, especially the UI lag with the editor tab closed vs open.
 - Older: bass track "00 MIDI" not found because of a space → he renames it himself.
 - He works with Lite only; full device is ignored.
 
