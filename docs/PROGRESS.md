@@ -101,6 +101,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.49.5 Display takeover experiment, safer: usb back as optional dep (prebuilt @node-usb/usb-darwin-*, confirmed by the user's npm log), hardware frames only when changed and max 10 fps, keepalive 1 s, 400 ms send watchdog hands the display back and disables takeover for the session. Root cause of the morning hang: saved takeover setting (fixed since v0.49.2)
 - [x] v0.50.0 Lite device (Push3UserModeLite.amxd + p3um-lite.js) for heavy sets: plain MIDI controller, no Live API bridge/js, no add-ons, no display rendering/preview, no animation clock, no jweb inside Live (editor opens in the system browser); editor hides non-MIDI options. Shared config
 - [x] v0.51.0 Rack variations follow the selected rack (target device "selected": selected device if it is a rack, else its enclosing rack; re-resolves on selection), Lite gets the minimal bridge (variations only, no transport watch), template Varijacije 9-24 odabranog racka
+- [x] v0.51.1 Crash fix attempt (v0.51.0 crashed Live right away, v0.50.0 fine): every re-resolve triggered from a Live notification (selected track/device, device list, slots, view, retries, vanished objects) now runs a moment later in a Task, coalesced per target, instead of dropping/recreating observers inside the notification that called it
 
 ## Next (roadmap, highest value first)
 - [ ] Full device: load the editor web view (jweb) only when the window is opened (it runs inside Live and costs CPU even when closed).

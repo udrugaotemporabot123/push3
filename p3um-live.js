@@ -86,11 +86,11 @@ function watch(newTargets) {
 
 function onSelectedTrack() {
   for (var key in targets) {
-    if (targets[key].target.track === 'selected') resolve(key);
+    if (targets[key].target.track === 'selected') resolveLater(key);
   }
   for (var lk in liveTargets) {
     var sp = liveTargets[lk].spec;
-    if (sp.track === 'selected' || sp.t === 'trackSelect' || sp.target === 'deviceParam') resolveLive(lk);
+    if (sp.track === 'selected' || sp.t === 'trackSelect' || sp.target === 'deviceParam') resolveLiveLater(lk);
   }
 }
 
@@ -99,6 +99,32 @@ function dropWatchers(t) {
     t.watchers[i].property = '';
   }
   t.watchers = [];
+}
+
+// Live notifies observers while it is changing; re-resolving there would drop and recreate the very
+// observer that is calling us. Do it a moment later instead (Max's recommended way: a Task), once per
+// target even if several notifications arrive together.
+var pendingResolve = {};
+var pendingResolveLive = {};
+
+function resolveLater(key) {
+  if (pendingResolve[key]) return;
+  pendingResolve[key] = true;
+  var task = new Task(function () {
+    delete pendingResolve[key];
+    resolve(key);
+  });
+  task.schedule(0);
+}
+
+function resolveLiveLater(key) {
+  if (pendingResolveLive[key]) return;
+  pendingResolveLive[key] = true;
+  var task = new Task(function () {
+    delete pendingResolveLive[key];
+    resolveLive(key);
+  });
+  task.schedule(0);
 }
 
 function resolve(key) {
@@ -116,7 +142,7 @@ function resolve(key) {
         firstSel = false;
         return;
       }
-      resolve(key);
+      resolveLater(key);
     }, track.unquotedpath + ' view');
     sw.property = 'selected_device';
     t.watchers.push(sw);
@@ -132,7 +158,7 @@ function resolve(key) {
           first = false;
           return;
         }
-        if (targets[key] && !targets[key].rackId) resolve(key);
+        if (targets[key] && !targets[key].rackId) resolveLater(key);
       }, 'id ' + track.id);
       dw.property = 'devices';
       t.watchers.push(dw);
@@ -155,7 +181,7 @@ function sendState(key) {
   if (!t || !t.rackId) return;
   var rack = new LiveAPI('id ' + t.rackId);
   if (!rack.id || rack.id == 0) {
-    resolve(key);
+    resolveLater(key);
     return;
   }
   report(key, true, num(rack.get('variation_count')), num(rack.get('selected_variation_index')), str(rack.get('name')));
@@ -430,7 +456,7 @@ function resolveLive(key) {
         firstCount = false;
         return;
       }
-      resolveLive(key);
+      resolveLiveLater(key);
     }, info.path);
     wcount.property = 'clip_slots';
     lt.watchers.push(wcount);
@@ -464,7 +490,7 @@ function resolveLive(key) {
         first = false;
         return;
       }
-      resolveLive(key);
+      resolveLiveLater(key);
     }, info.viewPath);
     wd.property = info.viewProp || 'selected_device';
     lt.watchers.push(wd);
@@ -493,7 +519,7 @@ function retryWatcher(key, where) {
       first = false;
       return;
     }
-    resolveLive(key);
+    resolveLiveLater(key);
   }, where.path);
   w.property = where.prop;
   return w;
@@ -511,7 +537,7 @@ function sendLive(key) {
   var info = lt.info;
   var api = new LiveAPI(info.path);
   if (!api.id || api.id == 0) {
-    resolveLive(key);
+    resolveLiveLater(key);
     return;
   }
   var spec = lt.spec;

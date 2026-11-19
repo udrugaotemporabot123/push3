@@ -142,6 +142,9 @@ function loadBridge(live) {
     cancel() {
       this.cancelled = true;
     }
+    schedule() {
+      if (!this.cancelled) this.fn(); // Max runs it a moment later; here at once
+    }
   }
   const fns = new Function('LiveAPI', 'outlet', 'post', 'Task', `var autowatch, inlets, outlets;\n${src}\nreturn { init: init, live: live };`)(
     live.LiveAPI,
