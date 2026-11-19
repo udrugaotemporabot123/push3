@@ -93,6 +93,7 @@ function send(msg) {
 }
 
 function handle(m) {
+  if (S.msgCount) S.msgCount[m.t] = (S.msgCount[m.t] || 0) + 1;
   switch (m.t) {
     case 'hello':
       S.controls = m.controls;
@@ -171,12 +172,25 @@ function handle(m) {
       }
       break;
     case 'live':
+      // Live reports changes all the time in a big set: never rebuild the panel for that (it closed the
+      // template groups and swallowed clicks). Only a selected control's status is refreshed, calmly.
       S.snapshot.liveState = m.liveState;
-      renderInspector();
+      if (S.selected.size) refreshInspectorSoon();
       break;
     default:
       break;
   }
+}
+
+// Refresh the inspector at most twice a second, and not while the user is typing in it or a dialog is open.
+function refreshInspectorSoon() {
+  if (S.inspectorTimer) return;
+  S.inspectorTimer = setTimeout(() => {
+    S.inspectorTimer = null;
+    const busy = document.querySelector('.modal-back') || (document.activeElement && document.activeElement.closest && document.activeElement.closest('#inspector') && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName));
+    if (busy) return refreshInspectorSoon();
+    renderInspector();
+  }, 500);
 }
 
 // ---------------------------------------------------------------------------------------
@@ -582,6 +596,7 @@ function whitePicker(cur, pick) {
 }
 
 function renderInspector() {
+  S.panelBuilds = (S.panelBuilds || 0) + 1;
   const box = $('#inspector');
   box.innerHTML = '';
   if (!S.config) return;
@@ -1065,7 +1080,14 @@ function renderPageInspector(box) {
     for (const key of keys) {
       const t = TEMPLATES[key];
       if (!t) continue;
-      d.append(el('div', { class: 'btnrow' }, el('button', { onclick: () => applyTemplate(key), title: t.help }, t.name)), el('p', { class: 'muted small', style: 'margin:-4px 0 6px' }, t.help));
+      const pick = () => {
+        try {
+          applyTemplate(key);
+        } catch (e) {
+          addEngineLog({ level: 'error', msg: `Predložak "${t.name}": ${e.message}` });
+        }
+      };
+      d.append(el('div', { class: 'btnrow' }, el('button', { onclick: pick, title: t.help }, t.name)), el('p', { class: 'muted small', style: 'margin:-4px 0 6px' }, t.help));
     }
     box.append(d);
   }
@@ -1924,6 +1946,21 @@ function wireUi() {
     if (!e.target.closest('.menu')) $('#presetsMenu').classList.add('hidden');
   });
 }
+
+// Diagnostics shown in the log (MIDI monitor): editor errors, and a warning if the side panel is being
+// rebuilt over and over (that makes clicks in it fail).
+window.addEventListener('error', (e) => addEngineLog({ level: 'error', msg: `Editor greška: ${e.message} (${String(e.filename || '').split('/').pop()}:${e.lineno})` }));
+window.addEventListener('unhandledrejection', (e) => addEngineLog({ level: 'error', msg: `Editor greška: ${e.reason && e.reason.message ? e.reason.message : e.reason}` }));
+S.msgCount = {};
+S.panelBuilds = 0;
+setInterval(() => {
+  if (S.panelBuilds > 8) {
+    const top = Object.entries(S.msgCount).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => `${k} ${n}×`).join(', ');
+    addEngineLog({ level: 'warn', msg: `Editor: desni panel iscrtan ${S.panelBuilds}× u 5 s (poruke: ${top})` });
+  }
+  S.panelBuilds = 0;
+  S.msgCount = {};
+}, 5000);
 
 wireUi();
 connect();

@@ -107,6 +107,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.53.1 Rack picker matches the start of a name (exact first; next char must not be a letter/digit); template uses the user's names 00 ALL / 00 MIDI / 00 INST / 00 A1 / 00 A2 / PRE FX A1 / Looper
 - [x] v0.54.0 Clip box anchor (boxFind): bridge finds the group track by name, unfolds it, finds the clip in the group's tracks; the engine moves the box so the clip lands on (row, col); runs on entering User Mode / showing the page and on press. Template Drum clips (9 - DRUM CLIPS, first kick at row 2 col 2)
 - [x] v0.54.1 Editor: in-page dialogs instead of browser confirm()/prompt()/alert() (on the user's Mac they were blocked, so template clicks did nothing): templates, rename, delete/reset, presets, import, LAN key
+- [x] v0.54.2 Editor: Live updates no longer rebuild the side panel (it collapsed the template groups and swallowed clicks in big sets); engine coalesces live broadcasts to 4/s; editor errors and repeated panel rebuilds are reported in the log; template clicks guarded
 
 ## Next (roadmap, highest value first)
 - [ ] Full device: load the editor web view (jweb) only when the window is opened (it runs inside Live and costs CPU even when closed).

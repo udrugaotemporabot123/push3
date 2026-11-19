@@ -11,7 +11,7 @@ const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 const { loadAddons } = require('../../addons');
 
-const VERSION = '0.54.1';
+const VERSION = '0.54.2';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -107,6 +107,7 @@ function start(opts = {}) {
     max.outlet('status', text).catch(() => {});
   }
 
+  let liveBroadcastTimer = null;
   engine.onChange((what, data) => {
     if (what === 'persist') safe(() => store.save(engine.config, log)); // e.g. the clip box moved
     if (!server) return;
@@ -127,7 +128,14 @@ function start(opts = {}) {
         server.broadcast({ t: 'config', config: engine.config });
         break;
       case 'live':
-        server.broadcast({ t: 'live', liveState: engine.liveState });
+        // Coalesced: at most 4 updates a second to the editor, whatever Live reports.
+        if (!liveBroadcastTimer) {
+          liveBroadcastTimer = setTimeout(() => {
+            liveBroadcastTimer = null;
+            if (server) server.broadcast({ t: 'live', liveState: engine.liveState });
+          }, 250);
+          if (liveBroadcastTimer.unref) liveBroadcastTimer.unref();
+        }
         break;
       case 'notice':
         server.broadcast({ t: 'log', level: 'info', msg: data.text });

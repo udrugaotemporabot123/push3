@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.54.2 – 2026-11-19
+Editor: desni panel se više ne iscrtava iznova na svaku promjenu u Liveu (zato klik na predloške nije radio); greške editora idu u log.
+
 ## v0.54.1 – 2026-11-19
 Editor: predlošci i potvrde u vlastitom prozoru editora (preglednik ih je blokirao, pa klik nije radio ništa).
 
