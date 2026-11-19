@@ -578,3 +578,20 @@ test('bridge: racks are not searched until REFRESH', () => {
   b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'rescanRacks' }));
   assert.equal(state().ok, true);
 });
+
+test('bridge: visible tracks skip the tracks of folded groups', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  const group = live.obj({ name: 'Drums', is_foldable: 1, fold_state: 1, is_grouped: 0, color: 0xff0000 }, { clip_slots: [] });
+  const kid = live.obj({ name: 'Kick', is_grouped: 1, group_track: group.id, color: 0x00ff00 }, { clip_slots: [] });
+  live.song.children.tracks.push(group, kid);
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'rescanRacks' }));
+  const vis = () => b.out.filter((x) => x[0] === 'liveState' && x[1].type === 'visibleTracks').map((x) => x[1]).at(-1);
+  assert.deepEqual(vis().tracks.map((t) => t.name), ['Bass', 'Violin', 'Drums']);
+  group.props.fold_state = 0;
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'rescanRacks' }));
+  assert.deepEqual(vis().tracks.map((t) => t.name), ['Bass', 'Violin', 'Drums', 'Kick']);
+  b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song', id: kid.id }, fn: 'selectTrackId' }));
+  assert.equal(live.songView.props.selected_track, kid.id);
+});

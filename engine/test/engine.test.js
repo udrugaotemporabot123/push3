@@ -843,3 +843,26 @@ test('clip box find: the anchor clip lands on row 2, column 2 (group column + em
   assert.deepEqual([topLeft.track, topLeft.scene], ['9', 36]); // group track 9 in column 1, scene 36 = empty top row
   assert.deepEqual([e.config.pages[0].controls['pad.6.1'].live.track, e.config.pages[0].controls['pad.6.1'].live.scene], ['10', 37]);
 });
+
+test('track buttons follow the visible tracks read on refresh; Page arrows move by 8', () => {
+  const { e, out, clear } = setup((c) => {
+    for (let i = 1; i <= 8; i++) c.pages[0].controls[`lower.${i}`] = { type: 'live', live: { action: 'trackSlot', index: i } };
+    c.pages[0].controls.pageRight = { type: 'live', live: { action: 'trackBank', dir: 1 } };
+  });
+  e.handlePushMessage(SYSEX_USER);
+  const tracks = Array.from({ length: 11 }, (_, i) => ({ id: 100 + i, name: `T${i + 1}`, color: [255, 0, 0] }));
+  e.handleLiveState({ type: 'visibleTracks', tracks, selected: 102 });
+  clear();
+  e.handlePushMessage([0xb0, 22, 127]); // lower.3
+  assert.deepEqual(out.live.at(-1), { cmd: 'liveCall', spec: { t: 'song', id: 102 }, fn: 'selectTrackId' });
+  e.handlePushMessage([0xb0, 22, 0]);
+  e.handlePushMessage([0xb0, 63, 127]); // Page ▶: tracks 9-11
+  e.handlePushMessage([0xb0, 63, 0]);
+  clear();
+  e.handlePushMessage([0xb0, 20, 127]); // lower.1 = track 9
+  assert.equal(out.live.at(-1).spec.id, 108);
+  e.handlePushMessage([0xb0, 20, 0]);
+  clear();
+  e.handlePushMessage([0xb0, 24, 127]); // lower.5 = nothing (only 11 tracks)
+  assert.equal(out.live.length, 0);
+});

@@ -85,6 +85,7 @@ function watch(newTargets) {
 }
 
 function onSelectedTrack() {
+  reportSelectedTrack();
   for (var key in targets) {
     if (targets[key].target.track === 'selected') resolveLater(key);
   }
@@ -231,6 +232,36 @@ function findRack(track, spec) {
   }
   var wanted = str0 !== 'first' ? str0.toLowerCase() : null;
   return searchDevices(track.unquotedpath, wanted, 0);
+}
+
+// Tracks as Live's Session view shows them right now: top-level tracks and groups, and the tracks of a
+// group only if that group (and every group around it) is unfolded. Read on REFRESH only.
+function scanVisibleTracks() {
+  var set = new LiveAPI('live_set');
+  var n = set.getcount('tracks');
+  var list = [];
+  for (var i = 0; i < n; i++) {
+    var t = new LiveAPI('live_set tracks ' + i);
+    if (num(t.get('is_grouped')) === 1 && hiddenByFold(t)) continue;
+    var c = num(t.get('color'));
+    list.push({ id: t.id, name: str(t.get('name')), color: [(c >> 16) & 255, (c >> 8) & 255, c & 255] });
+  }
+  var sel = new LiveAPI('live_set view selected_track');
+  outlet(0, 'liveState', JSON.stringify({ type: 'visibleTracks', tracks: list, selected: sel.id || 0 }));
+}
+
+function hiddenByFold(track) {
+  var g = new LiveAPI(track.unquotedpath + ' group_track');
+  for (var depth = 0; depth < 8 && g.id && g.id != 0; depth++) {
+    if (num(g.get('fold_state')) === 1) return true;
+    g = new LiveAPI(g.unquotedpath + ' group_track');
+  }
+  return false;
+}
+
+function reportSelectedTrack() {
+  var sel = new LiveAPI('live_set view selected_track');
+  outlet(0, 'liveState', JSON.stringify({ type: 'trackSelected', selected: sel.id || 0 }));
 }
 
 // Clip box anchor: the group track by name (unfolded if folded), then the clip by name in it or in its
@@ -799,7 +830,13 @@ function liveCall(msg) {
     for (var ti = 0; ti < nt; ti++) scanTrackDevices(new LiveAPI('live_set tracks ' + ti));
     rackMapReady = true;
     for (var lk in liveTargets) if (liveTargets[lk].spec.t === 'deviceSel') resolveLiveLater(lk);
+    scanVisibleTracks();
     notice('Rackovi pronađeni na ' + nt + ' trackova');
+    return;
+  }
+  if (msg.fn === 'selectTrackId') {
+    var tsel = new LiveAPI('id ' + (spec.id | 0));
+    if (tsel.id && tsel.id != 0) new LiveAPI('live_set view').set('selected_track', 'id', tsel.id);
     return;
   }
   if (msg.fn === 'findAnchor') {

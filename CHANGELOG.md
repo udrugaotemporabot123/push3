@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.56.0 – 2026-11-19
+Gumbi Rackovi i Drum na deviceu (traži samo tada); donji gumbi biraju trackove kao u Liveu, Page ◀ ▶ za 8.
+
 ## v0.55.0 – 2026-11-19
 Traženje samo na zahtjev: rackovi na REFRESH, drum grid na ●; ništa se ne traži samo od sebe.
 

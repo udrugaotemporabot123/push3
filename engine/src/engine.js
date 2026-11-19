@@ -60,6 +60,8 @@ class Engine {
     this.accent = null; // { id, latch } while pads play at full velocity
     this.snapshots = null; // page uid -> slot -> { encoder id: value }, loaded lazily
     this.lastSnapshot = new Map(); // page uid -> slot recalled last
+    this.visTracks = { list: [], selected: 0 }; // tracks as Live shows them (read on REFRESH)
+    this.trackBank = 0; // which 8 of them the track buttons show
     this.repeat = null; // active note repeat: { id, ticks, latch }
     this.repeating = new Map(); // pad id -> { note, chan, vel } retriggered on Live's clock
     this.repeatTick = 0;
@@ -947,8 +949,8 @@ class Engine {
   }
 
   // Ask the bridge where the anchor clip is; handleLiveState moves the box when the answer comes.
-  findBoxAnchor(m) {
-    this.anchorReq = { page: this.page, row: m.row, col: m.col };
+  findBoxAnchor(m, pageIndex = this.page) {
+    this.anchorReq = { page: pageIndex, row: m.row, col: m.col };
     this.io.toLive({ cmd: 'liveCall', key: 'anchor', spec: { t: 'anchor', track: m.anchorTrack, clip: m.anchorClip }, fn: 'findAnchor' });
   }
 
@@ -964,11 +966,25 @@ class Engine {
     if (finder) this.findBoxAnchor(finder);
   }
 
+  // The two refresh buttons on the device: find the racks (and the visible tracks), and put the drum grid
+  // on its clip (whichever page has the grid). Nothing is searched otherwise.
+  refreshRacks() {
+    this.io.toLive({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'rescanRacks' });
+  }
+
+  findDrum() {
+    for (let i = 0; i < this.config.pages.length; i++) {
+      const finder = Object.values(this.config.pages[i].controls).find((m) => m && m.type === 'boxFind');
+      if (finder) return this.findBoxAnchor(finder, i);
+    }
+    this.io.log('info', 'Nema stranice s drum gridom (predložak Drum clips)');
+  }
+
   // Clip box (like a Launchpad's session box): every Live mapping on this page marked "box" moves by
   // dx tracks / dy scenes; it never goes below track 1 / scene 1. The new position is saved.
-  moveBox(dx, dy) {
+  moveBox(dx, dy, pageIndex = this.page) {
     const cfg = JSON.parse(JSON.stringify(this.config));
-    const page = cfg.pages[this.page];
+    const page = cfg.pages[pageIndex];
     const items = [];
     for (const base of Object.values(page.controls)) {
       for (const m of [base, base && base.shift]) if (m && m.type === 'live' && m.live && m.live.box) items.push(m.live);
@@ -1289,6 +1305,17 @@ class Engine {
       const next = !(cur && cur.value);
       this.io.toLive({ cmd: 'liveSet', key: live.liveKey(spec), spec, value: next ? 1 : 0 });
       if (cur) cur.value = next ? 1 : 0; // optimistic, corrected by the observer
+    } else if (a === 'trackSlot') {
+      const t = this.visTracks.list[this.trackBank * 8 + m.live.index - 1];
+      if (t) this.io.toLive({ cmd: 'liveCall', spec: { t: 'song', id: t.id }, fn: 'selectTrackId' });
+    } else if (a === 'trackBank') {
+      const banks = Math.max(1, Math.ceil(this.visTracks.list.length / 8));
+      const next = Math.max(0, Math.min(banks - 1, this.trackBank + m.live.dir));
+      if (next !== this.trackBank) {
+        this.trackBank = next;
+        this.emit('notice', { text: `Trackovi ${next * 8 + 1}–${Math.min(this.visTracks.list.length, next * 8 + 8)}` });
+        this.renderWhere((x) => x.type === 'live' && x.live && (x.live.action === 'trackSlot' || x.live.action === 'trackBank'));
+      }
     } else if (a === 'rescan') {
       this.io.toLive({ cmd: 'liveCall', spec: { t: 'song' }, fn: 'rescanRacks' });
     } else if (a === 'selectDevice') {
@@ -1350,17 +1377,22 @@ class Engine {
       };
       this.renderWhere((m) => m.type === 'variation' && variationKey(m.target) === msg.key);
       this.emit('live', msg);
+    } else if (msg.type === 'visibleTracks' && Array.isArray(msg.tracks)) {
+      this.visTracks = { list: msg.tracks.filter((t) => t && t.id), selected: msg.selected || 0 };
+      this.trackBank = Math.min(this.trackBank, Math.max(0, Math.ceil(this.visTracks.list.length / 8) - 1));
+      this.renderWhere((x) => x.type === 'live' && x.live && (x.live.action === 'trackSlot' || x.live.action === 'trackBank'));
+    } else if (msg.type === 'trackSelected') {
+      this.visTracks.selected = msg.selected || 0;
+      this.renderWhere((x) => x.type === 'live' && x.live && x.live.action === 'trackSlot');
     } else if (msg.type === 'anchor') {
       const req = this.anchorReq;
       this.anchorReq = null;
-      if (!msg.ok || !req || req.page !== this.page) return;
-      if (!this.anchorFound) this.anchorFound = new Set();
-      this.anchorFound.add(this.config.pages[this.page].uid);
-      const o = this.boxOrigin();
+      if (!msg.ok || !req || !this.config.pages[req.page]) return;
+      const o = this.boxOrigin(req.page);
       if (!o) return;
       const t0 = Math.max(1, (Number(msg.track) || 1) - (req.col - 1));
       const s0 = Math.max(1, (Number(msg.scene) || 1) - (req.row - 1));
-      if (t0 !== o.track || s0 !== o.scene) this.moveBox(t0 - o.track, s0 - o.scene);
+      if (t0 !== o.track || s0 !== o.scene) this.moveBox(t0 - o.track, s0 - o.scene, req.page);
     } else if (msg.type === 'notice' && typeof msg.text === 'string') {
       this.io.log('info', msg.text);
       this.emit('notice', { text: msg.text.slice(0, 80) });
@@ -1406,6 +1438,17 @@ class Engine {
       return led && Number.isInteger(led.color) ? { color: Math.max(0, Math.min(127, led.color)), anim: led.anim | 0 } : { color: 0, anim: 0 };
     }
     if (m.type === 'live' && m.live.action === 'clip') return this.clipLed(m, held);
+    if (m.type === 'live' && m.live.action === 'trackSlot') {
+      const t = this.visTracks.list[this.trackBank * 8 + m.live.index - 1];
+      if (!t) return { color: 0, anim: 0 };
+      if (held || t.id === this.visTracks.selected) return { color: 3, anim: 0 };
+      return { color: live.nearestPaletteIndex(t.color, this.palette), anim: 0 };
+    }
+    if (m.type === 'live' && m.live.action === 'trackBank') {
+      const banks = Math.ceil(this.visTracks.list.length / 8);
+      const can = m.live.dir > 0 ? this.trackBank < banks - 1 : this.trackBank > 0;
+      return { color: held ? m.colorOn : can ? m.colorOff : 0, anim: 0 };
+    }
     if (m.type === 'live' && m.live.action === 'rescan') return { color: this.pressed.has(ctl.id) ? m.colorOn : m.colorOff, anim: 0 };
     if (m.type === 'live' && m.live.action === 'selectDevice') {
       // Rack picker: off = not on this track, own colour = there, white = the one selected now.

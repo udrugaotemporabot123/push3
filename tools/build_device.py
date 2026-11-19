@@ -96,8 +96,8 @@ def build(lite):
     box("title", "comment", [20, 420, 200, 20], "PUSH 3 MIDI LITE" if lite else "PUSH 3 USER MODE", 1, 0, pres=[8, 6, 200, 20], fontsize=12.0, fontface=1)
 
 
-    def ui_button(id_, label, x, pres_x):
-        box(id_, "textbutton", [x, 460, 70, 22], label, 1, 3, ["", "", "int"], pres=[pres_x, 58, 76, 24], texton=label, mode=0, fontsize=11.0)
+    def ui_button(id_, label, x, pres_x, pres_y=58):
+        box(id_, "textbutton", [x, 460, 70, 22], label, 1, 3, ["", "", "int"], pres=[pres_x, pres_y, 76, 24], texton=label, mode=0, fontsize=11.0)
         t = box(id_ + "_t", "newobj", [x, 495, 30, 22], "t b", 1, 1, ["bang"])
         s = box(id_ + "_lim", "newobj", [x, 525, 80, 22], "speedlim 800", 2, 1)
         line(id_, 0, t, 0)
@@ -125,7 +125,18 @@ def build(lite):
     line(lim, 0, "msg_restart2", 0)
     line("msg_restart2", 0, "node", 0)
 
-    box("hint", "comment", [20, 640, 240, 40], "Postavke i mapiranje: Editor. Push: pritisni User.", 1, 0, pres=[8, 92, 244, 34], fontsize=10.0, textcolor=[0.6, 0.62, 0.66, 1.0], linecount=2)
+    # Refresh buttons: search the set once (racks + visible tracks, drum grid position); nothing is
+    # searched while playing.
+    lim = ui_button("btn_racks", "Rackovi", 560, 8, 88)
+    box("msg_racks", "message", [560, 560, 90, 22], "refreshRacks", 2, 1)
+    line(lim, 0, "msg_racks", 0)
+    line("msg_racks", 0, "node", 0)
+    lim = ui_button("btn_drum", "Drum", 660, 88, 88)
+    box("msg_drum", "message", [660, 560, 70, 22], "findDrum", 2, 1)
+    line(lim, 0, "msg_drum", 0)
+    line("msg_drum", 0, "node", 0)
+
+    box("hint", "comment", [20, 640, 240, 40], "Otvoriš projekt: Rackovi + Drum. Postavke: Editor. Push: User.", 1, 0, pres=[8, 120, 244, 34], fontsize=10.0, textcolor=[0.6, 0.62, 0.66, 1.0], linecount=2)
 
     # Editor window: a subpatcher with a jweb pointing at the engine's local server.
     editor_patcher = {

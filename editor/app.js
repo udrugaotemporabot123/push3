@@ -16,7 +16,7 @@ const el = (tag, attrs = {}, ...kids) => {
 
 const T = {
   types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)', transpose: 'Transpozicija padova (Oct −/+)', repeat: 'Note repeat', accent: 'Accent (puna jačina)', snapshot: 'Snapshot enkodera', boxMove: 'Pomakni clip box', boxFind: 'Namjesti clip box na klip' },
-  liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka', trackPrev: '◀ Prethodni track', trackNext: 'Sljedeći track ▶', scenePrev: '▲ Prethodna scena', sceneNext: 'Sljedeća scena ▼', devicePrev: '◀ Prethodni device', deviceNext: 'Sljedeći device ▶', selectDevice: 'Odaberi rack/device po imenu', rescan: 'Osvježi rackove (ponovo traži)' },
+  liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka', trackPrev: '◀ Prethodni track', trackNext: 'Sljedeći track ▶', scenePrev: '▲ Prethodna scena', sceneNext: 'Sljedeća scena ▼', devicePrev: '◀ Prethodni device', deviceNext: 'Sljedeći device ▶', selectDevice: 'Odaberi rack/device po imenu', rescan: 'Osvježi rackove (ponovo traži)', trackSlot: 'Odaberi track (kako ih Live pokazuje)', trackBank: 'Trackovi: sljedećih / prethodnih 8' },
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
   liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', padParam: 'Parametar odabranog drum pada (Simpler)', tempo: 'Tempo' },
   behaviors: { momentary: 'Momentary (dok držiš)', toggle: 'Toggle (uklj/isklj)', trigger: 'Trigger (jedan impuls)' },
@@ -809,6 +809,8 @@ function renderLiveButtonFields(box, maps) {
     box.append(field('Track', textEl(common(maps, (m) => m.live && m.live.track), (v) => setLive('track', v.trim() || 'selected'), 'selected'), 'selected = odabrani track, broj (1, 2, …) ili točno ime tracka'));
     box.append(field('Boja tracka', selectEl({ true: 'Da (LED u boji tracka)', false: 'Ne (Boja ON)' }, String(common(maps, (m) => m.live && m.live.trackColor)), (v) => setLive('trackColor', v === 'true'))));
   }
+  if (action === 'trackSlot') box.append(field('Koji (1–8)', numEl(common(maps, (m) => m.live && m.live.index), 1, 8, (v) => setLive('index', v)), 'n-ti track od vidljivih (u trenutnoj osmorki); popis se čita na Rackovi / REFRESH'));
+  if (action === 'trackBank') box.append(field('Smjer', selectEl({ '-1': '◀ prethodnih 8', '1': 'sljedećih 8 ▶' }, String(common(maps, (m) => m.live && m.live.dir)), (v) => setLive('dir', Number(v)))));
   if (action === 'selectDevice') {
     box.append(field('Track', textEl(common(maps, (m) => m.live && m.live.track), (v) => setLive('track', v.trim() || 'selected'), 'selected'), 'selected = odabrani track, broj ili ime'));
     box.append(field('Ime', textEl(common(maps, (m) => m.live && m.live.device), (v) => setLive('device', v.trim() || 'ALL'), 'npr. MID'), 'Ime ili početak imena racka/devicea (traži i unutar rackova), npr. "00 ALL" nađe "00 ALL bass". Više imena odvoji s | : uzme prvo koje postoji.'));
@@ -1164,7 +1166,7 @@ const TEMPLATES = {
   },
   rackControl: {
     name: 'Rack kontrola: varijacije 1–24 + odabir racka',
-    help: 'Gornja 3 reda = varijacije 1–24 odabranog racka (prva = reset, crvena; zeleno = aktivna, plavo = postoji). 4. red = odabir racka na odabranom tracku po početku imena: 00 ALL, 00 MIDI, 00 INST, 00 A1, 00 A2, PRE FX A1, Looper (siv) – ostatak imena (bass, keys…) je nebitan; odabrani svijetli bijelo, nepostojeći je ugašen. Zadnji pad u redu = REFRESH: tek tada se rackovi potraže na svim trackovima (pritisni ga kad otvoriš projekt ili promijeniš rackove). Imena možeš promijeniti u editoru (klik na pad). Donja 4 reda ostaju kakva jesu.',
+    help: 'Gornja 3 reda = varijacije 1–24 odabranog racka (prva = reset, crvena; zeleno = aktivna, plavo = postoji). 4. red = odabir racka na odabranom tracku po početku imena: 00 ALL, 00 MIDI, 00 INST, 00 A1, 00 A2, PRE FX A1, Looper (siv) – ostatak imena (bass, keys…) je nebitan; odabrani svijetli bijelo, nepostojeći je ugašen. Zadnji pad u redu = REFRESH (isto što gumb Rackovi na deviceu): tek tada se rackovi potraže na svim trackovima. Gumbi ispod ekrana = trackovi kako ih Live pokazuje (grupe samo ako su raširene), Page ◀ ▶ = sljedećih 8. Imena možeš promijeniti u editoru (klik na pad). Donja 4 reda ostaju kakva jesu.',
     apply() {
       const r = {};
       for (let i = 0; i < 24; i++) {
@@ -1184,6 +1186,10 @@ const TEMPLATES = {
         r[`pad.4.${col}`] = { type: 'live', label, colorOn: 3, colorOff: color, live: { action: 'selectDevice', track: 'selected', device } };
       });
       r['pad.4.7'] = { type: 'live', label: 'REFRESH', colorOn: 3, colorOff: 61, live: { action: 'rescan' } };
+      // Buttons under the display = tracks as Live shows them (groups unfolded or not); Page ◀ ▶ = by 8.
+      for (let i = 1; i <= 8; i++) r[`lower.${i}`] = { type: 'live', label: `Track ${i}`, colorOn: 3, colorOff: 1, live: { action: 'trackSlot', index: i } };
+      r.pageLeft = { type: 'live', label: 'Trackovi ◀', colorOn: 3, colorOff: 2, live: { action: 'trackBank', dir: -1 } };
+      r.pageRight = { type: 'live', label: 'Trackovi ▶', colorOn: 3, colorOff: 2, live: { action: 'trackBank', dir: 1 } };
       return r;
     },
   },

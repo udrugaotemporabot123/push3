@@ -196,6 +196,8 @@ function normalizeButton(m, page, ctl, isShift = false) {
       param: str(l.param, '1', 64) || '1', // parameter name or number (1 = first parameter after "Device On")
       mode: oneOf(l.mode, live.PARAM_MODES, 'toggle'),
     };
+    if (out.live.action === 'trackSlot') out.live.index = clampInt(l.index, 1, 8, 1); // n-th visible track in the bank
+    if (out.live.action === 'trackBank') out.live.dir = clampInt(l.dir, -1, 1, 1) || 1;
     if (l.box === true) out.live.box = true; // part of the page's clip box (moved by boxMove buttons)
   }
   if (out.type === 'boxFind') {
