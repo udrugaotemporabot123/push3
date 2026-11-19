@@ -54,6 +54,8 @@ function summary(ctl, m) {
       return `Repeat ${m.rate}`;
     case 'boxMove':
       return 'Box';
+    case 'boxFind':
+      return 'Box ●';
     case 'accent':
       return 'Accent';
     case 'snapshot':

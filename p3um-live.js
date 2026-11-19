@@ -233,6 +233,55 @@ function findRack(track, spec) {
   return searchDevices(track.unquotedpath, wanted, 0);
 }
 
+// Clip box anchor: the group track by name (unfolded if folded), then the clip by name in it or in its
+// tracks. Reports 1-based track and scene numbers so the engine can move its clip box there.
+function findAnchor(key, spec) {
+  var set = new LiveAPI('live_set');
+  var n = set.getcount('tracks');
+  var want = String(spec.track || '').toLowerCase().replace(/^\s+|\s+$/g, '');
+  var clipWant = String(spec.clip || '').toLowerCase().replace(/^\s+|\s+$/g, '');
+  var groupIndex = -1;
+  for (var i = 0; i < n && groupIndex < 0; i++) {
+    var t = new LiveAPI('live_set tracks ' + i);
+    if (str(t.get('name')).toLowerCase().replace(/^\s+|\s+$/g, '') === want) groupIndex = i;
+  }
+  if (groupIndex < 0) return reportAnchor(key, false, 0, 0, 'Track "' + spec.track + '" nije pronađen');
+  var group = new LiveAPI('live_set tracks ' + groupIndex);
+  if (num(group.get('is_foldable')) === 1 && num(group.get('fold_state')) === 1) group.set('fold_state', 0);
+  // The group itself and the tracks right after it that belong to it (any depth).
+  var members = [groupIndex];
+  for (var j = groupIndex + 1; j < n; j++) {
+    var tj = new LiveAPI('live_set tracks ' + j);
+    if (num(tj.get('is_grouped')) !== 1 || !inGroup(tj, group.id)) break;
+    members.push(j);
+  }
+  for (var m = 0; m < members.length; m++) {
+    var path = 'live_set tracks ' + members[m];
+    var slots = new LiveAPI(path).getcount('clip_slots');
+    for (var s = 0; s < slots; s++) {
+      var slot = new LiveAPI(path + ' clip_slots ' + s);
+      if (num(slot.get('has_clip')) !== 1) continue;
+      var cname = str(new LiveAPI(path + ' clip_slots ' + s + ' clip').get('name')).toLowerCase().replace(/^\s+|\s+$/g, '');
+      if (cname === clipWant || nameMatches(cname, clipWant)) return reportAnchor(key, true, members[m] + 1, s + 1, '');
+    }
+  }
+  reportAnchor(key, false, groupIndex + 1, 0, 'Clip "' + spec.clip + '" nije pronađen u "' + spec.track + '"');
+}
+
+function inGroup(track, groupId) {
+  var g = new LiveAPI(track.unquotedpath + ' group_track');
+  for (var depth = 0; depth < 8 && g.id && g.id != 0; depth++) {
+    if (g.id == groupId) return true;
+    g = new LiveAPI(g.unquotedpath + ' group_track');
+  }
+  return false;
+}
+
+function reportAnchor(key, ok, track, scene, text) {
+  if (text) notice(text);
+  outlet(0, 'liveState', JSON.stringify({ type: 'anchor', key: key, ok: ok, track: track, scene: scene }));
+}
+
 // A device on the track (also inside racks, a few levels deep) by name; "A1|A1 FX" = the first of these
 // names that exists. Case and surrounding spaces do not matter. A name may also be just the start of
 // the device name ("00 ALL" finds "00 ALL bass"), as long as a space or the end follows it.
@@ -713,6 +762,10 @@ function liveCall(msg) {
   }
   if (msg.fn === 'clipToPad') {
     clipToPad(spec);
+    return;
+  }
+  if (msg.fn === 'findAnchor') {
+    findAnchor(msg.key, spec);
     return;
   }
   if (msg.fn === 'selectDevice') {

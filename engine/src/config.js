@@ -12,7 +12,7 @@ const MAX_PAGES = 16;
 
 const PAGE_COLORS = [COLORS.mint, COLORS.blue, COLORS.orange, COLORS.pink, COLORS.yellow, COLORS.purple, COLORS.cyan, COLORS.red];
 
-const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live', 'addon', 'panic', 'transpose', 'repeat', 'accent', 'snapshot', 'boxMove'];
+const BUTTON_TYPES = ['none', 'note', 'cc', 'pc', 'page', 'pageHold', 'pageNext', 'pagePrev', 'variation', 'live', 'addon', 'panic', 'transpose', 'repeat', 'accent', 'snapshot', 'boxMove', 'boxFind'];
 const REPEAT_RATES = { '1/4': 24, '1/8': 12, '1/8T': 8, '1/16': 6, '1/16T': 4, '1/32': 3 };
 const BEHAVIORS = ['momentary', 'toggle', 'trigger'];
 const ENCODER_TYPES = ['none', 'cc', 'live'];
@@ -197,6 +197,13 @@ function normalizeButton(m, page, ctl, isShift = false) {
       mode: oneOf(l.mode, live.PARAM_MODES, 'toggle'),
     };
     if (l.box === true) out.live.box = true; // part of the page's clip box (moved by boxMove buttons)
+  }
+  if (out.type === 'boxFind') {
+    // Puts the page's clip box so that this clip lands on (row, col): row 1 = top, col 1 = left.
+    out.anchorTrack = str(m.anchorTrack, '9 - DRUM CLIPS', 64) || '9 - DRUM CLIPS';
+    out.anchorClip = str(m.anchorClip, 'first kick', 64) || 'first kick';
+    out.row = clampInt(m.row, 1, 8, 2);
+    out.col = clampInt(m.col, 1, 8, 2);
   }
   if (out.type === 'boxMove') {
     out.dx = clampInt(m.dx, -64, 64, 0);

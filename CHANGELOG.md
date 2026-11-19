@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.54.0 – 2026-11-19
+Drum clips: clip box se sam namjesti na grupu 9 - DRUM CLIPS (raširi je, first kick na 2. red 2. polje).
+
 ## v0.53.1 – 2026-11-19
 Odabir racka po početku imena (00 ALL, 00 MIDI, 00 INST, 00 A1, 00 A2, PRE FX A1, Looper).
 

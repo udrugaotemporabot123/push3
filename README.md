@@ -38,6 +38,8 @@ U istoj mapi je i **`Push3UserModeLite.amxd`**: samo MIDI kontroler.
 
 **Rack kontrola (v0.53):** *Predlošci → Rack varijacije → Rack kontrola*. Gornja 3 reda = varijacije 1–24 odabranog racka (prva = **reset**, crvena; zeleno = aktivna, plavo = postoji). 4. red = **odabir racka** na odabranom tracku po **početku imena** (v0.53.1): `00 ALL`, `00 MIDI`, `00 INST`, `00 A1`, `00 A2`, `PRE FX A1`, `Looper` (siv); ostatak imena (bass, keys…) je nebitan. Pritisak odabere taj rack u Liveu i varijacije gore odmah prate njega. Ugašen pad = toga nema na tom tracku, bijeli = trenutno odabran. Imena mijenjaš klikom na pad u editoru (više imena odvojiš s `|`).
 
+**Drum clips (v0.54):** *Predlošci → Klipovi → Drum clips (sam se namjesti na grupu)*. Nađe grupni track po imenu (zadano `9 - DRUM CLIPS`), raširi ga ako je skupljen i postavi clip box tako da klip `first kick` bude na **2. redu, 2. polju**: prva kolona = grupni track (pokreće cijeli red), ostalih 7 = trackovi u grupi, gornji red = prazni slotovi (pritisak = stop). Namjesti se sam kad uđeš u User mode ili otvoriš tu stranicu; **●** na D-padu = ponovo; strelice pomiču dalje.
+
 **Clip box 8×8 (v0.52, kao Launchpad):** *Predlošci → Klipovi → Clip box 8×8*: upišeš prvi track i prvu scenu (npr. 5 i 100), padovi sviraju klipove u tom kvadratu (gornji red = prva scena), boje padova = boje klipova. **Strelice (D-pad)** pomiču kvadrat za 1 track/scenu, **Shift + strelica** za 8; pozicija se pamti. Scene gumbi pokreću scene kvadrata, Shift + pad briše clip. (Liveov crveni okvir Max for Live ne može nacrtati; poziciju vidiš po padovima i u editoru.)
 
 Koristi **ili** Lite **ili** puni device, ne oba odjednom. Postavke i mapiranja su zajednički.

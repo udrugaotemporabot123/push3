@@ -826,3 +826,18 @@ test('clip box: D-pad moves every box mapping of the page, never below track 1 /
   const watch = out.live.find((c) => c.cmd === 'watchLive');
   assert.ok(Object.values(watch.targets).some((s) => s.t === 'slot' && s.track === '1' && s.scene === 101));
 });
+
+test('clip box find: the anchor clip lands on row 2, column 2 (group column + empty stop row)', () => {
+  const { e, out, clear } = setup((c) => {
+    const ctl = c.pages[0].controls;
+    for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) ctl[`pad.${row}.${col}`] = { type: 'live', live: { action: 'clip', track: String(1 + col), scene: 1 + (7 - row), box: true } };
+    ctl.center = { type: 'boxFind', anchorTrack: '9 - DRUM CLIPS', anchorClip: 'first kick', row: 2, col: 2 };
+  });
+  e.handlePushMessage(SYSEX_USER); // entering User Mode asks for the anchor by itself
+  const ask = out.live.find((c) => c.fn === 'findAnchor');
+  assert.deepEqual(ask.spec, { t: 'anchor', track: '9 - DRUM CLIPS', clip: 'first kick' });
+  e.handleLiveState({ type: 'anchor', key: 'anchor', ok: true, track: 10, scene: 37 }); // "first kick" on track 10, scene 37
+  const topLeft = e.config.pages[0].controls['pad.7.0'].live;
+  assert.deepEqual([topLeft.track, topLeft.scene], ['9', 36]); // group track 9 in column 1, scene 36 = empty top row
+  assert.deepEqual([e.config.pages[0].controls['pad.6.1'].live.track, e.config.pages[0].controls['pad.6.1'].live.scene], ['10', 37]);
+});

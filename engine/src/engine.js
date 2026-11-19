@@ -296,6 +296,7 @@ class Engine {
     this.applyUserModeHardwareSettings();
     this.updateClock();
     this.emit('status');
+    this.autoFindBox();
   }
 
   exitUserMode(reason) {
@@ -529,6 +530,10 @@ class Engine {
         return;
       case 'boxMove':
         this.moveBox(m.dx, m.dy);
+        this.renderControl(ctl);
+        return;
+      case 'boxFind':
+        this.findBoxAnchor(m);
         this.renderControl(ctl);
         return;
       case 'repeat': {
@@ -845,6 +850,7 @@ class Engine {
     this.page = index;
     this.renderAll();
     this.emit('page', index);
+    this.autoFindBox();
   }
 
   // ---------------------------------------------------------------------------------------
@@ -926,6 +932,35 @@ class Engine {
 
   repeatOn() {
     return !!this.repeat && this.repeat.uid === this.pageUid();
+  }
+
+  // The page's clip box top-left (lowest track / scene of its box mappings), or null without a box.
+  boxOrigin(pageIndex = this.page) {
+    const page = this.config.pages[pageIndex];
+    if (!page) return null;
+    const items = [];
+    for (const base of Object.values(page.controls)) {
+      for (const m of [base, base && base.shift]) if (m && m.type === 'live' && m.live && m.live.box) items.push(m.live);
+    }
+    const tracks = items.map((l) => Number(l.track)).filter((n) => Number.isInteger(n) && n > 0);
+    const scenes = items.filter((l) => ['clip', 'clipDelete', 'scene'].includes(l.action) && l.scene > 0).map((l) => l.scene);
+    if (!tracks.length) return null;
+    return { track: Math.min(...tracks), scene: scenes.length ? Math.min(...scenes) : 1 };
+  }
+
+  // Ask the bridge where the anchor clip is; handleLiveState moves the box when the answer comes.
+  findBoxAnchor(m) {
+    this.anchorReq = { page: this.page, row: m.row, col: m.col };
+    this.io.toLive({ cmd: 'liveCall', key: 'anchor', spec: { t: 'anchor', track: m.anchorTrack, clip: m.anchorClip }, fn: 'findAnchor' });
+  }
+
+  // A page with a "find" button positions its box by itself when it is shown in User Mode.
+  autoFindBox() {
+    if (this.mode !== 'user') return;
+    const page = this.config.pages[this.page];
+    if (!page) return;
+    const finder = Object.values(page.controls).find((m) => m && m.type === 'boxFind');
+    if (finder) this.findBoxAnchor(finder);
   }
 
   // Clip box (like a Launchpad's session box): every Live mapping on this page marked "box" moves by
@@ -1312,6 +1347,15 @@ class Engine {
       };
       this.renderWhere((m) => m.type === 'variation' && variationKey(m.target) === msg.key);
       this.emit('live', msg);
+    } else if (msg.type === 'anchor') {
+      const req = this.anchorReq;
+      this.anchorReq = null;
+      if (!msg.ok || !req || req.page !== this.page) return;
+      const o = this.boxOrigin();
+      if (!o) return;
+      const t0 = Math.max(1, (Number(msg.track) || 1) - (req.col - 1));
+      const s0 = Math.max(1, (Number(msg.scene) || 1) - (req.row - 1));
+      if (t0 !== o.track || s0 !== o.scene) this.moveBox(t0 - o.track, s0 - o.scene);
     } else if (msg.type === 'notice' && typeof msg.text === 'string') {
       this.io.log('info', msg.text);
       this.emit('notice', { text: msg.text.slice(0, 80) });
@@ -1379,6 +1423,7 @@ class Engine {
       if (m.index >= v.count) return { color: 0, anim: 0 };
       return m.index === v.selected ? { color: m.colorOn, anim: push3.ANIMATIONS[m.anim] || 0 } : { color: m.colorOff, anim: 0 };
     }
+    if (m.type === 'boxFind') return { color: held ? m.colorOn : m.colorOff, anim: 0 };
     if (m.type === 'boxMove') return { color: held ? m.colorOn : m.colorOff, anim: 0 };
     if (m.type === 'accent') return { color: held || this.accentOn() ? m.colorOn : m.colorOff, anim: 0 };
     if (m.type === 'snapshot') {

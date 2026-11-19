@@ -15,7 +15,7 @@ const el = (tag, attrs = {}, ...kids) => {
 };
 
 const T = {
-  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)', transpose: 'Transpozicija padova (Oct −/+)', repeat: 'Note repeat', accent: 'Accent (puna jačina)', snapshot: 'Snapshot enkodera', boxMove: 'Pomakni clip box' },
+  types: { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', variation: 'Rack varijacija', live: 'Live (bez mapiranja)', addon: 'Add-on', panic: 'Panic (all notes off)', transpose: 'Transpozicija padova (Oct −/+)', repeat: 'Note repeat', accent: 'Accent (puna jačina)', snapshot: 'Snapshot enkodera', boxMove: 'Pomakni clip box', boxFind: 'Namjesti clip box na klip' },
   liveActions: { mute: 'Mute tracka', solo: 'Solo tracka', arm: 'Arm tracka', select: 'Odaberi track', scene: 'Pokreni scenu', play: 'Play/Stop', stop: 'Stop', record: 'Session Record', metronome: 'Metronom', overdub: 'Arrangement Overdub', tap: 'Tap Tempo', undo: 'Undo', redo: 'Redo', capture: 'Capture MIDI', param: 'Parametar devicea', clip: 'Clip slot (pokreni / snimi)', clipDelete: 'Obriši clip', stopTrack: 'Stop tracka', trackPrev: '◀ Prethodni track', trackNext: 'Sljedeći track ▶', scenePrev: '▲ Prethodna scena', sceneNext: 'Sljedeća scena ▼', devicePrev: '◀ Prethodni device', deviceNext: 'Sljedeći device ▶', selectDevice: 'Odaberi rack/device po imenu' },
   paramModes: { toggle: 'Toggle (min/max)', momentary: 'Momentary (max dok držiš)', trigger: 'Trigger (impuls)' },
   liveTargets: { volume: 'Volumen tracka', pan: 'Pan tracka', send: 'Send tracka', macro: 'Makro racka', deviceParam: 'Parametar odabranog devicea', named: 'Parametar devicea po imenu', padParam: 'Parametar odabranog drum pada (Simpler)', tempo: 'Tempo' },
@@ -340,6 +340,8 @@ function mappingSummary(c, m) {
       return 'PANIC';
     case 'repeat':
       return `Repeat ${m.rate}`;
+    case 'boxFind':
+      return 'Box ●';
     case 'boxMove':
       return `Box ${m.dx > 0 ? '▶' : m.dx < 0 ? '◀' : ''}${m.dy > 0 ? '▼' : m.dy < 0 ? '▲' : ''}${Math.max(Math.abs(m.dx), Math.abs(m.dy)) > 1 ? ` ${Math.max(Math.abs(m.dx), Math.abs(m.dy))}` : ''}`;
     case 'accent':
@@ -653,6 +655,11 @@ function renderButtonInspector(box, ctls, maps) {
   } else if (type === 'accent') {
     box.append(field('Ponašanje', selectEl({ momentary: 'Dok držiš', toggle: 'Uključi/isključi (latch)' }, common(maps, 'behavior'), (v) => setAll('behavior', v))));
     box.append(el('p', { class: 'muted small' }, 'Padovi s dinamičkom jačinom sviraju punom jačinom (127).'));
+  } else if (type === 'boxFind') {
+    box.append(field('Grupni track', textEl(common(maps, 'anchorTrack'), (v) => setAll('anchorTrack', v.trim() || '9 - DRUM CLIPS'), '9 - DRUM CLIPS'), 'Točno ime tracka (obično grupe); raširi se ako je skupljen'));
+    box.append(field('Klip', textEl(common(maps, 'anchorClip'), (v) => setAll('anchorClip', v.trim() || 'first kick'), 'first kick'), 'Ime klipa (ili početak imena) u tom tracku ili njegovim trackovima'));
+    box.append(field('Na polje (red / stupac)', el('div', { class: 'inline' }, numEl(common(maps, 'row'), 1, 8, (v) => setAll('row', v)), numEl(common(maps, 'col'), 1, 8, (v) => setAll('col', v))), 'Red 1 = gore, stupac 1 = lijevo'));
+    box.append(el('p', { class: 'muted small' }, 'Namjesti se sam kad uđeš u User mode ili otvoriš ovu stranicu; pritisak = ponovo.'));
   } else if (type === 'boxMove') {
     box.append(field('Pomak', el('div', { class: 'inline' }, numEl(common(maps, 'dx'), -64, 64, (v) => setAll('dx', v)), numEl(common(maps, 'dy'), -64, 64, (v) => setAll('dy', v))), 'Trackova (− lijevo, + desno) / scena (− gore, + dolje)'));
     box.append(el('p', { class: 'muted small' }, 'Pomiče sve Live kontrole ove stranice koje su dio clip boxa (predložak Clip box 8×8). Pozicija se pamti.'));
@@ -1097,21 +1104,34 @@ function simplerButtons(target) {
 }
 
 // Lite device: plain MIDI only.
-const LITE_TYPES = { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', variation: 'Rack varijacija', live: 'Live (klipovi, scene…)', boxMove: 'Pomakni clip box', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', transpose: 'Transpozicija padova (Oct −/+)', panic: 'Panic (all notes off)' };
+const LITE_TYPES = { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', variation: 'Rack varijacija', live: 'Live (klipovi, scene…)', boxMove: 'Pomakni clip box', boxFind: 'Namjesti clip box na klip', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', transpose: 'Transpozicija padova (Oct −/+)', panic: 'Panic (all notes off)' };
 
-const LITE_TEMPLATE_GROUPS = [['Rack varijacije', ['rackControl', 'varSelected']], ['Klipovi', ['clipBox']]];
+const LITE_TEMPLATE_GROUPS = [['Rack varijacije', ['rackControl', 'varSelected']], ['Klipovi', ['drumClips', 'clipBox']]];
 
 const TEMPLATE_GROUPS = [
   ['Live sampling i looper', ['samplerPads', 'sampler', 'slicer', 'looper']],
   ['Sekvenceri', ['seqDrum', 'seq8', 'seq16']],
   ['Sviranje', ['keys']],
   ['Efekti', ['fxPerform', 'xyfx', 'device', 'variations', 'rackControl', 'varSelected']],
-  ['Mikser i Live', ['mixer', 'selected', 'sends', 'clipBox', 'clips', 'transport']],
+  ['Mikser i Live', ['mixer', 'selected', 'sends', 'drumClips', 'clipBox', 'clips', 'transport']],
 ];
 
 const SEQ_SLOTS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 const TEMPLATES = {
+  drumClips: {
+    name: 'Drum clips (sam se namjesti na grupu)',
+    help: 'Clip box 8×8 koji se sam postavi: nađe grupni track po imenu, raširi ga i stavi klip "first kick" na 2. red, 2. polje. Prva kolona = grupni track (pokreće sve zajedno), ostalih 7 = trackovi u grupi, gornji red = prazni slotovi (stop). Namjesti se kad uđeš u User mode ili otvoriš ovu stranicu; ● na D-padu = ponovo. Strelice pomiču (Shift = za 8).',
+    ask: [
+      { key: 'group', label: 'Ime grupnog tracka (točno)', default: '9 - DRUM CLIPS' },
+      { key: 'clip', label: 'Ime klipa koji ide na 2. red, 2. polje', default: 'first kick' },
+    ],
+    apply(a) {
+      const r = TEMPLATES.clipBox.apply({ track: '1', scene: '1' });
+      r.center = { type: 'boxFind', anchorTrack: a.group, anchorClip: a.clip, row: 2, col: 2, colorOn: 3, colorOff: 21 };
+      return r;
+    },
+  },
   rackControl: {
     name: 'Rack kontrola: varijacije 1–24 + odabir racka',
     help: 'Gornja 3 reda = varijacije 1–24 odabranog racka (prva = reset, crvena; zeleno = aktivna, plavo = postoji). 4. red = odabir racka na odabranom tracku po početku imena: 00 ALL, 00 MIDI, 00 INST, 00 A1, 00 A2, PRE FX A1, Looper (siv) – ostatak imena (bass, keys…) je nebitan; odabrani svijetli bijelo, nepostojeći je ugašen. Imena možeš promijeniti u editoru (klik na pad). Donja 4 reda ostaju kakva jesu.',

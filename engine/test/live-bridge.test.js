@@ -532,3 +532,19 @@ test('bridge: rack picker matches the start of a name ("00 ALL" finds "00 ALL ba
   assert.equal(state('a1').name, '00 A1 keys');
   assert.equal(state('inst').ok, false);
 });
+
+test('bridge: findAnchor finds the group track by name, unfolds it and reports the clip position', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  const slots = (names) => names.map((n) => (n ? live.obj({ has_clip: 1 }, { clip: live.obj({ name: n }) }) : live.obj({ has_clip: 0 })));
+  const group = live.obj({ name: '9 - DRUM CLIPS', is_foldable: 1, fold_state: 1, is_grouped: 0 }, { clip_slots: slots(['', '', '', '', '', '']) });
+  const kid = (name, clips) => live.obj({ name, is_grouped: 1, group_track: group.id }, { clip_slots: slots(clips) });
+  const tracks = live.song.children.tracks;
+  tracks.push(group, kid('Kick', ['', '', '', 'x', 'First Kick 1', '']), kid('Snare', ['', '', '', '', '', '']), live.obj({ name: 'After', is_grouped: 0 }, { clip_slots: [] }));
+  b.live(JSON.stringify({ cmd: 'liveCall', key: 'anchor', spec: { t: 'anchor', track: '9 - drum clips', clip: 'first kick' }, fn: 'findAnchor' }));
+  const st = b.out.filter((x) => x[0] === 'liveState' && x[1].type === 'anchor').map((x) => x[1]).at(-1);
+  // Bass, Violin are tracks 1-2, the group is 3, Kick is 4; the clip is in scene 5.
+  assert.deepEqual([st.ok, st.track, st.scene], [true, 4, 5]);
+  assert.equal(group.props.fold_state, 0); // unfolded
+});
