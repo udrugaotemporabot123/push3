@@ -516,3 +516,19 @@ test('bridge: rack picker finds racks by name inside the main rack, selects them
   assert.equal(state('mid').value, 2);
   assert.equal(state('all').value, 1);
 });
+
+test('bridge: rack picker matches the start of a name ("00 ALL" finds "00 ALL bass", "00 A1" not "00 A12")', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  b.init();
+  const rack = (name) => live.obj({ name, can_have_chains: 1, variation_count: 2, selected_variation_index: 0 }, { chains: [] });
+  live.rack.props.name = '00 ALL bass';
+  live.rack.children.chains = [live.obj({ name: 'c' }, { devices: [rack('00 MIDI bass'), rack('00 A12 test'), rack('00 A1 keys')] })];
+  const spec = (device) => ({ t: 'deviceSel', track: 'selected', device });
+  b.live(JSON.stringify({ cmd: 'watchLive', targets: { all: spec('00 ALL'), midi: spec('00 MIDI'), a1: spec('00 A1'), inst: spec('00 INST') } }));
+  const state = (k) => b.out.filter((x) => x[0] === 'liveState' && x[1].key === k).map((x) => x[1]).at(-1);
+  assert.equal(state('all').name, '00 ALL bass');
+  assert.equal(state('midi').name, '00 MIDI bass');
+  assert.equal(state('a1').name, '00 A1 keys');
+  assert.equal(state('inst').ok, false);
+});

@@ -104,6 +104,7 @@ Update this file after every step so work can resume after an interruption.
 - [x] v0.51.1 Crash fix attempt (v0.51.0 crashed Live right away, v0.50.0 fine): every re-resolve triggered from a Live notification (selected track/device, device list, slots, view, retries, vanished objects) now runs a moment later in a Task, coalesced per target, instead of dropping/recreating observers inside the notification that called it
 - [x] v0.52.0 Clip box 8x8 (Launchpad-style session box): live clip/scene mappings marked box, boxMove button type (D-pad 1, Shift 8, clamped at track/scene 1, position saved), template in Lite and full; editor shows T/S on clip pads
 - [x] v0.53.0 Rack picker: live action selectDevice (find by name/alternatives across nested racks, select_device, LED off/exists/selected), template Rack kontrola (variations 1-24 in 3 rows, reset in red, picker row ALL/MID/INST/A1/A2/PRE FX/LOOPER). Confirmed on hardware: v0.51.1 fixed the variation crash; Push display in User Mode not possible (Live/Push3.app)
+- [x] v0.53.1 Rack picker matches the start of a name (exact first; next char must not be a letter/digit); template uses the user's names 00 ALL / 00 MIDI / 00 INST / 00 A1 / 00 A2 / PRE FX A1 / Looper
 
 ## Next (roadmap, highest value first)
 - [ ] Full device: load the editor web view (jweb) only when the window is opened (it runs inside Live and costs CPU even when closed).

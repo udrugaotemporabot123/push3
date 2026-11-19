@@ -234,7 +234,14 @@ function findRack(track, spec) {
 }
 
 // A device on the track (also inside racks, a few levels deep) by name; "A1|A1 FX" = the first of these
-// names that exists. Case and surrounding spaces do not matter.
+// names that exists. Case and surrounding spaces do not matter. A name may also be just the start of
+// the device name ("00 ALL" finds "00 ALL bass"), as long as a space or the end follows it.
+function nameMatches(name, want) {
+  if (name === want) return true;
+  if (name.indexOf(want) !== 0) return false;
+  return !/[a-z0-9]/.test(name.charAt(want.length));
+}
+
 function findDeviceByNames(track, names) {
   var wanted = String(names || '').split('|');
   var all = [];
@@ -259,7 +266,8 @@ function findDeviceByNames(track, names) {
   for (var w = 0; w < wanted.length; w++) {
     var want = wanted[w].toLowerCase().replace(/^\s+|\s+$/g, '');
     if (!want) continue;
-    for (var k = 0; k < all.length; k++) if (all[k].name === want) return all[k].api;
+    for (var k = 0; k < all.length; k++) if (all[k].name === want) return all[k].api; // exact name first
+    for (var k2 = 0; k2 < all.length; k2++) if (nameMatches(all[k2].name, want)) return all[k2].api;
   }
   return null;
 }

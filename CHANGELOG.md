@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.53.1 – 2026-11-19
+Odabir racka po početku imena (00 ALL, 00 MIDI, 00 INST, 00 A1, 00 A2, PRE FX A1, Looper).
+
 ## v0.53.0 – 2026-11-19
 Rack kontrola: varijacije 1–24 (reset crveni) + red za odabir racka (ALL, MID, INST, A1, A2, PRE FX, LOOPER).
 
