@@ -1136,7 +1136,7 @@ function simplerButtons(target) {
 }
 
 // Lite device: plain MIDI only.
-const LITE_TYPES = { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', variation: 'Rack varijacija', live: 'Live (klipovi, scene…)', boxMove: 'Pomakni clip box', boxFind: 'Namjesti clip box na klip', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', transpose: 'Transpozicija padova (Oct −/+)', panic: 'Panic (all notes off)' };
+const LITE_TYPES = { none: 'Ništa', note: 'Nota', cc: 'CC', pc: 'Program Change', variation: 'Rack varijacija', live: 'Live (klipovi, scene…)', page: 'Odabir stranice', pageHold: 'Drži za stranicu', pageNext: 'Sljedeća stranica', pagePrev: 'Prethodna stranica', transpose: 'Transpozicija padova (Oct −/+)', panic: 'Panic (all notes off)' };
 
 // Palette index nearest to a colour, from the palette read from this Push (Push 3's differs from Push 2's).
 function pcol(hex) {
@@ -1155,7 +1155,7 @@ function pcol(hex) {
   return best;
 }
 
-const LITE_TEMPLATE_GROUPS = [['Rack varijacije', ['rackControl', 'varSelected']], ['Klipovi', ['drumClips', 'clipBox']]];
+const LITE_TEMPLATE_GROUPS = [['Rack varijacije', ['rackControl', 'varSelected']]]; // Lite: no clip box (v0.59.0)
 
 const TEMPLATE_GROUPS = [
   ['Live sampling i looper', ['samplerPads', 'sampler', 'slicer', 'looper']],
@@ -1183,7 +1183,7 @@ const TEMPLATES = {
   },
   rackControl: {
     name: 'Rack kontrola: odabir racka + varijacije 1–24',
-    help: 'Gornji red = odabir racka na odabranom tracku po početku imena: 00 ALL (plavo), 00 MIDI (crveno), 00 INST (zeleno), 00 A1, 00 A2, PRE FX A1, Looper (sivo) – ostatak imena je nebitan; bijelo = rack u upotrebi, ugašeno = nema ga na tracku; zadnji pad = REFRESH (isto što gumb Rackovi na deviceu). Ispod 3 reda = varijacije 1–24 racka u upotrebi: bijelo = aktivna, boja racka = postoji, ugašeno = nema je; prva = reset (siva). Gumbi ispod ekrana = trackovi kako ih Live pokazuje, Page ◀ ▶ = sljedećih 8. Imena mijenjaš klikom na pad.',
+    help: 'Gornji red = odabir racka na odabranom tracku po početku imena: 00 ALL (plavo), 00 MIDI (crveno), 00 INST (zeleno), 00 A1 (roza), 00 A2 (narančasto), PRE FX A1, Looper (sivo) – ostatak imena je nebitan; bijelo = rack u upotrebi, ugašeno = nema ga na tracku; zadnji pad = REFRESH (isto što gumb Rackovi na deviceu). Ispod 3 reda = varijacije 1–24 racka u upotrebi: bijelo = aktivna, boja racka = postoji, ugašeno = nema je; prva = reset (iste boje kao ostale). Gumbi ispod ekrana = trackovi kako ih Live pokazuje, Page ◀ ▶ = sljedećih 8. Imena mijenjaš klikom na pad.',
     apply() {
       const r = {};
       const white = pcol('ffffff');
@@ -1191,8 +1191,8 @@ const TEMPLATES = {
         ['ALL', '00 ALL', '0050ff'],
         ['MIDI', '00 MIDI', 'ff0000'],
         ['INST', '00 INST', '00ff00'],
-        ['A1', '00 A1', '9000ff'],
-        ['A2', '00 A2', 'ff3fb0'],
+        ['A1', '00 A1', 'ff3fb0'],
+        ['A2', '00 A2', 'ff7000'],
         ['PRE FX', 'PRE FX A1', 'ff7000'],
         ['LOOPER', 'Looper', '7f7f7f'],
       ];
@@ -1202,7 +1202,7 @@ const TEMPLATES = {
       r['pad.7.7'] = { type: 'live', label: 'REFRESH', colorOn: white, colorOff: pcol('ffb000'), live: { action: 'rescan' } };
       for (let i = 0; i < 24; i++) {
         const row = 6 - Math.floor(i / 8);
-        r[`pad.${row}.${i % 8}`] = { type: 'variation', target: { track: 'selected', device: 'selected' }, index: i, action: 'recall', colorOn: white, colorOff: i === 0 ? pcol('a0a0a0') : pcol('0050ff'), anim: 'none', label: i === 0 ? 'Reset' : `Var ${i + 1}` };
+        r[`pad.${row}.${i % 8}`] = { type: 'variation', target: { track: 'selected', device: 'selected' }, index: i, action: 'recall', colorOn: white, colorOff: pcol('0050ff'), anim: 'none', label: i === 0 ? 'Reset' : `Var ${i + 1}` };
       }
       for (let i = 1; i <= 8; i++) r[`lower.${i}`] = { type: 'live', label: `Track ${i}`, colorOn: white, colorOff: 1, live: { action: 'trackSlot', index: i } };
       r.pageLeft = { type: 'live', label: 'Trackovi ◀', colorOn: white, colorOff: pcol('7f7f7f'), live: { action: 'trackBank', dir: -1 } };

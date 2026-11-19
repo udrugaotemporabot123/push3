@@ -25,7 +25,7 @@ git add -A
 git commit -q -m "Release v$V: $MSG
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01FFu5h3Kf1vsbUv8EU6fa9j"
+Claude-Session: https://claude.ai/code/session_012aUmA4PHwhqkdb2vESVQUK"
 for i in 1 2 3; do git push -q origin main && break || sleep $((i*3)); done
 for i in 1 2 3; do git push -q origin "main:refs/heads/release/v$V" && break || sleep $((i*3)); done
 echo "released v$V"

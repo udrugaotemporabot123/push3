@@ -595,3 +595,43 @@ test('bridge: visible tracks skip the tracks of folded groups', () => {
   b.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song', id: kid.id }, fn: 'selectTrackId' }));
   assert.equal(live.songView.props.selected_track, kid.id);
 });
+
+test('bridge quiet (Lite): no observers in Live; state read after own actions and on refresh', () => {
+  const live = makeLive();
+  const b = loadBridge(live);
+  const observed = [];
+  const Orig = live.LiveAPI;
+  live.LiveAPI = class extends Orig {
+    set property(p) {
+      if (p && this.cb) observed.push(p);
+      super.property = p;
+    }
+    get property() {
+      return super.property;
+    }
+  };
+  const b2 = loadBridge(live);
+  b2.live(JSON.stringify({ cmd: 'watch', targets: { v: { track: 'selected', device: 'selected' } }, quiet: true }));
+  b2.live(JSON.stringify({ cmd: 'watchLive', targets: {}, quiet: true }));
+  b2.init();
+  const inner = live.obj({ name: 'Inner Rack', can_have_chains: 1, variation_count: 20, selected_variation_index: 0 }, { chains: [] });
+  live.rack.children.chains = [live.obj({ name: 'Chain' }, { devices: [inner] })];
+  const view = new live.LiveAPI('live_set tracks 1 view');
+  view.set('selected_device', 'id', live.rack.id);
+  b2.live(JSON.stringify({ cmd: 'refresh' }));
+  const last = () => states(b2.out).filter((x) => x.type === 'variations').at(-1);
+  assert.deepEqual([last().name, last().count], ['FX Rack', 3]);
+  // Selected with the mouse: not seen (nothing observed) ...
+  view.set('selected_device', 'id', inner.id);
+  assert.equal(last().name, 'FX Rack');
+  // ... until the next variation press, which acts on the rack in use now.
+  b2.live(JSON.stringify({ cmd: 'variation', key: 'v', target: { track: 'selected', device: 'selected' }, action: 'recall', index: 17 }));
+  assert.equal(inner.props.selected_variation_index, 17);
+  assert.deepEqual([last().name, last().selected], ['Inner Rack', 17]);
+  // Our own track selection is followed by one read of the new track.
+  b2.live(JSON.stringify({ cmd: 'liveCall', spec: { t: 'song', id: live.bass.id }, fn: 'selectTrackId' }));
+  assert.equal(states(b2.out).filter((x) => x.type === 'trackSelected').at(-1).selected, live.bass.id);
+  assert.equal(last().ok, false); // Bass has no rack selected
+  assert.deepEqual(observed, []); // not a single Live observer
+  assert.ok(b); // the normal bridge still loads
+});

@@ -131,12 +131,13 @@ def build(lite):
     box("msg_racks", "message", [560, 560, 90, 22], "refreshRacks", 2, 1)
     line(lim, 0, "msg_racks", 0)
     line("msg_racks", 0, "node", 0)
-    lim = ui_button("btn_drum", "Drum", 660, 88, 88)
-    box("msg_drum", "message", [660, 560, 70, 22], "findDrum", 2, 1)
-    line(lim, 0, "msg_drum", 0)
-    line("msg_drum", 0, "node", 0)
+    if not lite:  # Lite has no clip box (v0.59.0): no Drum button
+        lim = ui_button("btn_drum", "Drum", 660, 88, 88)
+        box("msg_drum", "message", [660, 560, 70, 22], "findDrum", 2, 1)
+        line(lim, 0, "msg_drum", 0)
+        line("msg_drum", 0, "node", 0)
 
-    box("hint", "comment", [20, 640, 240, 40], "Otvoriš projekt: Rackovi + Drum. Postavke: Editor. Push: User.", 1, 0, pres=[8, 120, 244, 34], fontsize=10.0, textcolor=[0.6, 0.62, 0.66, 1.0], linecount=2)
+    box("hint", "comment", [20, 640, 240, 40], "Otvoriš projekt: Rackovi. Postavke: Editor. Push: User." if lite else "Otvoriš projekt: Rackovi + Drum. Postavke: Editor. Push: User.", 1, 0, pres=[8, 120, 244, 34], fontsize=10.0, textcolor=[0.6, 0.62, 0.66, 1.0], linecount=2)
 
     # Editor window: a subpatcher with a jweb pointing at the engine's local server.
     editor_patcher = {

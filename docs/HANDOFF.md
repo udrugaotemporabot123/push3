@@ -56,6 +56,18 @@ then `docs/PROGRESS.md` (full version history and findings).
   4. Layout wish: rack row FIRST (top row), then the 3 rows of variations under it.
 - v0.58.0 answers items 2 and 4 (palette-correct white/colours, rack row on top), adds the log line for item 3 and trims
   Max-main-thread work for item 1. Next: his test, especially the UI lag with the editor tab closed vs open.
+- His report on v0.58.0 (2026-11-19 night): reset pad (variation 1) looked white → must be the rack colour like the
+  others; A1 = pink, A2 = orange; Live still NOTICEABLY laggy → "much more efficient", functions may be cut, Drum clips
+  can go completely.
+- v0.59.0 (Lite only): quiet bridge = not a single Live observer (no selected track/device/variation watchers); the
+  bridge reads state only right after our own actions (variation press looks up the rack in use at that moment, track /
+  rack / nav presses read once) and on entering User Mode (`refresh`). Trade-off: changes made with the MOUSE while in
+  User Mode show on the Push only after the next press. Clip box / Drum clips removed from Lite (config pages stripped
+  on load, Drum button and templates gone). Watch targets are not re-sent when unchanged. Editor "Prati Push" off by
+  default (it rebuilt the panel on every press). [js] autowatch 0. He must re-apply template "Rack kontrola" for the
+  new A1/A2 colours. Asked him to test: device on in Live Mode / User Mode with editor closed / open / variations
+  clicked with the mouse without the device, to see whether the lag is ours at all.
+- Open: PRE FX A1 is orange too (same as A2 now) – ask him for another colour.
 - Older: bass track "00 MIDI" not found because of a space → he renames it himself.
 - He works with Lite only; full device is ignored.
 

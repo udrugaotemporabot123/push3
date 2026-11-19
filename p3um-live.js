@@ -2,12 +2,14 @@
 // Receives commands from the Node engine and reports rack variation state back.
 //
 //   in:  "init"                      (from live.thisdevice, Live API is ready)
-//        "live <json>"               {cmd:'watch', targets:{key:{track,device}}}
+//        "live <json>"               {cmd:'watch', targets:{key:{track,device}}, quiet}
+//                                    quiet (Lite): no Live observers at all; state is read only right
+//                                    after our own actions and on {cmd:'refresh'} (entering User Mode)
 //                                    {cmd:'variation', key, target, action, index}
 //   out: "liveState <json>"          {type:'variations', key, ok, count, selected, name}
 //        "bridgeReady"
 
-autowatch = 1;
+autowatch = 0; // no file watching inside Live
 inlets = 1;
 outlets = 1;
 
@@ -17,12 +19,12 @@ var pendingWatch = null;
 var selectedTrackWatcher = null;
 var pendingLive = null;
 var liveTargets = {}; // key -> { spec, watchers: [], path }
+var quiet = false; // Lite: nothing is observed in Live (less work on Live's main thread)
 
 function init() {
   ready = true;
-  // Re-resolve every "selected" target when the selected track changes.
-  selectedTrackWatcher = new LiveAPI(onSelectedTrack, 'live_set view');
-  selectedTrackWatcher.property = 'selected_track';
+  // Re-resolve every "selected" target when the selected track changes (not in quiet mode).
+  if (!quiet) watchSelectedTrack();
   outlet(0, 'bridgeReady');
   if (pendingWatch) {
     watch(pendingWatch);
@@ -31,6 +33,46 @@ function init() {
   if (pendingLive) {
     watchLive(pendingLive);
     pendingLive = null;
+  }
+}
+
+function watchSelectedTrack() {
+  if (selectedTrackWatcher) return;
+  selectedTrackWatcher = new LiveAPI(onSelectedTrack, 'live_set view');
+  selectedTrackWatcher.property = 'selected_track';
+}
+
+// Quiet mode on: drop every observer we hold. Off: observe the selected track again.
+function setQuiet(q) {
+  q = !!q;
+  if (q === quiet) return;
+  quiet = q;
+  if (quiet) {
+    if (selectedTrackWatcher) selectedTrackWatcher.property = '';
+    selectedTrackWatcher = null;
+    for (var k in targets) dropWatchers(targets[k]);
+    for (var lk in liveTargets) dropWatchers(liveTargets[lk]);
+  } else if (ready) watchSelectedTrack();
+}
+
+// Quiet mode: after our own change (track/device selection) read the new state once, a moment later.
+var refreshPending = false;
+function refreshLater() {
+  if (refreshPending) return;
+  refreshPending = true;
+  var task = new Task(function () {
+    refreshPending = false;
+    refreshNow();
+  });
+  task.schedule(0);
+}
+
+function refreshNow() {
+  reportSelectedTrack();
+  for (var key in targets) if (targets[key].target.track === 'selected') resolve(key);
+  for (var lk in liveTargets) {
+    var sp = liveTargets[lk].spec;
+    if (sp.track === 'selected' || sp.t === 'trackSelect' || sp.target === 'deviceParam') resolveLive(lk);
   }
 }
 
@@ -43,11 +85,15 @@ function live(json) {
     return;
   }
   if (msg.cmd === 'watch') {
+    if (msg.quiet !== undefined) setQuiet(msg.quiet);
     if (!ready) pendingWatch = msg.targets;
     else watch(msg.targets);
+  } else if (msg.cmd === 'refresh') {
+    if (ready) refreshLater();
   } else if (msg.cmd === 'variation') {
     if (ready) variation(msg);
   } else if (msg.cmd === 'watchLive') {
+    if (msg.quiet !== undefined) setQuiet(msg.quiet);
     if (!ready) pendingLive = msg.targets;
     else watchLive(msg.targets);
   } else if (msg.cmd === 'liveSet') {
@@ -135,6 +181,11 @@ function resolve(key) {
   var track = findTrack(t.target.track);
   var rack = track ? findRack(track, t.target.device) : null;
   t.rackId = rack ? rack.id : 0;
+  if (quiet) {
+    if (rack) sendState(key);
+    else report(key, false, 0, -1, '');
+    return;
+  }
   if (track && t.target.device === 'selected') {
     // Follow the device selection on that track (clicking another rack, or a device inside one).
     var firstSel = true;
@@ -182,7 +233,8 @@ function sendState(key) {
   if (!t || !t.rackId) return;
   var rack = new LiveAPI('id ' + t.rackId);
   if (!rack.id || rack.id == 0) {
-    resolveLater(key);
+    if (quiet) report(key, false, 0, -1, '');
+    else resolveLater(key);
     return;
   }
   report(key, true, num(rack.get('variation_count')), num(rack.get('selected_variation_index')), str(rack.get('name')));
@@ -425,8 +477,15 @@ function variation(msg) {
   var t = targets[msg.key];
   if (!t) {
     targets[msg.key] = { target: msg.target, rackId: 0, watchers: [] };
-    resolve(msg.key);
     t = targets[msg.key];
+    if (!quiet) resolve(msg.key);
+  }
+  if (quiet) {
+    // Nothing is observed: the rack in use is looked up now (selected track -> selected device).
+    var qtrack = findTrack(t.target.track);
+    var qrack = qtrack ? findRack(qtrack, t.target.device) : null;
+    t.rackId = qrack ? qrack.id : 0;
+    if (!t.rackId) return report(msg.key, false, 0, -1, '');
   }
   if (!t.rackId) return;
   var rack = new LiveAPI('id ' + t.rackId);
@@ -583,6 +642,11 @@ function resolveLive(key) {
     if (!probe.id || probe.id == 0) info = null;
   }
   lt.info = info;
+  if (quiet) {
+    if (info) sendLive(key);
+    else reportLive(key, { ok: false });
+    return;
+  }
   if (!info) {
     reportLive(key, { ok: false });
     // A pad parameter can appear later: watch the Drum Rack's pad selection meanwhile.
@@ -691,7 +755,8 @@ function sendLive(key) {
   var info = lt.info;
   var api = new LiveAPI(info.path);
   if (!api.id || api.id == 0) {
-    resolveLiveLater(key);
+    if (quiet) reportLive(key, { ok: false });
+    else resolveLiveLater(key);
     return;
   }
   var spec = lt.spec;
@@ -802,6 +867,7 @@ function liveCall(msg) {
   }
   if (/^(track|scene|device)(Prev|Next)$/.test(msg.fn)) {
     navigate(msg.fn);
+    if (quiet) refreshLater();
     return;
   }
   if (msg.fn === 'selectDrumPad') {
@@ -836,12 +902,14 @@ function liveCall(msg) {
     var map = {};
     for (var tid in rackMap) map[tid] = rackMap[tid];
     outlet(0, 'liveState', JSON.stringify({ type: 'rackMap', tracks: map }));
+    if (quiet) for (var vk in targets) if (targets[vk].target.track === 'selected') resolve(vk);
     notice('Rackovi pronađeni na ' + nt + ' trackova');
     return;
   }
   if (msg.fn === 'selectDeviceId') {
     var dsel = new LiveAPI('id ' + (spec.id | 0));
     if (dsel.id && dsel.id != 0) new LiveAPI('live_set view').call('select_device', 'id', dsel.id);
+    if (quiet) refreshLater();
     return;
   }
   if (msg.fn === 'readSlots') {
@@ -866,6 +934,7 @@ function liveCall(msg) {
   if (msg.fn === 'selectTrackId') {
     var tsel = new LiveAPI('id ' + (spec.id | 0));
     if (tsel.id && tsel.id != 0) new LiveAPI('live_set view').set('selected_track', 'id', tsel.id);
+    if (quiet) refreshLater();
     return;
   }
   if (msg.fn === 'findAnchor') {
@@ -877,6 +946,7 @@ function liveCall(msg) {
     var target = st ? findDeviceByNames(st, spec.device) : null;
     if (!target) return notice(rackMapReady ? 'Rack "' + spec.device + '" nije na ovom tracku' : 'Pritisni REFRESH da se rackovi potraže');
     new LiveAPI('live_set view').call('select_device', 'id', target.id);
+    if (quiet) refreshLater();
     return;
   }
   if (msg.fn === 'simpler') {
@@ -891,6 +961,7 @@ function liveCall(msg) {
   if (msg.fn === 'select') {
     var tr = trackApi(spec.track);
     if (tr) new LiveAPI('live_set view').set('selected_track', 'id', tr.id);
+    if (quiet) refreshLater();
   } else if (msg.fn === 'fire') {
     var idx = spec.index | 0;
     var scene = idx > 0 ? new LiveAPI('live_set scenes ' + (idx - 1)) : new LiveAPI('live_set view selected_scene');

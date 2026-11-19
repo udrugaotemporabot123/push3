@@ -14,7 +14,7 @@
 //   not visible and switching pages is instant.
 
 const push3 = require('./push3');
-const { normalizeConfig, pageChannel, range14, REPEAT_RATES } = require('./config');
+const { normalizeConfig, stripClipBox, pageChannel, range14, REPEAT_RATES } = require('./config');
 const { dimOf, DEFAULT_PALETTE } = require('./palette');
 const live = require('./live');
 
@@ -110,6 +110,8 @@ class Engine {
     const old = this.config;
     const curUid = old && old.pages[this.page] ? old.pages[this.page].uid : null;
     this.config = normalizeConfig(config);
+    // Lite has no clip box (Drum clips) any more: its pads and buttons are dropped, an emptied page too.
+    if (this.io.lite && stripClipBox(this.config)) this.strippedClipBox = true;
     // State follows each page by its uid (moved/deleted pages keep their toggles and values).
     const oldState = this.state;
     const byUid = new Map();
@@ -311,6 +313,8 @@ class Engine {
     if (this.mode === 'user') return;
     this.mode = 'user';
     this.io.log('info', `User Mode on (${reason})`);
+    // Lite observes nothing in Live: read the selected track and rack once when User Mode starts.
+    if (this.io.lite) this.io.toLive({ cmd: 'refresh' });
     this.ledCache.clear();
     this.mpeChannelPad.clear();
     this.renderAll();
@@ -1227,7 +1231,7 @@ class Engine {
   // Live API bridge (rack variations)
 
   // Tell the Live API bridge what to observe: rack variations and Live-aware controls.
-  syncVariationTargets() {
+  syncVariationTargets(force = false) {
     const targets = {};
     const liveTargets = {};
     for (const [pageIndex, page] of this.config.pages.entries()) {
@@ -1260,8 +1264,14 @@ class Engine {
     if (!this.io.lite) for (const spec of [{ t: 'song', prop: 'is_playing' }, { t: 'param', target: 'tempo' }]) liveTargets[live.liveKey(spec)] = spec;
     this.variationTargets = targets;
     this.liveTargets = liveTargets;
-    this.io.toLive({ cmd: 'watch', targets });
-    this.io.toLive({ cmd: 'watchLive', targets: liveTargets });
+    // Lite: quiet bridge (no observers in Live). Unchanged targets are not sent again (every edit or
+    // config change used to make the bridge drop and rebuild everything on Live's main thread).
+    const quiet = !!this.io.lite;
+    const sig = JSON.stringify([targets, liveTargets, quiet]);
+    if (!force && sig === this.lastWatchSig) return;
+    this.lastWatchSig = sig;
+    this.io.toLive({ cmd: 'watch', targets, quiet });
+    this.io.toLive({ cmd: 'watchLive', targets: liveTargets, quiet });
   }
 
   setPalette(palette) {
@@ -1581,13 +1591,13 @@ class Engine {
       return { color, anim: v && v.value ? push3.ANIMATIONS[m.anim] || 0 : 0 };
     }
     if (m.type === 'variation' && m.target && m.target.device === 'selected') {
-      // Variations of the rack in use: white = active, the rack's own colour (from its pad) = exists,
-      // the reset slot (1) keeps its own colour, off = no such variation.
+      // Variations of the rack in use: white = active, the rack's own colour (from its pad) = exists
+      // (the reset slot 1 too), off = no such variation.
       const v = this.liveState.variations[variationKey(m.target)];
       if (held) return { color: this.whiteIndex(), anim: 0 };
       if (!v || !v.ok || m.index >= v.count) return { color: 0, anim: 0 };
       if (m.index === v.selected) return { color: this.whiteIndex(), anim: 0 };
-      return { color: m.index === 0 ? m.colorOff : this.rackColor(v.id, m.colorOff), anim: 0 };
+      return { color: this.rackColor(v.id, m.colorOff), anim: 0 };
     }
     if (m.type === 'variation') {
       const v = this.liveState.variations[variationKey(m.target)];

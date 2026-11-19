@@ -2,6 +2,9 @@
 
 Svaka verzija ima svoju granu `release/vX.Y.Z` na GitHubu (Code -> Download ZIP).
 
+## v0.59.0 – 2026-11-19
+Lite puno lakši za Live: ništa ne prati u Liveu (čita samo na tvoj pritisak, ulaz u User Mode i Rackovi), Drum clips maknut; reset varijacija u boji racka, A1 roza, A2 narančasta.
+
 ## v0.58.0 – 2026-11-19
 Bijela i boje prema paleti tvog Pusha (odabir više nije narančast); red s rackovima gore, varijacije ispod; manje posla u Liveovoj glavnoj niti.
 

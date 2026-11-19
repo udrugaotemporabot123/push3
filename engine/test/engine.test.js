@@ -301,7 +301,7 @@ test('variation pads talk to the Live bridge and light from its state', () => {
   const { e, out, clear } = setup((c) => {
     Object.assign(c.pages[0].controls['pad.7.0'], { type: 'variation', target: { track: 'selected', device: 'first' }, index: 1, colorOn: 21, colorOff: 23 });
   });
-  assert.deepEqual(out.live.find((x) => x.cmd === 'watch'), { cmd: 'watch', targets: { 'selected|first': { track: 'selected', device: 'first' } } });
+  assert.deepEqual(out.live.find((x) => x.cmd === 'watch'), { cmd: 'watch', targets: { 'selected|first': { track: 'selected', device: 'first' } }, quiet: false });
   e.handlePushMessage(SYSEX_USER);
   e.handleLiveState({ type: 'variations', key: 'selected|first', ok: true, count: 3, selected: 1 });
   assert.deepEqual(out.push.filter((m) => m[1] === 92).at(-1), [0x90, 92, 21]);
@@ -824,7 +824,7 @@ test('clip box: D-pad moves every box mapping of the page, never below track 1 /
   const read = out.live.filter((c) => c.fn === 'readSlots').at(-1);
   assert.ok(read.spec.items.some((it) => it.track === 1 && it.scene === 101));
   clear();
-  e.syncVariationTargets();
+  e.syncVariationTargets(true);
   const watch = out.live.find((c) => c.cmd === 'watchLive');
   assert.ok(!Object.values(watch.targets).some((sp) => sp.t === 'slot'));
 });
@@ -888,8 +888,53 @@ test('Lite static rack row: picker and variation colours from the rack map, whit
   assert.equal(led('pad.4.0'), 45); // ALL exists: its colour
   assert.equal(led('pad.7.2'), 3); // active variation: white
   assert.equal(led('pad.7.1'), 5); // other variations: colour of the rack in use (MIDI = red)
-  assert.equal(led('pad.7.0'), 2); // reset keeps its own colour
+  assert.equal(led('pad.7.0'), 5); // reset too: same colour as the other variations (v0.59.0)
   clear();
   e.handlePushMessage([0x90, 36 + 4 * 8, 100]); // pad.4.0 = ALL
   assert.deepEqual(out.live.at(-1), { cmd: 'liveCall', spec: { t: 'song', id: 70 }, fn: 'selectDeviceId' });
+});
+
+test('Lite v0.59.0: quiet bridge, one refresh on User Mode, nothing re-sent when unchanged, no clip box', () => {
+  const out = { push: [], host: [], live: [], logs: [] };
+  const io = {
+    toPush: (b) => out.push.push([...b]),
+    toHost: (b) => out.host.push([...b]),
+    toLive: (o) => out.live.push(o),
+    log: (l, m) => out.logs.push(`${l}: ${m}`),
+    now: () => 0,
+    setTimer: () => 0,
+    clearTimer: () => {},
+    setInterval: () => 1,
+    clearInterval: () => {},
+    lite: true,
+  };
+  const cfg = defaultConfig();
+  cfg.pages[0].name = 'Rack kontrola';
+  cfg.pages[0].controls['pad.7.0'] = { type: 'variation', target: { track: 'selected', device: 'selected' }, index: 0, action: 'recall' };
+  // Page 2 = Drum clips: clip box pads, D-pad, find button. It disappears in Lite.
+  const drum = JSON.parse(JSON.stringify(cfg.pages[0]));
+  drum.name = 'Drum clips';
+  drum.uid = 'drumpage1';
+  for (const id of Object.keys(drum.controls)) drum.controls[id] = { type: 'none' };
+  for (let col = 0; col < 8; col++) drum.controls[`pad.0.${col}`] = { type: 'live', live: { action: 'clip', track: String(col + 1), scene: 1, box: true } };
+  drum.controls.up = { type: 'boxMove', dx: 0, dy: -1 };
+  drum.controls.record = { type: 'boxFind', anchorTrack: '9 - DRUM CLIPS', anchorClip: 'first kick', row: 2, col: 2 };
+  cfg.pages.push(drum);
+  const e = new Engine(io, cfg);
+  assert.equal(e.strippedClipBox, true);
+  assert.equal(e.config.pages.length, cfg.pages.length - 1);
+  assert.ok(!e.config.pages.some((p) => p.name === 'Drum clips'));
+  assert.equal(e.config.pages[0].name, 'Rack kontrola');
+  const watches = out.live.filter((c) => c.cmd === 'watch');
+  assert.ok(watches.length >= 1 && watches.every((w) => w.quiet === true));
+  out.live.length = 0;
+  e.syncVariationTargets(); // unchanged: nothing goes to Live
+  e.setConfig(e.config);
+  assert.equal(out.live.filter((c) => c.cmd === 'watch' || c.cmd === 'watchLive').length, 0);
+  e.syncVariationTargets(true); // bridge (re)started: sent again
+  assert.equal(out.live.filter((c) => c.cmd === 'watch').length, 1);
+  out.live.length = 0;
+  e.setPushConnected(true);
+  e.handlePushMessage(SYSEX_USER);
+  assert.deepEqual(out.live.filter((c) => c.cmd === 'refresh'), [{ cmd: 'refresh' }]);
 });

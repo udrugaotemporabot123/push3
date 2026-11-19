@@ -692,90 +692,6 @@
    },
    {
     "box": {
-     "id": "btn_drum",
-     "maxclass": "textbutton",
-     "numinlets": 1,
-     "numoutlets": 3,
-     "patching_rect": [
-      660,
-      460,
-      70,
-      22
-     ],
-     "outlettype": [
-      "",
-      "",
-      "int"
-     ],
-     "text": "Drum",
-     "presentation": 1,
-     "presentation_rect": [
-      88,
-      88,
-      76,
-      24
-     ],
-     "texton": "Drum",
-     "mode": 0,
-     "fontsize": 11.0
-    }
-   },
-   {
-    "box": {
-     "id": "btn_drum_t",
-     "maxclass": "newobj",
-     "numinlets": 1,
-     "numoutlets": 1,
-     "patching_rect": [
-      660,
-      495,
-      30,
-      22
-     ],
-     "outlettype": [
-      "bang"
-     ],
-     "text": "t b"
-    }
-   },
-   {
-    "box": {
-     "id": "btn_drum_lim",
-     "maxclass": "newobj",
-     "numinlets": 2,
-     "numoutlets": 1,
-     "patching_rect": [
-      660,
-      525,
-      80,
-      22
-     ],
-     "outlettype": [
-      ""
-     ],
-     "text": "speedlim 800"
-    }
-   },
-   {
-    "box": {
-     "id": "msg_drum",
-     "maxclass": "message",
-     "numinlets": 2,
-     "numoutlets": 1,
-     "patching_rect": [
-      660,
-      560,
-      70,
-      22
-     ],
-     "outlettype": [
-      ""
-     ],
-     "text": "findDrum"
-    }
-   },
-   {
-    "box": {
      "id": "hint",
      "maxclass": "comment",
      "numinlets": 1,
@@ -786,7 +702,7 @@
       240,
       40
      ],
-     "text": "Otvori\u0161 projekt: Rackovi + Drum. Postavke: Editor. Push: User.",
+     "text": "Otvori\u0161 projekt: Rackovi. Postavke: Editor. Push: User.",
      "presentation": 1,
      "presentation_rect": [
       8,
@@ -1194,54 +1110,6 @@
     "patchline": {
      "source": [
       "msg_racks",
-      0
-     ],
-     "destination": [
-      "node",
-      0
-     ]
-    }
-   },
-   {
-    "patchline": {
-     "source": [
-      "btn_drum",
-      0
-     ],
-     "destination": [
-      "btn_drum_t",
-      0
-     ]
-    }
-   },
-   {
-    "patchline": {
-     "source": [
-      "btn_drum_t",
-      0
-     ],
-     "destination": [
-      "btn_drum_lim",
-      0
-     ]
-    }
-   },
-   {
-    "patchline": {
-     "source": [
-      "btn_drum_lim",
-      0
-     ],
-     "destination": [
-      "msg_drum",
-      0
-     ]
-    }
-   },
-   {
-    "patchline": {
-     "source": [
-      "msg_drum",
       0
      ],
      "destination": [

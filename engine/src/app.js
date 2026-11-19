@@ -11,7 +11,7 @@ const { DEFAULT_PALETTE } = require('./palette');
 const { DisplayManager } = require('./display/manager');
 const { loadAddons } = require('../../addons');
 
-const VERSION = '0.58.0';
+const VERSION = '0.59.0';
 const EDITOR_PORT = Number(process.env.P3UM_PORT) || 47391;
 const VIRTUAL_PORT = process.env.P3UM_VIRTUAL || 'Push3 UM';
 
@@ -88,6 +88,10 @@ function start(opts = {}) {
     startConfig.settings.internalClock = false; // no 48 Hz clock timer for LED animations
   }
   const engine = new Engine(io, startConfig);
+  if (engine.strippedClipBox) {
+    safe(() => store.save(engine.config, log));
+    log('info', 'Lite: Drum clips (clip box) uklonjen iz postavki');
+  }
   engine.setPalette(palette); // same array; filled with the real Push palette once read
   const addons = lite ? [] : loadAddons(log);
   engine.setAddons(addons);
@@ -348,7 +352,7 @@ function start(opts = {}) {
       bridgePing = null;
       if (first) {
         log('info', 'Live API bridge ready');
-        engine.syncVariationTargets();
+        engine.syncVariationTargets(true);
       }
     });
     // Ask the bridge until it answers (its own "ready" can arrive before Node listens).

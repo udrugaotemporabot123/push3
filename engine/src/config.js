@@ -357,6 +357,36 @@ function normalizeConfig(cfg) {
   return { version: CONFIG_VERSION, settings, pages };
 }
 
+// Lite has no clip box: drop its pads/buttons (box clips and scenes, box move, box find) from a
+// normalised config, and a page that is empty afterwards (the Drum clips page). Returns true if changed.
+function isClipBox(m) {
+  return !!m && (m.type === 'boxMove' || m.type === 'boxFind' || (m.type === 'live' && !!m.live && !!m.live.box));
+}
+
+function stripClipBox(cfg) {
+  let changed = false;
+  const keep = [];
+  for (const [i, page] of cfg.pages.entries()) {
+    let had = false;
+    for (const ctl of push3.controls) {
+      const m = page.controls[ctl.id];
+      if (!m) continue;
+      if (isClipBox(m)) {
+        page.controls[ctl.id] = normalizeMapping({ type: 'none' }, i, ctl);
+        had = true;
+      } else if (isClipBox(m.shift)) {
+        delete m.shift;
+        had = true;
+      }
+    }
+    changed = changed || had;
+    const empty = Object.values(page.controls).every((m) => !m || m.type === 'none');
+    if (!(had && empty)) keep.push(page);
+  }
+  if (keep.length && keep.length < cfg.pages.length) cfg.pages = keep;
+  return changed;
+}
+
 // MIDI channel (0-15) a page sends on.
 function pageChannel(config, pageIndex) {
   const page = config.pages[pageIndex];
@@ -376,6 +406,8 @@ module.exports = {
   defaultMapping,
   normalizeConfig,
   normalizeMapping,
+  stripClipBox,
+  isClipBox,
   pageChannel,
   range14,
   REPEAT_RATES,
